@@ -8,7 +8,20 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const localRoot = path.join(repoRoot, '.isa-local');
+function resolveLocalRoot(value, root = repoRoot) {
+  if (!value) return path.join(root, '.isa-local');
+  if (!path.isAbsolute(value)) throw new Error('ISA_LOCAL_DIR must be an absolute path.');
+  const resolved = path.resolve(value);
+  const relative = path.relative(root, resolved);
+  if (relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))) {
+    if (resolved !== path.join(root, '.isa-local')) {
+      throw new Error('ISA_LOCAL_DIR must be outside the repository, or use the default .isa-local directory.');
+    }
+  }
+  return resolved;
+}
+
+const localRoot = resolveLocalRoot(process.env.ISA_LOCAL_DIR);
 const nodeRoot = path.join(localRoot, 'node24');
 const openclawRoot = path.join(localRoot, 'openclaw');
 const stateRoot = path.join(localRoot, 'openclaw-state');
@@ -248,6 +261,7 @@ async function main() {
     const count = await syncSource();
     await setupConfig();
     console.log(`Isolated ISA workspace ready with ${count} tracked source files. Channels and scheduled jobs are off.`);
+    console.log(`Local runtime directory: ${localRoot}`);
   }
   if (command === 'start') {
     console.log(`Starting local OpenClaw ${openclawVersion} on 127.0.0.1:${gatewayPort}. Press Ctrl-C to stop.`);
@@ -270,4 +284,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   try { await main(); } catch (error) { console.error(error.message); process.exitCode = 1; }
 }
 
-export { assertSafeConfig, makeSafeConfig };
+export { assertSafeConfig, makeSafeConfig, resolveLocalRoot };

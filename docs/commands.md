@@ -6,7 +6,7 @@ Run these from the repository root. `package.json` is the command source of trut
 | --- | --- |
 | `npm test` | Offline Node tests, including synthetic RFP document cases. No real HigherGov, HubSpot, Gmail, Drive, or Telegram check. |
 | `npm run check` | Source safety and JavaScript/shell syntax checks. Not an integration test. |
-| `npm run local:setup` | Installs isolated Node/OpenClaw and copies tracked ISA source into ignored `.isa-local/`. |
+| `npm run local:setup` | Installs isolated Node/OpenClaw and copies tracked ISA source into ignored `.isa-local/`, or the absolute `ISA_LOCAL_DIR` path when set (useful for WSL checkouts under `/mnt/c`). |
 | `npm run local:link-key -- /absolute/path/to/.env.local` | Links an existing local `OPENAI_API_KEY` source by path; never paste the key into the command. |
 | `npm run local:start` | Starts the isolated Gateway in the foreground at `127.0.0.1:19001`; Ctrl-C stops it. |
 | `npm run local:health` / `npm run local:chat -- "Hello Isa"` | Checks the local Gateway / asks the local agent a question. The chat uses the linked model key. |

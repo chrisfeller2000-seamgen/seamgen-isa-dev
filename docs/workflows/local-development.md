@@ -1,6 +1,6 @@
 # Local development
 
-The safe local setup is an isolated OpenClaw instance and an offline RFP fixture, not a replica of Azure. Each developer uses their own checkout and ignored `.isa-local/` state.
+The safe local setup is an isolated OpenClaw instance and an offline RFP fixture, not a replica of Azure. Each developer uses their own checkout and isolated state under ignored `.isa-local/` by default, or under `ISA_LOCAL_DIR` when set.
 
 ## Prerequisites and setup
 
@@ -18,6 +18,18 @@ npm run check
 ```
 
 Start `npm run local:start` in one terminal. In another terminal in the same checkout, run `npm run local:health` and `npm run local:chat -- "Hello Isa"`. Stop the foreground Gateway with Ctrl-C. It binds only to `127.0.0.1:19001`; scheduled jobs, channels, heartbeat, and agent shell/file tools are off. `npm run local:sync` refreshes its workspace from tracked Git source and refuses to overwrite edits made inside the isolated copy.
+
+## Windows and WSL
+
+The commands above are for a shell with its own Node 22+ installation. For WSL, run them from Ubuntu with Linux Node/npm, not from Windows PowerShell. The simplest option is to clone the repository onto WSL's Linux filesystem. If the checkout is on `/mnt/c`, keep the much larger OpenClaw installation and its state on the Linux filesystem by setting this in **each WSL terminal** before running any `local:*` command:
+
+```sh
+export ISA_LOCAL_DIR="$HOME/.local/share/seamgen-isa-dev"
+```
+
+You can put that export in your WSL shell profile to make it persistent. `ISA_LOCAL_DIR` must be an absolute path outside the repository; all local commands must use the same value. Changing it later starts a separate local instance, so the key source must be linked again. Keep that key source outside the repository too.
+
+Jessica's original PR used `npm run isa -- chat` and supported an Anthropic API key. Those options were **not** retained when the launchers were consolidated: use `local:start` plus `local:chat` above, and use an approved `OPENAI_API_KEY`. A Claude Desktop subscription alone is not an API key. The WSL storage path is now supported in the launcher, but startup and chat on Jessica's machine still need a real smoke test; passing CI or macOS checks does not establish WSL compatibility.
 
 ## What local tests cover
 

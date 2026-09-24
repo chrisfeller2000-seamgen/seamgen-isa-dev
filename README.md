@@ -31,9 +31,11 @@ npm run local:health
 npm run local:chat -- "Hello Isa"
 ```
 
-Press Ctrl-C in the first terminal to stop. Nothing is installed as a system service. The local instance uses OpenClaw `2026.9.4`, Node `24.18.0`, and `openai/gpt-5.4-mini` through an API-key-backed OpenClaw runtime. These packages, the separate workspace copy, configuration, sessions, and key-source path live under ignored `.isa-local/`.
+Press Ctrl-C in the first terminal to stop. Nothing is installed as a system service. The local instance uses OpenClaw `2026.9.4`, Node `24.18.0`, and `openai/gpt-5.4-mini` through an API-key-backed OpenClaw runtime. These packages, the separate workspace copy, configuration, sessions, and key-source path live under ignored `.isa-local/` by default, or under `ISA_LOCAL_DIR` when set.
 
-The local Gateway only listens on `127.0.0.1:19001`. Channels, scheduled jobs, heartbeat, Gateway updates, and agent shell/file tools are disabled. The agent can answer in the local chat, but it cannot send Telegram or email messages or modify the live VM. `npm run local:sync` updates its workspace copy from tracked source files; it stops if the local copy was edited outside Git. Local Gateway logs stay in `.isa-local/openclaw-state/`.
+The local Gateway only listens on `127.0.0.1:19001`. Channels, scheduled jobs, heartbeat, Gateway updates, and agent shell/file tools are disabled. The agent can answer in the local chat, but it cannot send Telegram or email messages or modify the live VM. `npm run local:sync` updates its workspace copy from tracked source files; it stops if the local copy was edited outside Git. Local Gateway logs stay in the selected local runtime directory.
+
+For Windows/WSL, including checkouts under `/mnt/c`, follow the [WSL setup notes](docs/workflows/local-development.md#windows-and-wsl). Set `ISA_LOCAL_DIR` in WSL to keep the OpenClaw install and state on the Linux filesystem. The old `npm run isa` command from the initial local-runtime PR was replaced by the guarded `local:*` commands above.
 
 This confirms local agent startup and a basic model response. `npm test` also runs the real RFP document-flow test mode against synthetic, offline HigherGov responses: complete documents, an empty document list, and a portal-gated requirement. It does **not** prove the real HigherGov API, HubSpot, Drive, email, Telegram, or the full scheduled RFP pipeline. Those need separate development credentials and explicit integration tests before we treat a change as end-to-end tested.
 
