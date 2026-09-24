@@ -177,6 +177,37 @@ async function accept() {
   await acceptCandidate();
 }
 
+async function importLive() {
+  const baseline = await mapIfPresent(path.join(baselineRoot, 'workspace'));
+  if (!baseline) throw new Error('No accepted live baseline. Run live:pull and live:accept first.');
+  const status = await run('git', ['status', '--porcelain', '--untracked-files=normal']);
+  if (status.stdout.trim()) throw new Error('Commit or review local changes before importing VM files.');
+  const local = await listFiles(workspace);
+  const localChanges = differences(baseline, local);
+  if (localChanges.length) {
+    printDifferences('Local source differs from accepted VM baseline', localChanges);
+    throw new Error('Reconcile local source changes before importing VM files.');
+  }
+  const live = await fetchLive();
+  const changes = differences(baseline, live);
+  printDifferences('VM changes to import', changes);
+  if (changes.some(change => change.kind === 'deleted')) {
+    throw new Error('A VM source file was deleted. Review that deletion manually before importing.');
+  }
+  if (!changes.length) return;
+  for (const { file } of changes) {
+    const destination = path.join(workspace, file);
+    await fs.mkdir(path.dirname(destination), { recursive: true });
+    await fs.copyFile(path.join(candidateRoot, 'workspace', file), destination);
+  }
+  const imported = await listFiles(workspace);
+  if (differences(live, imported).length) {
+    throw new Error('Imported files do not match the downloaded VM snapshot. Review local files.');
+  }
+  await acceptCandidate();
+  console.log('VM changes are now in the working tree. Review the Git diff, test, commit, and push them.');
+}
+
 async function remoteHash(relative) {
   const livePath = path.posix.join(config.sourceRoot, relative);
   const statement = `if [ -f ${quote(livePath)} ]; then sha256sum -- ${quote(livePath)}; ` +
@@ -285,8 +316,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   try {
     if (command === 'pull') await pull();
     else if (command === 'accept') await accept();
+    else if (command === 'import') await importLive();
     else if (command === 'deploy') await deploy();
-    else throw new Error('Use pull, accept, or deploy. Deploy previews by default; --apply uploads.');
+    else throw new Error('Use pull, accept, import, or deploy. Deploy previews by default; --apply uploads.');
   } catch (error) {
     console.error(error.message);
     process.exitCode = 1;

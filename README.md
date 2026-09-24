@@ -43,6 +43,8 @@ The first time, if the VM and local repository match, run `npm run live:accept` 
 
 Run `live:pull` before starting work, after someone reports a direct VM edit, and immediately before a deployment. One developer should bring reviewed VM changes into the shared repository so both developers see them. The tool does not automatically commit or push VM changes.
 
+If `live:pull` reports VM source changes, review them first. From a clean checkout that still matches your accepted baseline, `npm run live:import` copies those changed source files into your working tree and advances the local baseline. It refuses VM deletions and refuses to overwrite local source changes. Review the resulting Git diff, run the checks, then commit and push it so the other developer receives the same changes.
+
 ## Uploading reviewed changes
 
 The deploy command is a **preview by default**:
