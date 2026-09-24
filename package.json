@@ -1,0 +1,15 @@
+{
+  "name": "seamgen-isa-dev",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "live:pull": "node devtools/isa-live.mjs pull",
+    "live:accept": "node devtools/isa-live.mjs accept",
+    "live:deploy": "node devtools/isa-live.mjs deploy",
+    "test": "node --test devtools/*.test.mjs",
+    "check": "node devtools/check-source.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc">
+  <title id="title">Internal pipeline overview</title>
+  <desc id="desc">A slide-ready diagram showing how internal pipelines ingest signals, classify them, decide next actions, and report outcomes.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#07111f"/>
+      <stop offset="55%" stop-color="#0b1728"/>
+      <stop offset="100%" stop-color="#101d33"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#4dd6ff"/>
+      <stop offset="100%" stop-color="#7c5cff"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#13253d"/>
+      <stop offset="100%" stop-color="#0d1b2c"/>
+    </linearGradient>
+    <linearGradient id="pill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#162d4b"/>
+      <stop offset="100%" stop-color="#112338"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feColorMatrix in="blur" type="matrix"
+        values="1 0 0 0 0.14
+                0 1 0 0 0.68
+                0 0 1 0 0.98
+                0 0 0 0.75 0" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <style>
+      .h1 { font: 700 54px 'Aptos', 'Segoe UI', Arial, sans-serif; fill: #f5f8ff; letter-spacing: 0.3px; }
+      .h2 { font: 500 22px 'Aptos', 'Segoe UI', Arial, sans-serif; fill: #b7c9e8; }
+      .label { font: 700 32px 'Aptos', 'Segoe UI', Arial, sans-serif; fill: #f4f8ff; }
+      .sub { font: 500 20px 'Aptos', 'Segoe UI', Arial, sans-serif; fill: #b2c2df; }
+      .small { font: 500 17px 'Aptos', 'Segoe UI', Arial, sans-serif; fill: #c7d6ef; }
+      .tiny { font: 500 15px 'Aptos', 'Segoe UI', Arial, sans-serif; fill: #a9b8d6; }
+      .pilltext { font: 700 16px 'Aptos', 'Segoe UI', Arial, sans-serif; fill: #d9e8ff; letter-spacing: 0.4px; }
+      .stroke { stroke: #2e476d; stroke-width: 2; }
+    </style>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <circle cx="1820" cy="130" r="260" fill="#1f3f66" opacity="0.18"/>
+  <circle cx="180" cy="940" r="340" fill="#1b3557" opacity="0.14"/>
+  <path d="M-40 820 C 320 680, 560 1020, 920 880 S 1560 700, 1980 860" fill="none" stroke="#21406d" stroke-width="2" opacity="0.25"/>
+
+  <text x="120" y="120" class="h1">How the internal pipelines work</text>
+  <text x="120" y="162" class="h2">Signals in, routing and decisions in the middle, reports and actions out</text>
+
+  <!-- Top flow -->
+  <g filter="url(#shadow)">
+    <rect x="120" y="250" rx="24" ry="24" width="300" height="200" fill="url(#card)" stroke="#2f4d78" stroke-width="2"/>
+    <rect x="160" y="286" rx="16" ry="16" width="104" height="34" fill="url(#pill)"/>
+    <text x="186" y="309" class="pilltext">STEP 1</text>
+    <text x="160" y="362" class="label">Ingest</text>
+    <text x="160" y="398" class="sub">Pull in Gmail, HubSpot,</text>
+    <text x="160" y="426" class="sub">deal and activity signals</text>
+    <circle cx="340" cy="334" r="38" fill="none" stroke="#4dd6ff" stroke-width="4" filter="url(#glow)"/>
+    <path d="M326 334h28M340 320v28" stroke="#4dd6ff" stroke-width="4" stroke-linecap="round" filter="url(#glow)"/>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="540" y="250" rx="24" ry="24" width="300" height="200" fill="url(#card)" stroke="#2f4d78" stroke-width="2"/>
+    <rect x="580" y="286" rx="16" ry="16" width="124" height="34" fill="url(#pill)"/>
+    <text x="606" y="309" class="pilltext">STEP 2</text>
+    <text x="580" y="362" class="label">Classify</text>
+    <text x="580" y="398" class="sub">Match records, detect intent,</text>
+    <text x="580" y="426" class="sub">route to the right pipeline</text>
+    <rect x="742" y="308" width="54" height="54" rx="14" fill="none" stroke="#7c5cff" stroke-width="4" filter="url(#glow)"/>
+    <path d="M756 335h26M769 322v26" stroke="#7c5cff" stroke-width="4" stroke-linecap="round" filter="url(#glow)"/>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="960" y="250" rx="24" ry="24" width="300" height="200" fill="url(#card)" stroke="#2f4d78" stroke-width="2"/>
+    <rect x="1000" y="286" rx="16" ry="16" width="112" height="34" fill="url(#pill)"/>
+    <text x="1026" y="309" class="pilltext">STEP 3</text>
+    <text x="1000" y="362" class="label">Decide</text>
+    <text x="1000" y="398" class="sub">Score, qualify, and recommend</text>
+    <text x="1000" y="426" class="sub">the next best action or stage</text>
+    <path d="M1170 328l38 0-20 36z" fill="none" stroke="#ffb84d" stroke-width="4" stroke-linejoin="round" filter="url(#glow)"/>
+    <path d="M1188 338v10" stroke="#ffb84d" stroke-width="4" stroke-linecap="round" filter="url(#glow)"/>
+    <circle cx="1188" cy="354" r="2.5" fill="#ffb84d" filter="url(#glow)"/>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="1380" y="250" rx="24" ry="24" width="420" height="200" fill="url(#card)" stroke="#2f4d78" stroke-width="2"/>
+    <rect x="1420" y="286" rx="16" ry="16" width="114" height="34" fill="url(#pill)"/>
+    <text x="1446" y="309" class="pilltext">STEP 4</text>
+    <text x="1420" y="362" class="label">Report</text>
+    <text x="1420" y="398" class="sub">Write markdown and HTML reports</text>
+    <text x="1420" y="426" class="sub">and send actionable summaries</text>
+    <path d="M1638 318h90M1700 300l28 18-28 18" fill="none" stroke="#38d9a9" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+    <rect x="1710" y="306" width="58" height="46" rx="8" fill="none" stroke="#38d9a9" stroke-width="4" filter="url(#glow)"/>
+    <path d="M1722 318h34M1722 330h24" stroke="#38d9a9" stroke-width="4" stroke-linecap="round" filter="url(#glow)"/>
+  </g>
+
+  <!-- connecting arrows -->
+  <path d="M420 350 H 520" stroke="url(#accent)" stroke-width="8" stroke-linecap="round" filter="url(#glow)"/>
+  <path d="M500 332 L 530 350 L 500 368" fill="none" stroke="url(#accent)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  <path d="M840 350 H 940" stroke="url(#accent)" stroke-width="8" stroke-linecap="round" filter="url(#glow)"/>
+  <path d="M920 332 L 950 350 L 920 368" fill="none" stroke="url(#accent)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  <path d="M1260 350 H 1360" stroke="url(#accent)" stroke-width="8" stroke-linecap="round" filter="url(#glow)"/>
+  <path d="M1340 332 L 1370 350 L 1340 368" fill="none" stroke="url(#accent)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+
+  <!-- Bottom callouts -->
+  <text x="120" y="530" class="h2">Actual internal flows</text>
+
+  <g filter="url(#shadow)">
+    <rect x="120" y="570" rx="22" ry="22" width="410" height="180" fill="#0e2138" stroke="#284463" stroke-width="2"/>
+    <circle cx="172" cy="632" r="22" fill="#4dd6ff" opacity="0.18" stroke="#4dd6ff" stroke-width="3"/>
+    <path d="M160 632h24M172 620v24" stroke="#4dd6ff" stroke-width="4" stroke-linecap="round"/>
+    <text x="214" y="625" class="label" font-size="28">Daily Mail -> HubSpot Sync</text>
+    <text x="214" y="662" class="small">Reads inbox activity, updates records,</text>
+    <text x="214" y="688" class="small">and captures deal stage changes</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="565" y="570" rx="22" ry="22" width="410" height="180" fill="#0e2138" stroke="#284463" stroke-width="2"/>
+    <circle cx="617" cy="632" r="22" fill="#7c5cff" opacity="0.18" stroke="#7c5cff" stroke-width="3"/>
+    <path d="M607 634l9 9 15-20" fill="none" stroke="#7c5cff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="659" y="625" class="label" font-size="28">Weekly Re-engagement Advice</text>
+    <text x="659" y="662" class="small">Scores app and company signals,</text>
+    <text x="659" y="688" class="small">then drafts personalized outreach</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="1010" y="570" rx="22" ry="22" width="410" height="180" fill="#0e2138" stroke="#284463" stroke-width="2"/>
+    <circle cx="1062" cy="632" r="22" fill="#ffb84d" opacity="0.18" stroke="#ffb84d" stroke-width="3"/>
+    <path d="M1052 638l10-16 10 16h-20z" fill="none" stroke="#ffb84d" stroke-width="4" stroke-linejoin="round"/>
+    <text x="1104" y="625" class="label" font-size="28">Weekly RFP Pursue Decision</text>
+    <text x="1104" y="662" class="small">Qualifies opportunities and recommends</text>
+    <text x="1104" y="688" class="small">whether to pursue, wait, or decline</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="1455" y="570" rx="22" ry="22" width="345" height="180" fill="#0e2138" stroke="#284463" stroke-width="2"/>
+    <circle cx="1507" cy="632" r="22" fill="#38d9a9" opacity="0.18" stroke="#38d9a9" stroke-width="3"/>
+    <path d="M1497 624h20M1497 634h20M1497 644h14" stroke="#38d9a9" stroke-width="4" stroke-linecap="round"/>
+    <text x="1549" y="625" class="label" font-size="28">Weekly Sales Report</text>
+    <text x="1549" y="662" class="small">Summarizes momentum, wins,</text>
+    <text x="1549" y="688" class="small">and pipeline health</text>
+  </g>
+
+  <!-- footer ribbon -->
+  <g>
+    <rect x="120" y="824" width="1600" height="112" rx="26" fill="#0b1625" stroke="#25405f" stroke-width="2"/>
+    <path d="M168 880h1480" stroke="url(#accent)" stroke-width="3" opacity="0.35"/>
+    <text x="160" y="868" class="h2">Core idea</text>
+    <text x="160" y="905" class="small">Each pipeline turns raw signals into a more specific business outcome: cleaner data, better routing, stronger decisions, and a report or action that humans can use immediately.</text>
+  </g>
+</svg>

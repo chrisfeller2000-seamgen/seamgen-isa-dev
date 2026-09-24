@@ -1,0 +1,20 @@
+.isa-local/
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+node_modules/
+
+# Runtime state and customer data do not belong in the development repo.
+workspace/attachments/
+workspace/backups/
+workspace/RFP-pipeline/
+workspace/reengagement/
+workspace/reports/
+workspace/test/
+workspace/tmp-*/
+workspace/memory/
+workspace/DREAMS.md
+workspace/openclaw-workspace-state*.json

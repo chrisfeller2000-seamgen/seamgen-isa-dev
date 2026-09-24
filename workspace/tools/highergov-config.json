@@ -1,0 +1,81 @@
+{
+  "_comment": "Configuration for the HigherGov intake scripts. The search_id is the ONLY place NAICS/keyword/agency/state filters live — the API itself can't express them. Everything the prefilter kills on is defined here so it's auditable in one place.",
+
+  "searchId": "IUYRXTtBLnXf4OY2J6ll9",
+  "searchDescription": "Seamgen Core RFP Filter — BROADENED 2026-07-21 (searchID IUYRXTtBLnXf4OY2J6ll9, same saved search name 'RFP Playbook'). Jake widened NAICS + keywords to reach integration-heavy work (system integration, legacy modernization, data platforms, identity/SSO, healthcare interoperability, CRM/ERP, payments, GIS) rather than website builds — prompted by Marianne. Verified in the UI 2026-07-21: 736 State & Local opportunities and 564 Federal. Precision dropped as expected: the SLED page now also returns HVAC maintenance, Adobe Sign renewals, CoStar licences and campus construction, which the prefilter is expected to kill. PRIOR search was Jim1JjnCbVl5BUJilSUBo (267 records, narrower, website-weighted). NOTE for whoever checks this search in a browser: the results live in table#datatable_search_contract_opportunity; the phrase 'No Results Found' also appears inside filter dropdown widgets and does NOT mean the search is empty. Original composition note follows: on-target — software / SaaS / portals / databases / BI & analytics / GIS-ESRI / case-management for State & Local + Education + Utilities + Public Health, plus federal (source_type sled,sam). NAICS heavily 541511/541512/541519 with a few adjacent (518210/423210/624190). If the composition of returned records drifts from this, someone edited the saved search in the UI — the saved search IS the filter; the API has no NAICS/keyword parameter of its own.",
+  "lastVerifiedByHuman": "2026-07-14",
+
+  "_learnedByTester": "The tester fills these in after probing the live API. Until then they are best-guess defaults. captureDateMode confirmed 'exact' on 2026-07-17: captured_date=X returns ONLY records dated exactly X (verified newest-first; nothing newer than the boundary came back). A multi-day window must loop per day, not pass a single 'since' date. The live API returns captured_date as date-only (yyyy-MM-dd). Invalid search_id → HTTP 500 (throws); ordering is accepted but UNSTABLE among same-date ties, so the day-loop passes no ordering and drains each day whole. meta.pagination.count OVER-reports: it counts phantom matches the endpoint never serves (observed 15 counted / 12 served, pages=1). The authoritative 'day fully drained' signal is having fetched every meta.pagination.pages, NOT distinct>=count. page_size is honored as a cap up to the servable set.",
+  "_pageSizeComment": "Records requested per page when draining a day. Quota counts RECORDS, not requests, so lowering this costs round trips and nothing else. Set to 25 = the largest value that does not 500 (see _apiBrokenPagination). Raise toward 100 only after re-testing, and drop it first if 500s reappear.",
+  "pageSize": 25,
+
+  "_paginationParamName": "*** THE PAGINATION PARAMETER IS page_number, NOT page. *** Corrected 2026-07-31. Our client sent 'page' from the beginning; the API silently ignores an unrecognised parameter and serves page 1 every time, so every page of a query came back identical and no day larger than page_size could ever drain. This went unnoticed for months because days run 40-60 records and the old page_size=100 swallowed each one in a single request - pagination was never actually exercised until a separate HTTP 500 forced page_size down to 25. Confirmed by HigherGov support (Justin, 2026-07-31): 'There are parameters called page_number and page_size.' Verified after the fix: page_number=3 returns meta.pagination.page=3 and 4 records, page_number=1 returns 25. WARNING FOR WHOEVER READS THIS NEXT: an earlier version of this note confidently described the above as a HigherGov defect with no client-side workaround. It was our bug. The thing that produced that false confidence was the malformed links object (below) - a broken response link says the vendor's link-builder is wrong, it says NOTHING about whether our request was well-formed. Check the parameter names against vendor documentation before attributing a fault to a vendor.",
+
+  "_apiOpenDefects": "Two genuine HigherGov faults remain open as of 2026-07-31, both reproducible with the CORRECT page_number parameter, both reported to support. (1) page_size >= 50 returns HTTP 500 with an empty body (50 and 100 tested and failing; 1, 20 and 25 return 200). This is why pageSize is 25. (2) On captured_date=2026-07-24, page_number=2 at page_size=25 returns HTTP 500 on 3 of 3 attempts, while page_number=1 (25 records) and page_number=3 (4 records) both succeed - so records 26-50 of that specific day appear to break serialisation server-side. A day hitting this cannot be fully drained and the watermark will correctly refuse to advance. (3) Cosmetic: the links object strips every query parameter - links.next comes back as '.../opportunity/?api_key=***' with no search_id, captured_date, page_size or page_number, so it cannot be followed.",
+
+  "captureDateMode": "exact",
+  "captureDateFormat": "yyyy-MM-dd",
+  "orderingSupported": true,
+  "orderingStableAmongTies": false,
+  "invalidSearchIdBehavior": "http-500",
+
+  "sourceType": "sled,sam",
+
+  "safetyLagDays": 1,
+  "recheckWindowDays": 3,
+  "searchSanityMaxCount": 3000,
+
+  "quota": {
+    "monthlyBudget": 10000,
+    "softStopAt": 8000,
+    "hardStopAt": 9500,
+    "defaultMaxRecordsPerRun": 250,
+    "maxDocsPerOpportunity": 5,
+    "documentBudgetPerRun": 60
+  },
+
+  "seamgenProfile": {
+    "_comment": "Seamgen's held qualifications, confirmed current by Jake on 2026-07-14. The prefilter uses setAsideDenyList to KILL and certifications/naics for the scorer's reference. Re-confirm when any cert lapses or is added. CORRECTION 2026-07-28: 'Esri certified' was removed. Seth Lutske confirmed on 2026-07-27 that nobody at Seamgen holds Esri technical certifications (an individual, exam-based credential). Company-level Esri PARTNER status is claimed in resources/proposal-sources/Proposal - Assets.txt but is unverified with Marianne, so it is not listed here. Never restore a certification claim without a named holder.",
+    "certifications": [
+      "GSA Schedule 70",
+      "SBA Small Business",
+      "Microsoft Cloud Solution Provider (CSP)"
+    ],
+    "naics": ["541511", "541512", "541513", "541519", "511210"],
+
+    "minDaysToDue": 10,
+
+    "setAsideDenyList": [
+      "8(a)",
+      "8a",
+      "HUBZone",
+      "HUB Zone",
+      "WOSB",
+      "EDWOSB",
+      "Woman-Owned",
+      "Women-Owned",
+      "SDVOSB",
+      "VOSB",
+      "Service-Disabled Veteran",
+      "Veteran-Owned",
+      "Buy Indian",
+      "Indian Small Business"
+    ],
+    "setAsidePassList": [
+      "Small Business",
+      "Total Small Business",
+      "SBA",
+      "Local Vendor Preference",
+      "None",
+      "N/A"
+    ],
+
+    "excludedOppTypes": [
+      "Sources Sought",
+      "RFI",
+      "Request for Information",
+      "Pre-Solicitation",
+      "Presolicitation"
+    ]
+  }
+}

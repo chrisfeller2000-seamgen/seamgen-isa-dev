@@ -1,0 +1,7 @@
+portals:
+  - portalId: 21542978
+    apiBaseUrl: https://api.hubapi.com
+    leadManagement: api-sidecar
+    notes:
+      - Standard CRM stays on MCP.
+      - Leads are handled by the API sidecar.

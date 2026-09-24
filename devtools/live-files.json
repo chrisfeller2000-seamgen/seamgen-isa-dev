@@ -1,0 +1,15 @@
+{
+  "sourceRoot": "/home/azureuser/.openclaw/workspace",
+  "paths": [
+    "AGENTS.md",
+    "IDENTITY.md",
+    "SOUL.md",
+    "USER.md",
+    "MEMORY.md",
+    "hubspot.config.yml",
+    "pipeline-explainer.svg",
+    "scripts",
+    "skills",
+    "tools"
+  ]
+}
