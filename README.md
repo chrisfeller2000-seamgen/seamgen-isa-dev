@@ -8,7 +8,7 @@ The exact live source paths are listed in [`devtools/live-files.json`](devtools/
 
 Runtime state, credentials, SSH keys, conversations, RFP candidate files, customer documents, reports, and backups are intentionally excluded. A private repository is not a safe place for secrets. The file list must be reviewed when ISA gains new source files outside these paths.
 
-This is not yet a fully runnable local copy of OpenClaw. The live VM uses OpenClaw 2026.9.4 and Node 24.18.0. Its runtime configuration, installed integrations, scheduled-job state, and credentials are not in this repo. Workflows should first be tested with fixtures and side effects disabled.
+This is not a full local copy of the live OpenClaw installation (see "Running ISA locally" for the agent-only setup). The live VM uses OpenClaw 2026.9.4 and Node 24.18.0. Its runtime configuration, installed integrations, scheduled-job state, and credentials are not in this repo. Workflows should first be tested with fixtures and side effects disabled.
 
 ## First-time local setup
 
@@ -34,6 +34,29 @@ Run the local checks:
 npm test
 npm run check
 ```
+
+## Running ISA locally
+
+This runs the ISA agent with the repository's `workspace/` instructions against your own model key. It is for trying instruction and skill changes, not for running the live jobs.
+
+Put a development model key in the repository's ignored `.env` file, for example `OPENAI_API_KEY=...` (or `ANTHROPIC_API_KEY=...`). Do not use the VM's production key. Then:
+
+```sh
+npm run local:setup            # installs the VM's OpenClaw version into .isa-local/ and configures it
+npm run isa -- chat            # terminal chat with ISA
+npm run isa -- agent --local --agent main --message "..."   # one turn
+npm run isa -- gateway run     # optional local gateway on 127.0.0.1:19789
+```
+
+`npm run isa -- <args>` runs the pinned OpenClaw with state in ignored `.isa-local/state`, never `~/.openclaw`. The config stores only an environment reference to the model key. Setup adds no chat channels, background service, scheduled jobs or heartbeat, and the launcher sets `NO_TELEGRAM=1` and `REENGAGEMENT_DRY_RUN=1`.
+
+On Windows, WSL (Ubuntu) is closer to the VM and can syntax-check the shell scripts. Install Node 24.18.0 in Ubuntu and keep OpenClaw's files on the Linux filesystem, because installs through `/mnt/c` are very slow. Add this to `~/.bashrc`, then run the same npm commands from the repository's `/mnt/c/...` path:
+
+```sh
+export ISA_LOCAL_DIR="$HOME/.local/share/seamgen-isa-dev"
+```
+
+Keep Gmail (`gog`), Google Drive, HubSpot, HigherGov and Telegram credentials off development machines. Several scripts send email or upload to Drive with no dry-run switch, so the missing credentials are what keeps a local run from reaching customers or colleagues. ISA can edit tracked workspace files such as `MEMORY.md` during a local run. Review `git diff` before committing.
 
 ## Checking the live VM
 

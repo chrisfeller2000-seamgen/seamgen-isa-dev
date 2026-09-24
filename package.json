@@ -8,7 +8,9 @@
     "live:import": "node devtools/isa-live.mjs import",
     "live:deploy": "node devtools/isa-live.mjs deploy",
     "test": "node --test devtools/*.test.mjs",
-    "check": "node devtools/check-source.mjs"
+    "check": "node devtools/check-source.mjs",
+    "local:setup": "node devtools/isa-local.mjs setup",
+    "isa": "node devtools/isa-local.mjs"
   },
   "engines": {
     "node": ">=22"
