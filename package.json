@@ -7,6 +7,13 @@
     "live:accept": "node devtools/isa-live.mjs accept",
     "live:import": "node devtools/isa-live.mjs import",
     "live:deploy": "node devtools/isa-live.mjs deploy",
+    "local:setup": "node devtools/local-isa.mjs setup",
+    "local:link-key": "node devtools/local-isa.mjs link-key",
+    "local:sync": "node devtools/local-isa.mjs sync",
+    "local:start": "node devtools/local-isa.mjs start",
+    "local:health": "node devtools/local-isa.mjs health",
+    "local:version": "node devtools/local-isa.mjs version",
+    "local:chat": "node devtools/local-isa.mjs chat",
     "test": "node --test devtools/*.test.mjs",
     "check": "node devtools/check-source.mjs"
   },
