@@ -127,25 +127,53 @@ async function lookupOpportunityRecord({
   return { record: null, pageNumber: null, pages: null };
 }
 
-async function listDocumentRecords({ apiKey, documentPath }) {
+function documentListUrl(documentPath, apiKey, pageNumber) {
+  let url;
+  try {
+    url = new URL(documentPath, 'https://www.highergov.com');
+  } catch {
+    throw new Error('HigherGov document_path is not a valid URL.');
+  }
+  if (url.protocol !== 'https:' || url.hostname !== 'www.highergov.com' || url.port ||
+      url.username || url.password || url.pathname !== '/api-external/document/' ||
+      !url.searchParams.get('related_key')) {
+    throw new Error('HigherGov document_path is not an approved document endpoint.');
+  }
+  // HigherGov supplies a complete URL, not a related_key value. Refresh its key in memory.
+  url.searchParams.set('api_key', apiKey);
+  url.searchParams.set('page_size', '50');
+  url.searchParams.set('page_number', String(pageNumber));
+  return url;
+}
+
+async function listDocumentRecords({ apiKey, documentPath, fetchImpl = fetch }) {
   if (!apiKey) throw new Error('HIGHERGOV_API_KEY is required.');
   if (!documentPath) throw new Error('documentPath is required.');
-  const url = new URL('https://www.highergov.com/api-external/document/');
-  url.searchParams.set('api_key', apiKey);
-  url.searchParams.set('related_key', documentPath);
-  url.searchParams.set('page_size', '50');
-  url.searchParams.set('page_number', '1');
-
-  const response = await fetch(url, { method: 'GET' });
-  const text = await response.text();
-  if (!response.ok) {
-    const error = new Error(`HigherGov document lookup failed (HTTP ${response.status})`);
-    error.status = response.status;
-    error.body = text;
-    throw error;
+  const records = [];
+  for (let pageNumber = 1; pageNumber <= 100; pageNumber += 1) {
+    const url = documentListUrl(documentPath, apiKey, pageNumber);
+    const response = await fetchImpl(url, { method: 'GET' });
+    const text = await response.text();
+    if (!response.ok) {
+      const error = new Error(`HigherGov document lookup failed (HTTP ${response.status})`);
+      error.status = response.status;
+      throw error;
+    }
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error('HigherGov document lookup returned invalid JSON.');
+    }
+    if (!Array.isArray(data.results)) {
+      throw new Error('HigherGov document lookup response has no results array.');
+    }
+    records.push(...data.results);
+    const pages = Number.parseInt(data?.meta?.pagination?.pages, 10);
+    if (!Number.isFinite(pages) || pageNumber >= pages) return records;
+    if (pages > 100) throw new Error('HigherGov document lookup exceeds the 100-page safety limit.');
   }
-  const data = JSON.parse(text);
-  return Array.isArray(data.results) ? data.results : [];
+  return records;
 }
 
 function detectSignature(buffer) {
@@ -251,8 +279,11 @@ function evaluateDocumentCompleteness({ manifest = [], extractedTextByPath = new
   const hasFailure = rows.some((row) => row.document_status === 'failed');
   const unsupported = rows.some((row) => row.document_status === 'downloaded but unsupported');
 
-  if (!rows.length || (!hasAnyDocs && hasPortalBlock)) {
-    return { complete: false, status: 'access-blocked', reasons: ['No downloadable document records were available.'] };
+  if (!rows.length) {
+    return { complete: false, status: 'document-list-empty', reasons: ['No document records were returned.'] };
+  }
+  if (!hasAnyDocs && hasPortalBlock) {
+    return { complete: false, status: 'access-blocked', reasons: ['The returned documents were portal-gated.'] };
   }
   if (hasFailure && !hasAnyDocs) {
     return { complete: false, status: 'failed', reasons: ['Document download failed before any usable file was saved.'] };

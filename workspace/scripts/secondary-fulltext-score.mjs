@@ -457,7 +457,7 @@ async function fetchAndExtract(candidate, config, apiKey) {
     return { status: 'failed', reason: documentRecords.__error?.message || 'Document lookup failed.' };
   }
   if (!Array.isArray(documentRecords) || !documentRecords.length) {
-    return { status: 'access-blocked', reason: 'No document records returned.' };
+    return { status: 'document-list-empty', reason: 'No document records returned.' };
   }
   const manifest = [];
   for (let i = 0; i < documentRecords.length; i += 1) {
