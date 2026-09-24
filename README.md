@@ -2,17 +2,44 @@
 
 This is a separate development repository for ISA. It contains versionable agent instructions, skills, scripts, and tools copied from the live VM. It does **not** replace the existing backup repository or deploy automatically.
 
+Coding agents and new contributors should start with [developer guidance](AGENTS.md) and the [docs map](docs/README.md). `workspace/AGENTS.md` is ISA's own runtime context, not the developer entrypoint.
+
 ## What is included
 
 The exact live source paths are listed in [`devtools/live-files.json`](devtools/live-files.json). The initial list covers the top-level agent instructions and configuration notes, plus `workspace/scripts/`, `workspace/skills/`, and `workspace/tools/`. It includes the current HigherGov document-flow code.
 
 Runtime state, credentials, SSH keys, conversations, RFP candidate files, customer documents, reports, and backups are intentionally excluded. A private repository is not a safe place for secrets. The file list must be reviewed when ISA gains new source files outside these paths.
 
-This is not a full local copy of the live OpenClaw installation (see "Running ISA locally" for the agent-only setup). The live VM uses OpenClaw 2026.9.4 and Node 24.18.0. Its runtime configuration, installed integrations, scheduled-job state, and credentials are not in this repo. Workflows should first be tested with fixtures and side effects disabled.
+The repo can now run an isolated local OpenClaw instance for safe ISA chat and skill testing. It is **not** a full copy of production integrations: the live VM's runtime configuration, scheduled-job payloads, customer data, and credentials are not in this repo. Do not run the normal RFP, sales, or outreach scripts locally until they have fixture-based tests and side effects are disabled.
+
+## Run ISA locally
+
+From this checkout:
+
+```sh
+npm run local:setup
+npm run local:link-key -- /absolute/path/to/an/existing/.env.local
+npm run local:start
+```
+
+The env file must contain `OPENAI_API_KEY`. Do not paste a key into a command or commit one. `local:link-key` stores only the path to your existing env file; OpenClaw uses a reference to that key at startup. Each developer links their own local key source. OpenAI API usage is billed to the project that owns the key.
+
+`local:start` runs in the foreground. In another terminal, use:
+
+```sh
+npm run local:health
+npm run local:chat -- "Hello Isa"
+```
+
+Press Ctrl-C in the first terminal to stop. Nothing is installed as a system service. The local instance uses OpenClaw `2026.9.4`, Node `24.18.0`, and `openai/gpt-5.4-mini` through an API-key-backed OpenClaw runtime. These packages, the separate workspace copy, configuration, sessions, and key-source path live under ignored `.isa-local/`.
+
+The local Gateway only listens on `127.0.0.1:19001`. Channels, scheduled jobs, heartbeat, Gateway updates, and agent shell/file tools are disabled. The agent can answer in the local chat, but it cannot send Telegram or email messages or modify the live VM. `npm run local:sync` updates its workspace copy from tracked source files; it stops if the local copy was edited outside Git. Local Gateway logs stay in `.isa-local/openclaw-state/`.
+
+This confirms local agent startup and a basic model response. `npm test` also runs the real RFP document-flow test mode against synthetic, offline HigherGov responses: complete documents, an empty document list, and a portal-gated requirement. It does **not** prove the real HigherGov API, HubSpot, Drive, email, Telegram, or the full scheduled RFP pipeline. Those need separate development credentials and explicit integration tests before we treat a change as end-to-end tested.
 
 ## First-time local setup
 
-Install Git, Node.js 22 or newer, and an OpenSSH client. Clone this private repository. Keep your personal ISA VM SSH key outside the repo.
+Install Git, Node.js 22 or newer, and an OpenSSH client. Clone this private repository. `local:setup` installs the matching Node 24 and OpenClaw versions inside `.isa-local/`, without replacing your system Node. Keep your personal ISA VM SSH key outside the repo.
 
 The tools use `~/.ssh/seamgen-isa.pem` by default. If your key has a different path, set `ISA_SSH_KEY` locally:
 
@@ -34,29 +61,6 @@ Run the local checks:
 npm test
 npm run check
 ```
-
-## Running ISA locally
-
-This runs the ISA agent with the repository's `workspace/` instructions against your own model key. It is for trying instruction and skill changes, not for running the live jobs.
-
-Put a development model key in the repository's ignored `.env` file, for example `OPENAI_API_KEY=...` (or `ANTHROPIC_API_KEY=...`). Do not use the VM's production key. Then:
-
-```sh
-npm run local:setup            # installs the VM's OpenClaw version into .isa-local/ and configures it
-npm run isa -- chat            # terminal chat with ISA
-npm run isa -- agent --local --agent main --message "..."   # one turn
-npm run isa -- gateway run     # optional local gateway on 127.0.0.1:19789
-```
-
-`npm run isa -- <args>` runs the pinned OpenClaw with state in ignored `.isa-local/state`, never `~/.openclaw`. The config stores only an environment reference to the model key. Setup adds no chat channels, background service, scheduled jobs or heartbeat, and the launcher sets `NO_TELEGRAM=1` and `REENGAGEMENT_DRY_RUN=1`.
-
-On Windows, WSL (Ubuntu) is closer to the VM and can syntax-check the shell scripts. Install Node 24.18.0 in Ubuntu and keep OpenClaw's files on the Linux filesystem, because installs through `/mnt/c` are very slow. Add this to `~/.bashrc`, then run the same npm commands from the repository's `/mnt/c/...` path:
-
-```sh
-export ISA_LOCAL_DIR="$HOME/.local/share/seamgen-isa-dev"
-```
-
-Keep Gmail (`gog`), Google Drive, HubSpot, HigherGov and Telegram credentials off development machines. Several scripts send email or upload to Drive with no dry-run switch, so the missing credentials are what keeps a local run from reaching customers or colleagues. ISA can edit tracked workspace files such as `MEMORY.md` during a local run. Review `git diff` before committing.
 
 ## Checking the live VM
 

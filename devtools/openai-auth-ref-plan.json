@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "protocolVersion": 1,
+  "scrubEnv": false,
+  "scrubAuthProfilesForProviderTargets": false,
+  "targets": [
+    {
+      "type": "auth-profiles.api_key.key",
+      "path": "profiles.openai:isa-local.key",
+      "pathSegments": ["profiles", "openai:isa-local", "key"],
+      "agentId": "main",
+      "authProfileProvider": "openai",
+      "ref": { "source": "env", "provider": "default", "id": "OPENAI_API_KEY" }
+    }
+  ]
+}
