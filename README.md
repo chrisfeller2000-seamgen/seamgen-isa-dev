@@ -2,6 +2,8 @@
 
 This is a separate development repository for ISA. It contains versionable agent instructions, skills, scripts, and tools copied from the live VM. It does **not** replace the existing backup repository or deploy automatically.
 
+Coding agents and new contributors should start with [developer guidance](AGENTS.md) and the [docs map](docs/README.md). `workspace/AGENTS.md` is ISA's own runtime context, not the developer entrypoint.
+
 ## What is included
 
 The exact live source paths are listed in [`devtools/live-files.json`](devtools/live-files.json). The initial list covers the top-level agent instructions and configuration notes, plus `workspace/scripts/`, `workspace/skills/`, and `workspace/tools/`. It includes the current HigherGov document-flow code.
