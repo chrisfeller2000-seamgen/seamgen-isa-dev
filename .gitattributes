@@ -1,0 +1,2 @@
+# The VM runs these files on Linux; keep LF on every checkout so hashes and uploads match it.
+* text=auto eol=lf

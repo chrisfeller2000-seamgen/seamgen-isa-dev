@@ -26,3 +26,5 @@ Start `npm run local:start` in one terminal. In another terminal in the same che
 Do **not** run the normal scripts in `workspace/scripts/` locally as a smoke test. Some use fixed production paths or accounts and have outbound effects. Add a fixture or explicit development integration mode for the path you need before running it. There is no local database migration or seed step in this source-only repo; live customer candidates and reports are intentionally absent.
 
 If startup fails, first check `npm run local:version`, `npm run local:health`, the linked key source path, and whether another process owns port 19001. Do not solve local startup by copying the live OpenClaw config or credentials. See [commands](../commands.md), [security](../security.md), and [integrations](../integrations.md).
+
+The repository keeps text-file line endings at LF on every checkout so Windows line-ending conversion does not create false VM hash differences. Local ISA chat has been verified on macOS; Windows/WSL startup still needs its own check before claiming support. Do not use a live VM upload to test that platform setup.
