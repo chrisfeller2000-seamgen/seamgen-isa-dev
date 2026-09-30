@@ -1,6 +1,6 @@
 # ISA RFP deadline selection and scoring
 
-Status: Implemented locally; limited deployment authorized, awaiting live validation  
+Status: Three-file patch deployed; isolated VM checks passed; production workflow not rerun
 Created: September 30, 2026  
 Task branch: `docs/rfp-deadline-scoring`  
 Integration target: `main`  
@@ -162,7 +162,7 @@ A controlled post-deployment check must verify the persisted deadline source, as
 - The weekly scorer was inspected. It uses its own current-run date but chooses the earliest of proposal/question/opening dates and drops past matches. That is a different path from the confirmed MDR bug. This patch does not alter weekly intake or qualification; shared-policy alignment remains a separate follow-up with its own regression coverage.
 - Deadline extraction is deliberately conservative: unsupported wording, uncertain date formats, unresolved amendments, and conflicting cutoff times need review. This is not a promise to parse every procurement document automatically.
 - The broader missing-requirements evidence gate remains separate. A verified submission date alone cannot prove that all qualification requirements were available and checked.
-- Nothing was deployed, no live job was run, and no historical report, Telegram message, or CRM record was changed.
+- At the end of the local implementation phase, nothing had been deployed. The subsequent authorized release is recorded below; no normal live job was run and no historical report, Telegram message, or CRM record was changed.
 
 Local verification on September 30:
 
@@ -177,6 +177,26 @@ Local verification on September 30:
 The September 30 follow-up request authorizes only `scripts/rfp-deadline.mjs`, `scripts/secondary-fulltext-score.mjs`, and `skills/rfp-scoring-skill.md` on the VM. A fresh approved-source comparison confirmed the newer live `highergov-document-flow.mjs` and `weekly-rfp-pursue-decision.mjs` remain separate differences; they must not be uploaded from this older repository snapshot.
 
 The local upload tool now supports exact-file selection while retaining its full-snapshot VM drift check, staged validation, original-file backups, hash checks, and failure rollback. Three focused tooling tests bring `npm test` to 35 passing tests. Deployment must use the explicit three-file scope. Post-deployment checks may import pure functions and verify hashes, but must not run the normal scoring job, contact providers, alter candidates/reports, change schedules, or send outbound messages. Record observed deployment results separately from scheduled-workflow proof.
+
+### Deployment evidence — September 30, 2026
+
+- Source commit: `e1e288a`, on `docs/rfp-deadline-scoring`. This task did not push or merge the branch to `main`.
+- Release: `dev-deploy-2026-09-30T21-08-19-175Z-e1e288a`; upload and snapshot verification completed at `2026-09-30T21:10:15.500Z`.
+- Backup root: `/home/azureuser/.openclaw/workspace/backups/dev-deploy-2026-09-30T21-08-19-175Z-e1e288a`.
+- Exact-file preview and apply uploaded only the three authorized runtime files. Original scorer and skill backups were checked against their pre-deployment hashes. The helper was new, so it has no original-file backup.
+- Fresh post-upload comparison matched the full expected snapshot (baseline plus only the three selected changes). An independent SSH hash check confirmed the deployed files match the reviewed local commit, and both newer download scripts remain unchanged.
+
+| Deployed file | SHA-256 |
+| --- | --- |
+| `scripts/rfp-deadline.mjs` | `410a27b202947c6d74ef83ba0b9add5c02126e514b42aa1838b1f37cce3af238` |
+| `scripts/secondary-fulltext-score.mjs` | `ec0108c12f8e2d25edc1ce5620c502cd25fe9ea663a38469b354be0290ef7187` |
+| `skills/rfp-scoring-skill.md` | `87dc6d27bfc2307b7c279c29f59c87c4b25b00439310c365af71629c0c37ab74` |
+
+Preserved live hashes: `highergov-document-flow.mjs` remains `f2fdcd1520497dc055df40d4c8ea96d7d91c11fef3bc5530b31f7b0f82111496`; `weekly-rfp-pursue-decision.mjs` remains `0032dd7feaf153e96cfb4e15d2624ff466e122df9c60a62fa026ce41cc134ed7`.
+
+Pure functions were imported from the deployed scripts under VM Node `v24.18.0`, with network fetch disabled. Assertions passed for the synthetic MDR regression (October 26, 28 days as of September 28, four timeline points, synthetic total 77), ambiguous years, invalid calendar dates, unresolved deadline gates, current-date defaults, and report wording. These checks performed no business-job execution or production report/candidate writes. The normal RFP job, actual provider fetch, Telegram response, and scheduled invocation have not been verified by this release. Historical incorrect reports remain preserved as history.
+
+For a controlled rollback, first verify the exact release and that the three current hashes still match this release. Restore the original scorer and skill from `original/` in the backup root; remove only the newly added helper after the scorer no longer imports it. Verify restored hashes against `8525495f9a5534f1373dd52dc73209196454bfabcde04eff201e31f9f7c67b35` (scorer) and `0b355a3ff4b6c348405f5225b7c0fd60889ad3a32b84ea9e857aa45b997cf7f6` (skill). Rollback is a separately authorized operation and must not overwrite later VM edits or restore/resend stale reports.
 
 ## References
 
