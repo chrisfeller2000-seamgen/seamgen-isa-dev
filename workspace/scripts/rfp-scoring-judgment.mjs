@@ -36,11 +36,11 @@ const OUTPUT_CONTRACT = {
     }])),
     timeline: { points: 'integer; deadline helper owns final value' },
   },
-  value: { kind: "stated: the buyer's own project figure | inferred: a reasoned estimate, including a HigherGov listing estimate | uncertain: cannot reasonably be inferred above $100K",
+  value: { kind: 'stated|inferred|uncertain',
     estimate: 'number; null only when kind is uncertain', reason: 'scope/comparable basis', evidence: EVIDENCE },
   competitive: { verdict: 'Open|Leaning wired|Wired|Insufficient evidence', effortDeduction: '0 or -2..-4', wiredDeduction: '0, -2..-4, or -5..-8 per verdict',
     tells: EVIDENCE, counterEvidence: EVIDENCE, evidence: EVIDENCE },
-  bidStatus: 'open: a live solicitation, even when only its listing is supplied | closed: the notice explicitly invites no submissions | watch: only an RFI, Sources Sought, or pre-solicitation notice',
+  bidStatus: 'open|closed|watch',
   bidEvidence: [],
   requiredDocuments: [{
     name: 'buyer-issued solicitation/scoring attachment required for review, not bidder-created reference letters, cost proposals or company certificates; at preliminary depth, a document to retrieve, cited from the metadata listing',
@@ -103,7 +103,10 @@ const SYSTEM_RULES = [
   'Normative rules beat stale worked examples.',
   'Excerpt IDs are opaque: copy an ID from allowedExcerptIds, never infer its number or spelling.',
   'The caseStudy.project string must literally occur in a selected case-study excerpt: use the name or abbreviation actually present, not an expanded or combined alias (if the excerpt says HCP, write HCP).',
+  'Enumerated fields hold exactly one listed value, with no added description.',
   'subrules.submission.status is exactly feasible, blocked, or unknown; the route goes in basis.',
+  "value.kind: stated means the buyer's own project figure; inferred means a reasoned estimate, including a HigherGov listing estimate; uncertain means it cannot reasonably be inferred above $100K.",
+  'bidStatus: open for a live solicitation, even when only its listing is supplied; closed when the notice explicitly invites no submissions; watch only for an RFI, Sources Sought, or pre-solicitation notice.',
   'At preliminary depth only the listing is supplied; that is expected, not a missing document.',
   'Unless a gate is known false, return all eight categories at metadata depth and list the buyer documents to retrieve in requiredDocuments, citing metadata.',
   'At full-text depth, if the requirements are supplied but a gate remains unknown, still return the eight provisional category judgments; code withholds the final total.',
@@ -208,7 +211,8 @@ export async function createOpenClawJudge({ packageDir = process.env.RFP_OPENCLA
   };
 }
 
-export async function scoreRfp(input, { judge, workspace = process.env.WORKSPACE_DIR || '/home/azureuser/.openclaw/workspace', timeoutMs = 120000 } = {}) {
+// High-reasoning calls on large solicitation packages took up to ~2 minutes on October 5.
+export async function scoreRfp(input, { judge, workspace = process.env.WORKSPACE_DIR || '/home/azureuser/.openclaw/workspace', timeoutMs = 300000 } = {}) {
   let failureStage = 'context-unavailable';
   try {
     let policies = input.policies || globalThis[policiesSymbol], companySources = input.companySources || globalThis[sourcesSymbol];

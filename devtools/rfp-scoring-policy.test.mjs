@@ -78,6 +78,11 @@ test('the weekly adapter returns the shared scorer result from one bounded judge
     assert.match(systemPrompt, /still return the eight provisional category judgments/);
     assert.match(systemPrompt, /At preliminary depth only the listing is supplied/);
     const suppliedPacket = JSON.parse(prompt);
+    // Enumerated fields stay plain lists; a description inside one gets copied as the value.
+    assert.equal(suppliedPacket.outputContract.value.kind, 'stated|inferred|uncertain');
+    assert.equal(suppliedPacket.outputContract.bidStatus, 'open|closed|watch');
+    assert.equal(suppliedPacket.outputContract.subrules.submission.status, 'feasible|blocked|unknown');
+    assert.match(systemPrompt, /inferred means a reasoned estimate, including a HigherGov listing estimate/);
     assert.deepEqual(suppliedPacket.allowedExcerptIds, suppliedPacket.sources.flatMap(source => source.excerpts.map(item => item.id)));
     assert.match(prompt, /capability-only excerpt without the project name is insufficient/);
     assert.match(prompt, /for a technology-agnostic buy, cite the proven stack/);
