@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildEvidenceCatalog, resolveEvidenceReferences, scoreRfp } from '../workspace/scripts/rfp-scoring-judgment.mjs';
+import { buildEvidenceCatalog, resolveEvidenceReferences, scoreRfp, MAX_PACKET_CHARS } from '../workspace/scripts/rfp-scoring-judgment.mjs';
 import { finalizeRfpScore, scoringSources } from '../workspace/scripts/rfp-scoring-policy.mjs';
 import { companySources, fixturePolicies, recordedJudgment, referenceJudgment } from './fixtures/rfp-recorded-judgments.mjs';
 import { alignmentCases } from './fixtures/rfp-alignment-cases.mjs';
@@ -92,7 +92,7 @@ test('source instructions stay evidence; context bounds fail before invoking the
     return JSON.stringify(referenceJudgment(recordedJudgment(input), parsed.sources));
   } });
   assert.equal(scored.scoring_error, undefined);
-  input.documents[0].text = 'x'.repeat(450001);
+  input.documents[0].text = 'x'.repeat(MAX_PACKET_CHARS + 1);
   let called = false;
   const oversized = await scoreRfp(input, { judge: async () => { called = true; return '{}'; } });
   assert.equal(called, false);

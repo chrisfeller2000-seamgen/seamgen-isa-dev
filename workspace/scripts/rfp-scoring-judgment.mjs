@@ -8,7 +8,10 @@ import crypto from 'node:crypto';
 import { CATEGORY_BANDS, finalizeRfpScore, scoringSources, unscoredRfp } from './rfp-scoring-policy.mjs';
 
 const runFile = promisify(execFile);
-const MAX_PACKET_CHARS = 450000;
+// ISA's model (openai/gpt-6-luna) has a ~1.05M-token context window. Real solicitation
+// packages with requirement matrices reached ~580k characters of text on October 5;
+// ~1.5M characters (~375k tokens) leaves ample room. Larger packets stop unscored.
+export const MAX_PACKET_CHARS = 1500000;
 const MAX_RESPONSE_CHARS = 100000;
 const MAX_EXCERPT_CHARS = 4000;
 const MAX_RESOLVED_QUOTE_CHARS = 250000;
@@ -29,7 +32,7 @@ const OUTPUT_CONTRACT = {
   categories: {
     ...Object.fromEntries(Object.entries(CATEGORY_BANDS).map(([key, bands]) => [key, {
       band: Object.keys(bands).join('|'), points: 'integer within band', reason: 'explanation', evidence: EVIDENCE,
-      ...(key === 'caseStudy' ? { project: 'literal project/client name appearing in a selected case-study excerpt, or null; copy it as written there, not an expanded or combined alias' } : {}),
+      ...(key === 'caseStudy' ? { project: 'literal project/client name appearing in a selected case-study excerpt, or null; copy it exactly as written there: if the excerpt says HCP, write HCP, not Healthcare Partners (HCP)' } : {}),
     }])),
     timeline: { points: 'integer; deadline helper owns final value' },
   },
@@ -47,7 +50,7 @@ const OUTPUT_CONTRACT = {
   conditional: 'null or {rule: 2|2a, question, qaStatus: open|closed|unknown, qaDueDate: verified YYYY-MM-DD or null, qaBasis: deadline|confirmed-none-posted|unknown, commercialOnly: boolean, evidence: []}. Confirmed-none-posted requires actual document evidence, not missing metadata. For a conditional gate set gate2 null, not an approved pass.',
   subrules: {
     product: { hardProductObligations: 'boolean or null; existing installs / mandatory demos', partner: 'null or {name, verified:true, sellsThroughIntegrators:true, evidence:company citations}', evidence: [] },
-    submission: { status: 'feasible|blocked|unknown (nothing supplied shows how to submit; evidence may then be empty)', basis: 'existing-account|feasible-registration|allowed-method, not contact-email', evidence: [] },
+    submission: { status: 'feasible|blocked|unknown', basis: 'existing-account|feasible-registration|allowed-method, not contact-email', evidence: [] },
     eligibility: {
       publicReferences: 'required count or null when unknown; generic references are not public',
       availableGovernmentReferences: 'verified accepted count or null. Two strictly governmental references cannot be covered by one government and one nonprofit unless explicitly allowed.',
@@ -99,7 +102,8 @@ const SYSTEM_RULES = [
   'Preserve uncertainty.',
   'Normative rules beat stale worked examples.',
   'Excerpt IDs are opaque: copy an ID from allowedExcerptIds, never infer its number or spelling.',
-  'The caseStudy.project string must literally occur in a selected case-study excerpt: use the name or abbreviation actually present, not an expanded or combined alias.',
+  'The caseStudy.project string must literally occur in a selected case-study excerpt: use the name or abbreviation actually present, not an expanded or combined alias (if the excerpt says HCP, write HCP).',
+  'subrules.submission.status is exactly feasible, blocked, or unknown; the route goes in basis.',
   'At preliminary depth only the listing is supplied; that is expected, not a missing document.',
   'Unless a gate is known false, return all eight categories at metadata depth and list the buyer documents to retrieve in requiredDocuments, citing metadata.',
   'At full-text depth, if the requirements are supplied but a gate remains unknown, still return the eight provisional category judgments; code withholds the final total.',
