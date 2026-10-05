@@ -196,10 +196,15 @@ test('before documents exist, documents to retrieve cite the listing and never b
   assert.throws(() => finalize(packet(), toRetrieve), /citation does not match/);
 });
 
-test('an unknown submission route needs no citation; a definite one still does', () => {
-  const unknown = finalize(packet(), j => { j.subrules.submission = { status: 'unknown', basis: 'unknown', evidence: [] }; });
+test('an unknown gate or submission route needs no citation; a definite one still does', () => {
+  const unknown = finalize(packet(), j => {
+    j.gates.gate4 = { pass: null, reason: 'The listing does not say how to submit.', evidence: [] };
+    j.subrules.submission = { status: 'unknown', basis: 'unknown', evidence: [] };
+  });
   assert.equal(unknown.gate.gate4, null);
+  assert.equal(unknown.recommendation, 'Needs review');
   assert.throws(() => finalize(packet(), j => { j.subrules.submission.evidence = []; }), /Missing scoring evidence/);
+  assert.throws(() => finalize(packet(), j => { j.gates.gate3.evidence = []; }), /Missing scoring evidence/);
 });
 
 test('preliminary deadline and value reasons state the actual listing facts', () => {

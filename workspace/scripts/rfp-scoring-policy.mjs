@@ -230,7 +230,8 @@ function resolveGates(judgment, sources, timeline, value) {
   for (const name of GATE_NAMES) {
     const item = judgment.gates[name];
     if (!item || ![true, false, null].includes(item.pass) || !norm(item.reason)) throw new Error('Invalid gate judgment.');
-    cite(item.evidence, sources);
+    // An unknown gate still needs a reason, but has nothing to cite and never passes.
+    cite(item.evidence, sources, { required: item.pass !== null });
     gate[name] = item.pass;
     gateReasons.push({ gate: name.replace('gate', 'Gate '), pass: item.pass, reason: item.reason });
   }
