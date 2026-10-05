@@ -1,6 +1,6 @@
 # ISA secondary scorer: no final score without the solicitation
 
-Status: Implemented and committed locally October 5, 2026; offline tests pass. Not pushed or deployed.
+Status: Deployed to the VM October 5, 2026 (three files); post-deploy checks passed. The normal secondary job has not run since. Branch not pushed.
 Task branch: `fix/rfp-evidence-gate`, created from `7d39fca` (the deployed September 30 deadline release)
 Integration target: `main` (the two deadline commits in this base are not on `main` yet)
 Scope: the secondary full-text scorer and its report, file-name classification in the shared HigherGov helper, and one line of ISA's scoring skill. The weekly job's code is not changed.
@@ -152,7 +152,8 @@ The AI-scoring branch (`test/rfp-rubric-alignment`, uncommitted) rewrites the sa
 - [x] Skill line and domain docs updated.
 - [x] `npm test`, `npm run check`, `git diff --check` pass; diff reviewed.
 - [x] Committed locally on request.
-- [ ] Push and PR only on request; release only on a separate request.
+- [x] Released to the VM on Chris's explicit request (see Deployment evidence).
+- [ ] Push and PR only on request.
 
 ## References
 
@@ -162,3 +163,22 @@ The AI-scoring branch (`test/rfp-rubric-alignment`, uncommitted) rewrites the sa
 - [RFP deadline selection and scoring](../2026-09-30__rfp-deadline-scoring/spec.md)
 - [Deployment boundaries](../../deployment.md)
 - [Security and data boundaries](../../security.md)
+
+## Deployment evidence — October 5, 2026
+
+Chris asked to deploy straight to the VM. Exact-file release of commit `b872cbc`; no service restart, schedule, configuration, or credential change.
+
+- Before upload: read-only check at 21:29 and 21:35 UTC found no VM change since the accepted baseline and no RFP job running. The preview listed only the three files below, with no excluded differences.
+- Release: `dev-deploy-2026-10-05T21-37-52-242Z-b872cbc`, uploaded at 21:40 UTC. Backup root: `/home/azureuser/.openclaw/workspace/backups/dev-deploy-2026-10-05T21-37-52-242Z-b872cbc` (`original/` holds the prior files).
+
+| Deployed file | New SHA-256 | Prior SHA-256 (in backup) |
+| --- | --- | --- |
+| `scripts/secondary-fulltext-score.mjs` | `a044acfadbb133ab39c45f6d11a799874f3eeb477ef275667034efd491a78eeb` | `ec0108c12f8e2d25edc1ce5620c502cd25fe9ea663a38469b354be0290ef7187` |
+| `scripts/highergov-document-flow.mjs` | `1e0d4698a158f0ba9998bb7c55f534d2442ad0c8ce4bc851b2b406020b4e4492` | `f2fdcd1520497dc055df40d4c8ea96d7d91c11fef3bc5530b31f7b0f82111496` |
+| `skills/rfp-scoring-skill.md` | `4975d7383677673fb3baff1e723498cfcbaa1633e748811c1e133ec24e6a44c0` | `87dc6d27bfc2307b7c279c29f59c87c4b25b00439310c365af71629c0c37ab74` |
+
+- After upload: independent SSH hashes match the commit; `weekly-rfp-pursue-decision.mjs` (`0032dd7f…`) and `rfp-deadline.mjs` (`410a27b2…`) are unchanged; both scripts pass `node --check` under VM Node v24.21.0; a fresh `live:pull` shows no difference between the VM and this branch.
+- Pure functions imported from the deployed files on the VM, network disabled, passed six checks: the weekly job's helper imports, file-name roles, the completeness check, the Needs documents result, the unchanged deadline regression (Oct 26, 28 days, 4 points, 77, Strong Pursue), and report counts and ordering. No business job, provider request, candidate or report write, or message was involved.
+- Not yet observed: a real secondary run. The next one is the first production evidence; check its Needs documents count and reasons.
+
+Rollback, if needed and separately requested: confirm the three VM files still have the new hashes above, copy the three files from the backup's `original/` folder back into place, and verify the prior hashes. Do not overwrite later VM edits or restore old reports.
