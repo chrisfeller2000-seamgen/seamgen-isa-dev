@@ -1,6 +1,39 @@
-# Local implementation record — September 30, 2026
+# Local implementation record
 
-## Status and proof
+## October 5, 2026 update
+
+Committed on `test/rfp-rubric-alignment`; not pushed or deployed.
+
+- `91a5c2b` preserves the September 30 work exactly as found.
+- `9c7c218` merges `fix/rfp-evidence-gate`, so the branch starts from the code deployed on the VM: the HigherGov lookup/retry helper, the weekly job, and the secondary "Needs documents" gate. A readable solicitation goes to the shared AI scorer; anything else is Needs documents without a model call. The weekly job, secondary scorer, and policy share one file classifier, including content recognition of the solicitation.
+- `308c5e7` fixes the preliminary contract behind the failed September 30 batch, where all four preliminary scores were null:
+  - Documents to retrieve may cite the listing before any documents exist.
+  - The prompt asks for all eight categories at metadata depth.
+  - "Watch" needs RFI, Sources Sought, or pre-solicitation evidence.
+
+  Offline replay of the four retained answers: the reference-blocker answer now validates (provisional 92, documents fetched). The answer that omitted categories and the two watch answers stay unscored. A fresh bounded model run is still needed to show that the prompt change works.
+- `506847e` and the following documentation commit simplify without changing rules:
+  - The finalizer is split into named steps.
+  - The model-facing contract is written once.
+  - The regex/vm alignment harness and `npm run rfp:alignment` are replaced by `devtools/rfp-alignment.test.mjs`.
+  - Unscored and early-return results carry null categories instead of zeros.
+
+Checks: `npm test` 111/111 (including all 31 rubric cases), `npm run check` 16 scripts, `git diff --check` pass. All offline.
+
+Also found on October 5:
+
+- **Keyword No-bids.** With the deployed keyword scorer, all 18 of the 42 real September 30 RFPs that were scored from documents came out No-bid on keyword gates. All 18 failed the hardware keyword. This work replaces that scorer; see the [needs-documents spec](../2026-10-05__rfp-needs-documents/spec.md).
+- **Title matching.** The secondary now matches report titles exactly. 131 of 135 current report entries match one candidate; 4 shortened titles go to Needs review instead of being guessed. Adding the slug to weekly report entries would close that gap.
+
+Next steps, each needing separate approval:
+
+1. Upload the reviewed Case Studies/Assets files to the VM.
+2. Run a bounded real-model batch on real RFPs, covering preliminary selection and full-text scoring.
+3. Release the weekly job, secondary scorer, document helper, policy, and adapter together, coordinated with Sam and Hugo.
+
+## September 30 status and proof
+
+The `npm run rfp:alignment` command named below was replaced on October 5 by `devtools/rfp-alignment.test.mjs`.
 
 Shared scoring is implemented on `test/rfp-rubric-alignment`, based on `7d39fca`. Refreshed `origin/main` remained `26c5cdd`. Existing deadline work and pending task files were preserved. Initial user-authorized model requests and a subsequent original-recipe comparison ran in isolation; see [model-evaluation.md](model-evaluation.md) and [reference-comparison.md](reference-comparison.md). The comparison exposed release blockers, not complete practical alignment. No commit, push, merge, deployment, business job, credential creation, or credential copy was performed.
 

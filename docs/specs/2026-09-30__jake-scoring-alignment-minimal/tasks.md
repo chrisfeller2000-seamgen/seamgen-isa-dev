@@ -1,6 +1,6 @@
 # Complete Jake scoring alignment: task ledger
 
-**Status: local implementation/offline proof completed; controlled original-recipe comparison found release blockers.** Practical alignment and release remain pending. See [model-evaluation.md](model-evaluation.md) and [reference-comparison.md](reference-comparison.md); no production deployment.
+**Status: implemented locally; updated October 5, 2026 with the deployed evidence gate and a fix for the preliminary contract. Offline proof passes; not deployed.** A bounded real-model batch, current qualification confirmation, the company-file upload, and release remain pending. See [implementation.md](implementation.md).
 
 ## 0. Baseline and inputs
 
@@ -86,6 +86,15 @@ VM upload steps remain pending. Model tests received the evidence in memory thro
 - [ ] Summarize scope, measured results, remaining provider/document limitations, and exact changed source files.
 - [ ] Review the diff and sensitive-data boundary. Commit/push/merge only when requested.
 - [ ] Integrate tracked code/docs together; preserve deadline and other parallel-task work.
+
+## October 5 update
+
+- [x] Commit the September 30 work as found; merge the deployed evidence gate and the VM's code.
+- [x] Fix the preliminary contract; replay the retained batch answers offline.
+- [x] Simplify the policy, adapter, and alignment tests without changing rules.
+- [ ] Upload reviewed Case Studies/Assets to the VM (separate approval).
+- [ ] Run a bounded real-model batch on real RFPs: preliminary selection and full-text scoring (separate approval for model usage).
+- [ ] Release the weekly job, secondary scorer, document helper, policy, and adapter together (separate approval; coordinate with Sam and Hugo).
 
 ## Release — separate request required
 

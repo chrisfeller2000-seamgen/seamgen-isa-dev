@@ -1,6 +1,6 @@
 # Plan: complete Jake scoring alignment, focused implementation
 
-**Status: shared scorer and caller integration implemented locally; original-recipe model comparison exposed release blockers.** Read [spec.md](spec.md) for the acceptance bar, [model-evaluation.md](model-evaluation.md) for initial tests, and [reference-comparison.md](reference-comparison.md) for the additional same-input checks. Complete practical alignment and release remain pending.
+**Status: implemented locally; updated October 5, 2026 with the deployed evidence gate and a fix for the preliminary contract. Offline proof passes; not deployed.** A bounded real-model batch, current qualification confirmation, the company-file upload, and release remain pending. See [implementation.md](implementation.md).
 
 ## Shape
 
@@ -78,7 +78,7 @@ The authorized response-reliability follow-up supplies paragraph IDs and resolve
 | Secondary: `fetchAndExtract`, `buildSecondaryReport` | Record extraction and package completeness; no candidate-body fallback presented as full-text. Reports consume the validated recommendation/confidence. |
 | VM-reconciled document helper: `classifyDocumentRecord`, `evaluateDocumentCompleteness` | Narrow scoring-evidence fixes: solicitation vs ancillary documents, `RFP_Final`, known missing required documents, and extraction status. Preserve newer HigherGov lookup behavior. |
 | `rfp-deadline.mjs` | Reuse the approved helper unchanged unless a separately demonstrated new defect requires a scoped fix. |
-| `devtools/rfp-alignment-adapter.mjs`, fixtures/tests | Exercise the real shared finalizer with recorded judgments and both callers with an injected transport; do not import/run the weekly business job merely to test a function. |
+| `devtools/rfp-alignment.test.mjs`, fixtures/tests | Run the real finalizer with recorded judgments and both callers with an injected transport. The weekly module guards its entry point, so tests import it directly; no business job runs. |
 | Focused RFP docs and allowlist | Update enduring rules with the implemented behavior. Add only new source/helper paths needed for controlled transfer; never widen to private assets/state. |
 
 Intake prefilter parity remains covered by the existing four synthetic record cases. Fix a demonstrated scoring-policy exclusion mismatch if one appears, but do not change saved searches, pagination, quotas, resets, or watermark mechanics to force September 22 counts.
@@ -111,7 +111,7 @@ Small reviewable commits are useful; a separate user approval for every internal
 
 ## Source/release safety
 
-Implementation branch: `test/rfp-rubric-alignment`, based on `7d39fca`, with pending source/tests/docs. `origin/main` remained `26c5cdd` when refreshed September 30. The task includes the deployed deadline commits, not yet integrated into main.
+Implementation branch: `test/rfp-rubric-alignment`. On October 5 it was committed and merged with the deployed evidence gate (`fix/rfp-evidence-gate`), which also brings in the VM's weekly job and HigherGov helper; see [implementation.md](implementation.md).
 
 The read-only VM snapshot was refreshed before implementation. Newer weekly `0032dd7f…` and document helper `f2fdcd15…` source were reviewed and reconciled locally; secondary `ec0108c1…` matched tracked source. Preserve this baseline and refresh again before any release; these hashes are not permission to overwrite current VM files.
 

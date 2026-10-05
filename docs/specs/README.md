@@ -2,8 +2,7 @@
 
 ## Active local specs
 
-- [Complete Jake scoring alignment](2026-09-30__jake-scoring-alignment-minimal/spec.md): shared scoring and offline tests pass locally. Private evidence setup, initial model checks, and an [original-recipe comparison](2026-09-30__jake-scoring-alignment-minimal/reference-comparison.md) are recorded. The comparison exposed quote reliability and near-cutoff decision blockers; practical alignment, current qualification confirmation, publication, and deployment remain pending.
-- [ISA / Jake RFP rubric alignment](2026-09-30__rfp-rubric-alignment/spec.md): original baseline/spec retained. The current strict synthetic suite passes using recorded judgments; this is not production or AI-alignment proof.
+- [Complete Jake scoring alignment](2026-09-30__jake-scoring-alignment-minimal/spec.md): shared AI scoring on `test/rfp-rubric-alignment`, merged October 5 with the deployed evidence gate and a fix for the preliminary contract. Offline tests pass; a bounded real-model batch, the company-file upload, and release remain pending. Earlier model checks are in the [implementation record](2026-09-30__jake-scoring-alignment-minimal/implementation.md).
 - [RFP deadline selection and scoring](2026-09-30__rfp-deadline-scoring/spec.md): three-file patch deployed September 30 from `docs/rfp-deadline-scoring`; isolated VM checks passed, normal production job not run.
 - [Secondary scorer: no final score without the solicitation](2026-10-05__rfp-needs-documents/spec.md): three-file patch deployed October 5 from `fix/rfp-evidence-gate`; post-deploy checks passed, normal secondary job not run since.
 

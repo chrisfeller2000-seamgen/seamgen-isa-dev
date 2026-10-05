@@ -1,10 +1,10 @@
 # ISA task spec: complete alignment with Jake's RFP scoring
 
-**Status: implemented locally September 30, 2026; offline proof passes, but controlled original-recipe comparison exposed release blockers.** Complete practical alignment, current qualification confirmation, publication, and deployment remain pending. No production job ran. See [implementation.md](implementation.md), [model-evaluation.md](model-evaluation.md), and [reference-comparison.md](reference-comparison.md) for proof and limits.
+**Status: implemented locally; updated October 5, 2026 with the deployed evidence gate and a fix for the preliminary contract. Offline proof passes; not deployed.** A bounded real-model batch, current qualification confirmation, the company-file upload, and release remain pending. See [implementation.md](implementation.md).
 
 **Goal:** ISA must apply Jake's complete scoring policy, in both preliminary and full-text scoring. Keep the implementation focused; do not leave required rules out just to make the patch smaller.
 
-This replaces this folder's earlier partial-correction proposal. The folder retains its original name for existing links. The [broader architecture draft](../2026-09-30__jake-rfp-integration-alignment/spec.md) is reference only, not the implementation plan. The [comparison harness](../2026-09-30__rfp-rubric-alignment/spec.md) remains the baseline.
+This replaces this folder's earlier partial-correction proposal. The folder retains its original name for existing links.
 
 ## Problem and evidence
 
@@ -137,7 +137,7 @@ Implementation is not complete at “about 20/31.” Required proof:
 - Test actual caller wiring, stored outcomes, threshold selection, and report classification in a temporary workspace with all outbound effects blocked.
 - Retain the deadline regression: October 26 submission, September 30 assessment, 26 days, 4 timeline points, and “Approved 5/7/75” ignored. Do not freeze a legacy total of 77 if correcting another category legitimately changes it.
 - With separately authorized model access, compare Jake's workflow and ISA on identical input packets and dates. Review exact gate/decision agreement and evidence-grounded category bands, repeat runs, and explain differences. Do not compare historical counts from different input batches.
-- `npm test`, `npm run check`, `git diff --check`, and strict `rfp:alignment` pass on the implemented source. Snapshot results identify their hashes and can remain red until that source is separately deployed.
+- `npm test` (including all 31 rubric cases), `npm run check`, and `git diff --check` pass on the implemented source.
 
 Unresolved policy ambiguities must be recorded and settled, not hidden by weakened fixtures. A deterministic fixture pass alone is not proof of real-model alignment.
 
