@@ -77,13 +77,21 @@ Proposal due date: October 26, 2026. This is a candidate note, not document evid
         assert.match(markdown, /2026-10-26 16:30 -04:00/);
       } else {
         assert.equal(row.fulltext_score, null);
-        assert.equal(row.recommendation, 'Deadline needs review');
         assert.equal(result.summary.strongPursue, 0);
-        assert.equal(result.summary.deadlineNeedsReview, 1);
         assert.equal(row.timeline.status, scenario === 'empty' ? 'metadata-only' : scenario === 'conflict' ? 'conflicting' : 'invalid');
         assert.equal(row.gate.gate1, null);
-        assert.match(markdown, /Full-text: Not finalized/);
-        if (scenario === 'empty') assert.equal(row.fetchStatus, 'document-list-empty');
+        if (scenario === 'empty') {
+          // With no documents the problem is missing evidence, not the deadline.
+          assert.equal(row.fetchStatus, 'document-list-empty');
+          assert.equal(row.recommendation, 'Needs documents');
+          assert.equal(result.summary.needsDocuments, 1);
+          assert.equal(result.summary.deadlineNeedsReview, 0);
+          assert.match(markdown, /Full-text: Not scored \(needs documents\)/);
+        } else {
+          assert.equal(row.recommendation, 'Deadline needs review');
+          assert.equal(result.summary.deadlineNeedsReview, 1);
+          assert.match(markdown, /Full-text: Not finalized/);
+        }
       }
       assert.equal(await fs.readFile(statePath, 'utf8'), state);
       assert.equal(await fs.readFile(candidatePath, 'utf8'), candidateText);

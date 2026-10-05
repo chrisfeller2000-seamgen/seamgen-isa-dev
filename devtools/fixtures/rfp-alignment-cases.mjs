@@ -1,5 +1,7 @@
 // Invented opportunities only. These are rubric-derived expectations for review,
 // not outputs obtained by running Jake's Claude workflow or approved by Jake.
+// Scoring cases run recorded judgments through the real validator/finalizer, so
+// they prove the deterministic rules around a judgment, not AI agreement.
 export const rubricContract = {
   assessmentDate: '2026-09-30',
   assessmentTimeZone: 'UTC',
@@ -68,14 +70,14 @@ function scoringCase(id, name, options = {}, checks = []) {
   };
 }
 
-function gate(number, value, rule, phases = ['weekly.document', 'secondary']) {
-  return phases.map(phase => ({ field: `${phase}.gates.gate${number}`, op: 'eq', expected: value, rule }));
+function gate(number, value, rule) {
+  return [{ field: `document.gate.gate${number}`, op: 'eq', expected: value, rule }];
 }
 
 export const alignmentCases = [
   scoringCase('clean-custom-build', 'Document-backed custom software request', {}, [
     ...[1, 2, 3, 4, 5, 6].flatMap(n => gate(n, true, ['timeline', 'custom', 'hardware', 'submit', 'value', 'qualifications'][n - 1])),
-    { field: 'weekly.document.categoryCount', op: 'eq', expected: 8, rule: 'Eight weighted categories must be distinguishable, not one keyword-fit total.' },
+    { field: 'document.categoryCount', op: 'eq', expected: 8, rule: 'Eight weighted categories must be distinguishable, not one keyword-fit total.' },
   ]),
   scoringCase('value-5000', '$5K project is below the minimum', { value: 5000 }, gate(5, false, 'value')),
   scoringCase('value-99999', '$99,999 is still below the minimum', { value: 99999 }, gate(5, false, 'value')),
@@ -95,25 +97,25 @@ export const alignmentCases = [
   scoringCase('question-versus-proposal', 'A nearby question deadline does not replace the proposal deadline', { extra: 'Questions deadline: October 5, 2026.' }, gate(1, true, 'timeline')),
   scoringCase('approval-date', 'A form approval date does not replace the proposal deadline', { extra: 'Approved 5/7/75.' }, [
     ...gate(1, true, 'timeline'),
-    { field: 'secondary.timeline.due', op: 'eq', expected: '2026-10-26', rule: 'timeline' },
-    { field: 'secondary.categories.timeline', op: 'eq', expected: 4, rule: 'timeline' },
+    { field: 'document.timeline.due', op: 'eq', expected: '2026-10-26', rule: 'timeline' },
+    { field: 'document.categories.timeline', op: 'eq', expected: 4, rule: 'timeline' },
   ]),
   scoringCase('closed-notice', 'An explicit non-procurement notice is not a bid recommendation', { extra: 'This is a single source contract notification. This is not a procurement opportunity. No submissions are solicited.' }, [
-    { field: 'secondary.recommendation', op: 'not', expected: 'Strong Pursue', rule: 'biddability' },
+    { field: 'document.recommendation', op: 'not', expected: 'Strong Pursue', rule: 'biddability' },
   ]),
   scoringCase('no-documents', 'No extracted documents cannot finalize the secondary score', { documents: [] }, [
-    { field: 'secondary.total', op: 'eq', expected: null, rule: 'documents' },
-    { field: 'secondary.recommendation', op: 'not', expected: 'Strong Pursue', rule: 'documents' },
+    { field: 'document.total', op: 'eq', expected: null, rule: 'documents' },
+    { field: 'document.recommendation', op: 'not', expected: 'Strong Pursue', rule: 'documents' },
   ]),
   scoringCase('rating-form-only', 'An evaluation form with a date is not the solicitation', { documents: [{ file: 'RFP COMMITTEE RATING FORM.txt', text: 'Proposal deadline: October 26, 2026. Evaluation form: technical approach 40%, team experience 30%, cost 30%.' }] }, [
-    { field: 'secondary.total', op: 'eq', expected: null, rule: 'documents' },
+    { field: 'document.total', op: 'eq', expected: null, rule: 'documents' },
   ]),
   scoringCase('case-match-control', 'Control for incidental bid wording', { scope: 'Custom build a secure internal portal on Azure.' }),
   scoringCase('case-match-bid', 'The word bid does not establish a closer case study', { scope: 'Custom build a secure internal portal on Azure.', extra: 'Submit a bid.' }, [
-    { field: 'secondary.categories.caseStudy', op: 'sameAs', caseId: 'case-match-control', otherField: 'secondary.categories.caseStudy', rule: 'caseStudy' },
+    { field: 'document.categories.caseStudy', op: 'sameAs', caseId: 'case-match-control', otherField: 'document.categories.caseStudy', rule: 'caseStudy' },
   ]),
   scoringCase('ai-email', 'Email wording does not establish an AI component', { scope: 'Custom build a secure internal portal on Azure.', extra: 'Email the procurement contact for questions.' }, [
-    { field: 'secondary.categories.ai', op: 'between', expected: [0, 2], rule: 'ai' },
+    { field: 'document.categories.ai', op: 'between', expected: [0, 2], rule: 'ai' },
   ]),
   ...[
     ['intake-rfi', 'An RFI is separated before full scoring', { opp_type: { description: 'Request for Information' } }, false],

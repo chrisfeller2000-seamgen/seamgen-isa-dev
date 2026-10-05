@@ -4,9 +4,8 @@ import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createAssessmentContext } from './rfp-deadline.mjs';
-import { finalizeRfpScore, unscoredRfp } from './rfp-scoring-policy.mjs';
+import { unscoredRfp } from './rfp-scoring-policy.mjs';
 import { scoreRfp } from './rfp-scoring-judgment.mjs';
-
 import {
   classifyDocumentRecord,
   evaluateDocumentCompleteness,
@@ -245,8 +244,10 @@ async function fetchAndExtract(candidate, config, apiKey) {
   const resourcesDir = path.join(os.tmpdir(), `secondary-fulltext-${candidate.frontmatter.slug || 'rfp'}-${Date.now()}`, 'resources');
   await fs.mkdir(resourcesDir, { recursive: true });
   const capturedDate = normalize(candidate.frontmatter.captured_date || '');
+  // Reasons reach the report and ISA's chat answers. They are fixed text because
+  // provider errors and download links can carry API keys or signed URLs.
   if (!capturedDate) {
-    return { status: 'metadata-only', reason: 'Missing captured_date for HigherGov lookup.' };
+    return { status: 'metadata-only', reason: 'Listing could not be looked up in HigherGov (no capture date).' };
   }
   const records = await loadOpportunityRecordsForDate(apiKey, config, capturedDate);
   const versionKey = normalize(candidate.frontmatter.version_key || '');
@@ -257,19 +258,19 @@ async function fetchAndExtract(candidate, config, apiKey) {
     return (versionKey && recordVersionKey === versionKey) || (oppKey && recordOppKey === oppKey);
   });
   if (!lookupRecord) {
-    return { status: 'failed', reason: 'Could not rehydrate opportunity record.' };
+    return { status: 'failed', reason: 'Listing could not be found again in HigherGov.' };
   }
   const documentPath = normalize(lookupRecord.document_path || '');
   if (!documentPath) {
-    return { status: 'access-blocked', reason: 'Opportunity record did not expose a document_path.' };
+    return { status: 'access-blocked', reason: 'HigherGov listing has no documents link.' };
   }
   const documentRecords = await listDocumentRecords({ apiKey, documentPath }).catch((error) => ({ __error: error }));
   if (documentRecords.__error) {
-    return { status: 'failed', reason: documentRecords.__error?.message || 'Document lookup failed.' };
+    return { status: 'failed', reason: 'Document retrieval failed.' };
   }
   if (!Array.isArray(documentRecords) || !documentRecords.length) {
     // Keep the newer live distinction: an empty list is not proven access denial.
-    return { status: 'document-list-empty', reason: 'No document records returned.' };
+    return { status: 'document-list-empty', reason: 'HigherGov returned no documents.' };
   }
   const manifest = [];
   for (let i = 0; i < documentRecords.length; i += 1) {
@@ -279,6 +280,8 @@ async function fetchAndExtract(candidate, config, apiKey) {
       resourcesDir,
       index: i,
     }).catch((error) => ({
+      // Keep the file's role so a required attachment that failed still blocks a final score.
+      ...classifyDocumentRecord(documentRecords[i]),
       source_file_name: normalize(documentRecords[i]?.file_name || documentRecords[i]?.name || ''),
       local_path: '',
       local_file_name: '',
@@ -289,39 +292,31 @@ async function fetchAndExtract(candidate, config, apiKey) {
     }));
     manifest.push(row);
   }
-  const texts = [];
   const documents = [];
-  const extractedTextByPath = new Map();
   for (const row of manifest) {
     if (!row.downloaded || !row.local_path) continue;
     const extracted = String(await extractText(row.local_path)).trim();
+    // Same rule as the weekly job: only non-empty text counts as extracted evidence.
     row.extracted = Boolean(extracted);
-    row.document_status = extracted ? 'downloaded and extracted' : 'downloaded but unsupported';
+    row.extracted_text_chars = normalize(extracted).length;
     if (!extracted) continue;
+    // Re-classify with the text: agencies often name the RFP after the project.
     Object.assign(row, classifyDocumentRecord({ file_name: row.source_file_name || row.local_file_name, text: extracted }));
-    extractedTextByPath.set(row.local_path, extracted);
-    // Preserve existing business-category text normalization; deadline evidence keeps lines.
-    texts.push(`## ${row.local_file_name || row.source_file_name}\n${normalize(extracted)}`);
     documents.push({ name: row.local_file_name || row.source_file_name, text: extracted });
   }
+  // Downloaded files are not proof that the solicitation was read. Apply the weekly
+  // job's check: a readable solicitation and no missing or unreadable required document.
+  const completeness = evaluateDocumentCompleteness({ manifest });
+  // A scored RFP still lists files nobody read, such as an old-format contract template.
+  const unread = manifest.filter((row) => !row.extracted).map((row) => row.source_file_name || row.local_file_name);
   return {
-    status: 'downloaded',
+    status: completeness.complete ? 'downloaded' : completeness.status,
+    reason: completeness.complete ? (unread.length ? `Files not read: ${unread.join('; ')}` : '') : completeness.reasons.join('; '),
     resourcesDir,
     manifest,
     documents,
-    completeness: evaluateDocumentCompleteness({ manifest, extractedTextByPath }),
-    text: texts.join('\n\n').trim(),
+    completeness,
   };
-}
-
-export function buildScore(candidate, fullText, { documents = [], assessment = createAssessmentContext(), judgment, companySources = [], landscapeSources = [], completeness } = {}) {
-  const input = { candidate, documents, assessment, companySources, landscapeSources, completeness, phase: 'full-text' };
-  // fullText is retained for caller compatibility, never treated as a document.
-  return judgment ? finalizeRfpScore(input, judgment) : unscoredRfp(input, 'No validated AI judgment was supplied.');
-}
-
-export async function scoreSecondaryCandidate(candidate, { documents = [], assessment = createAssessmentContext(), completeness, companySources, policies, landscapeSources, judge, workspace } = {}) {
-  return scoreRfp({ candidate, documents, assessment, completeness, companySources, policies, landscapeSources, phase: 'full-text' }, { judge, workspace });
 }
 
 export function resolveSelectedCandidates(selectedTitles, candidates) {
@@ -338,6 +333,33 @@ export function resolveSelectedCandidates(selectedTitles, candidates) {
   return { selection, reviews };
 }
 
+function resultRow(candidate, item, score, fetch) {
+  return {
+    title: candidate.frontmatter.title || item.title,
+    agency: candidate.frontmatter.agency_name || 'unknown',
+    slug: candidate.frontmatter.slug || '',
+    preliminary_score: Number(candidate.frontmatter.preliminary_score || item.score || 0),
+    fulltext_score: score.total,
+    recommendation: score.recommendation,
+    qualification_status: score.qualification_status,
+    scoring_confidence: score.scoring_confidence,
+    scoring_reasons: score.reasons,
+    scoring_error: score.scoring_error || null,
+    gate: score.gate,
+    gateReasons: score.gateReasons || [],
+    categories: score.categories,
+    competitive: score.cp,
+    timeline: score.timeline,
+    flags: score.flags || [],
+    conditional: score.conditional || null,
+    judgments: score.judgments || null,
+    provenance: score.provenance || null,
+    fetchStatus: fetch.status,
+    fetchReason: fetch.reason || '',
+    resourcesDir: fetch.resourcesDir || '',
+  };
+}
+
 async function main() {
   const run = resolveRunConfig();
   const apiKey = process.env.HIGHERGOV_API_KEY || '';
@@ -348,69 +370,27 @@ async function main() {
   const selectedTitles = await loadSelectedTitles(run.reportPath);
   const candidates = await loadCandidates(run.candidatesRoot);
   const { selection, reviews } = resolveSelectedCandidates(selectedTitles, candidates);
-  const results = reviews.map(({ item, reason }) => {
-    const score = unscoredRfp({ candidate: { frontmatter: {}, body: '' }, assessment: run.assessment }, reason);
-    return { title: item.title, agency: 'unknown', slug: '', preliminary_score: item.score,
-      fulltext_score: null, ...score, recommendation: 'Needs review', competitive: score.cp,
-      fetchStatus: 'not-attempted', fetchReason: reason, resourcesDir: '' };
-  });
+  const results = reviews.map(({ item, reason }) => resultRow({ frontmatter: {} }, item,
+    unscoredRfp({ candidate: { frontmatter: {} }, phase: 'full-text', assessment: run.assessment }, reason, 'Needs review'),
+    { status: 'not-attempted', reason }));
   for (const { item, candidate } of selection) {
     process.stderr.write(`[secondary-fulltext] scoring ${candidate.frontmatter.title || item.title}\n`);
     try {
       const fetch = await fetchAndExtract(candidate, config, apiKey);
-      const score = await scoreSecondaryCandidate(candidate, { documents: fetch.documents || [], completeness: fetch.completeness || { complete: false },
-        assessment: run.assessment, workspace: run.workspace });
-      process.stderr.write(`[secondary-fulltext] -> ${candidate.frontmatter.title || item.title}: fetch=${fetch.status}, full=${score.total}, rec=${score.recommendation}\n`);
-      results.push({
-        title: candidate.frontmatter.title || item.title,
-        agency: candidate.frontmatter.agency_name || 'unknown',
-        slug: candidate.frontmatter.slug || '',
-        preliminary_score: Number(candidate.frontmatter.preliminary_score || item.score || 0),
-        fulltext_score: score.total,
-        recommendation: score.recommendation,
-        qualification_status: score.qualification_status,
-        scoring_confidence: score.scoring_confidence,
-        document_status: score.document_status || fetch.status,
-        scoring_reasons: score.reasons,
-        gateReasons: score.gateReasons || [],
-        judgments: score.judgments || null,
-        flags: score.flags || [],
-        conditional: score.conditional || null,
-        scoring_error: score.scoring_error || null,
-        provenance: score.provenance || null,
-        gate: score.gate,
-        categories: score.categories,
-        competitive: score.cp,
-        timeline: score.timeline,
-        fetchStatus: fetch.status,
-        fetchReason: fetch.reason || '',
-        resourcesDir: fetch.resourcesDir || '',
-      });
-    } catch (error) {
-      const fetch = { status: 'failed', reason: error?.message || 'unknown' };
-      const score = unscoredRfp({ candidate, assessment: run.assessment }, 'Document processing failed; no metadata fallback score.');
-      process.stderr.write(`[secondary-fulltext] -> ${candidate.frontmatter.title || item.title}: fetch=failed, full=${score.total}, rec=${score.recommendation}\n`);
-      results.push({
-        title: candidate.frontmatter.title || item.title,
-        agency: candidate.frontmatter.agency_name || 'unknown',
-        slug: candidate.frontmatter.slug || '',
-        preliminary_score: Number(candidate.frontmatter.preliminary_score || item.score || 0),
-        fulltext_score: score.total,
-        recommendation: score.recommendation,
-        qualification_status: score.qualification_status,
-        scoring_confidence: score.scoring_confidence,
-        document_status: score.document_status || fetch.status,
-        scoring_reasons: score.reasons,
-        gateReasons: score.gateReasons || [],
-        provenance: score.provenance || null,
-        gate: score.gate,
-        categories: score.categories,
-        competitive: score.cp,
-        timeline: score.timeline,
-        fetchStatus: fetch.status,
-        fetchReason: fetch.reason || '',
-        resourcesDir: '',
-      });
+      // Only a readable solicitation is scored; listing text never stands in for it.
+      const score = fetch.status === 'downloaded'
+        ? await scoreRfp({ candidate, phase: 'full-text', documents: fetch.documents, completeness: fetch.completeness, assessment: run.assessment }, { workspace: run.workspace })
+        : unscoredRfp({ candidate, phase: 'full-text', assessment: run.assessment }, fetch.reason, 'Needs documents');
+      process.stderr.write(`[secondary-fulltext] -> ${candidate.frontmatter.title || item.title}: fetch=${fetch.status}, full=${score.total}, rec=${score.recommendation}
+`);
+      results.push(resultRow(candidate, item, score, fetch));
+    } catch {
+      // Lookup errors can include provider details; record only a fixed reason.
+      const fetch = { status: 'failed', reason: 'Document retrieval failed.' };
+      const score = unscoredRfp({ candidate, phase: 'full-text', assessment: run.assessment }, fetch.reason, 'Needs documents');
+      process.stderr.write(`[secondary-fulltext] -> ${candidate.frontmatter.title || item.title}: fetch=failed, full=${score.total}, rec=${score.recommendation}
+`);
+      results.push(resultRow(candidate, item, score, fetch));
     }
   }
 
@@ -423,54 +403,89 @@ async function main() {
 }
 
 export function buildSecondaryReport(inputResults, assessment) {
-  const results = [...inputResults].sort((a, b) =>
-    (Number.isFinite(b.fulltext_score) ? b.fulltext_score : -Infinity) -
-    (Number.isFinite(a.fulltext_score) ? a.fulltext_score : -Infinity) || a.title.localeCompare(b.title));
+  const byFinalScore = (a, b) => (Number.isFinite(b.fulltext_score) ? b.fulltext_score : -Infinity)
+    - (Number.isFinite(a.fulltext_score) ? a.fulltext_score : -Infinity) || a.title.localeCompare(b.title);
+  const byPreliminary = (a, b) => (Number(b.preliminary_score) || 0) - (Number(a.preliminary_score) || 0) || a.title.localeCompare(b.title);
+  const scored = inputResults.filter((r) => r.recommendation !== 'Needs documents').sort(byFinalScore);
+  // Unscored for missing evidence, not rejected: listed after scored rows by preliminary score.
+  const needsDocuments = inputResults.filter((r) => r.recommendation === 'Needs documents').sort(byPreliminary);
+  const results = [...scored, ...needsDocuments];
+  const count = (...recommendations) => results.filter((r) => recommendations.includes(r.recommendation)).length;
+  const gatesOf = (row) => [1, 2, 3, 4, 5, 6].map((n) => row.gate?.[`gate${n}`]);
   const summary = {
     runDate: assessment.runDate,
     assessmentTimestamp: assessment.assessmentTimestamp,
     assessmentTimeZone: assessment.reportingTimeZone,
     assessmentOverrideUsed: assessment.overrideUsed,
     total: results.length,
-    strongPursue: results.filter((r) => r.recommendation === 'Strong Pursue' && r.scoring_confidence === 'full-text' && r.qualification_status === 'qualified').length,
-    needsDocuments: results.filter(r => r.recommendation === 'Needs documents').length,
-    needsReview: results.filter(r => r.recommendation === 'Needs review').length,
-    conditional: results.filter(r => r.recommendation === 'Conditional — Ask the Agency').length,
-    watch: results.filter(r => ['Watch item', 'Not an open bid'].includes(r.recommendation)).length,
-    worthALook: results.filter((r) => r.recommendation === 'Worth a look').length,
-    noBid: results.filter((r) => r.recommendation === 'No-bid').length,
-    deadlineNeedsReview: results.filter((r) => r.recommendation === 'Deadline needs review').length,
-    gateFails: results.filter((r) => [r.gate.gate1, r.gate.gate2, r.gate.gate3, r.gate.gate4, r.gate.gate5, r.gate.gate6].some(pass => pass === false)).length,
+    // Only a validated, document-backed qualification counts as a pursuit.
+    strongPursue: results.filter((r) => r.recommendation === 'Strong Pursue' && r.qualification_status === 'qualified').length,
+    worthALook: count('Worth a look'),
+    noBid: count('No-bid'),
+    conditional: count('Conditional — Ask the Agency'),
+    needsReview: count('Needs review'),
+    deadlineNeedsReview: count('Deadline needs review'),
+    needsDocuments: needsDocuments.length,
+    watch: count('Watch item', 'Not an open bid'),
+    gateFails: results.filter((r) => gatesOf(r).includes(false)).length,
   };
 
-  const mdLines = [];
-  mdLines.push(`# Secondary Full-Text Scoring - ${assessment.runDate}`);
-  mdLines.push(``);
-  mdLines.push(`- Assessment timezone: ${assessment.reportingTimeZone}; historical date override: ${assessment.overrideUsed ? 'yes' : 'no'}`);
-  mdLines.push(`- Selected candidates: ${summary.total}`);
-  mdLines.push(`- Strong Pursue: ${summary.strongPursue}`);
-  mdLines.push(`- Worth a look: ${summary.worthALook}`);
-  mdLines.push(`- No-bid / gate-fail: ${summary.noBid}`);
-  mdLines.push(`- Deadline needs review: ${summary.deadlineNeedsReview}`);
-  mdLines.push(``);
-  for (const row of results) {
-    mdLines.push(`### ${row.title}`);
-    mdLines.push(`- Agency: ${row.agency}`);
-    mdLines.push(`- Prelim: ${row.preliminary_score}`);
-    mdLines.push(`- Full-text: ${row.fulltext_score === null ? 'Not finalized' : row.fulltext_score}`);
-    mdLines.push(`- Recommendation: ${row.recommendation}`);
-    mdLines.push(`- Fetch: ${row.fetchStatus}${row.fetchReason ? ` (${row.fetchReason})` : ''}`);
-    const failed = [row.gate.gate1, row.gate.gate2, row.gate.gate3, row.gate.gate4, row.gate.gate5, row.gate.gate6].some(pass => pass === false);
-    mdLines.push(`- Gates: ${failed ? 'fail' : [1, 2, 3, 4, 5, 6].some(n => row.gate[`gate${n}`] === null) ? 'needs review' : 'pass'}`);
-    mdLines.push(`- Confidence: ${row.scoring_confidence || 'unverified'}; qualification: ${row.qualification_status || 'unverified'}`);
-    mdLines.push(`- Wired-RFP read: ${row.competitive?.verdict || 'Insufficient evidence'}`);
-    for (const reason of row.scoring_reasons || []) mdLines.push(`- Evidence note: ${reason}`);
-    mdLines.push(`- Proposal deadline: ${row.timeline.due || 'unknown'}${row.timeline.time ? ` ${row.timeline.time} ${row.timeline.timeZone || '(timezone unknown)'}` : ''}`);
-    mdLines.push(`- Deadline status: ${row.timeline.status}; ${row.timeline.note}`);
-    mdLines.push(`- Deadline source: ${row.timeline.source?.file || row.timeline.source?.type || 'none'}${row.timeline.source?.section ? ` (${row.timeline.source.section})` : ''}`);
-    mdLines.push(`- Days remaining: ${row.timeline.days ?? 'unknown'}; assessed ${row.timeline.assessmentDate} in ${row.timeline.dayCountTimeZone}${row.timeline.timezoneFallbackUsed ? ' (reporting timezone fallback)' : ''}`);
-    mdLines.push(`- Scores: case study ${row.categories.caseStudy}, agency ${row.categories.agencyTypeScore}, tech ${row.categories.tech}, AI ${row.categories.ai}, deal ${row.categories.deal}, compliance ${row.categories.compliance}, competition ${row.categories.competitive}, timeline ${row.categories.timeline}`);
-    mdLines.push(``);
+  const mdLines = [
+    `# Secondary Full-Text Scoring - ${assessment.runDate}`,
+    '',
+    `- Assessment timezone: ${assessment.reportingTimeZone}; historical date override: ${assessment.overrideUsed ? 'yes' : 'no'}`,
+    `- Selected candidates: ${summary.total}`,
+    `- Strong Pursue: ${summary.strongPursue}`,
+    `- Worth a look: ${summary.worthALook}`,
+    `- No-bid / gate-fail: ${summary.noBid}`,
+    `- Conditional — Ask the Agency: ${summary.conditional}`,
+    `- Needs review: ${summary.needsReview}`,
+    `- Deadline needs review: ${summary.deadlineNeedsReview}`,
+    `- Needs documents: ${summary.needsDocuments}`,
+    `- Watch item / not an open bid: ${summary.watch}`,
+    '',
+  ];
+  for (const row of scored) {
+    const gates = gatesOf(row);
+    const { categories: c, timeline: t } = row;
+    mdLines.push(
+      `### ${row.title}`,
+      `- Agency: ${row.agency}`,
+      `- Prelim: ${row.preliminary_score}`,
+      `- Full-text: ${row.fulltext_score ?? 'Not finalized'}`,
+      `- Recommendation: ${row.recommendation}`,
+      `- Fetch: ${row.fetchStatus}${row.fetchReason ? ` (${row.fetchReason})` : ''}`,
+      `- Gates: ${gates.includes(false) ? 'fail' : gates.includes(null) ? 'needs review' : 'pass'}`,
+      `- Confidence: ${row.scoring_confidence || 'unverified'}; qualification: ${row.qualification_status || 'unverified'}`,
+      `- Wired-RFP read: ${row.competitive?.verdict || 'Insufficient evidence'}`,
+      ...(row.scoring_reasons || []).map((reason) => `- Evidence note: ${reason}`),
+      `- Proposal deadline: ${t.due || 'unknown'}${t.time ? ` ${t.time} ${t.timeZone || '(timezone unknown)'}` : ''}`,
+      `- Deadline status: ${t.status}; ${t.note}`,
+      `- Deadline source: ${t.source?.file || t.source?.type || 'none'}${t.source?.section ? ` (${t.source.section})` : ''}`,
+      `- Days remaining: ${t.days ?? 'unknown'}; assessed ${t.assessmentDate} in ${t.dayCountTimeZone}${t.timezoneFallbackUsed ? ' (reporting timezone fallback)' : ''}`,
+      ...(c ? [`- Scores: case study ${c.caseStudy}, agency ${c.agencyTypeScore}, tech ${c.tech}, AI ${c.ai}, deal ${c.deal}, compliance ${c.compliance}, competition ${c.competitive}, timeline ${c.timeline}`] : []),
+      '',
+    );
+  }
+  if (needsDocuments.length) {
+    mdLines.push(
+      '## Needs documents',
+      '',
+      'No final score: the actual solicitation could not be read. These are not no-bids; preliminary scores come from the HigherGov listing summary and are provisional.',
+      '',
+    );
+    for (const row of needsDocuments) {
+      mdLines.push(
+        `### ${row.title}`,
+        `- Agency: ${row.agency}`,
+        `- Prelim: ${row.preliminary_score} (provisional, listing summary only)`,
+        '- Full-text: Not scored (needs documents)',
+        `- Recommendation: ${row.recommendation}`,
+        `- Documents: ${row.fetchStatus}${row.fetchReason ? ` (${row.fetchReason})` : ''}`,
+        `- Listing deadline (unverified): ${row.timeline.due || 'unknown'}; days remaining ${row.timeline.days ?? 'unknown'}; assessed ${row.timeline.assessmentDate}`,
+        '',
+      );
+    }
   }
   return { summary, results, markdown: mdLines.join('\n') };
 }

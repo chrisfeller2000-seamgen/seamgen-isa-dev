@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { assessDeadline, createAssessmentContext, parseDeadlineDate, timelinePoints } from '../workspace/scripts/rfp-deadline.mjs';
-import { buildScore, buildSecondaryReport, resolveRunConfig } from '../workspace/scripts/secondary-fulltext-score.mjs';
+import { buildSecondaryReport, resolveRunConfig } from '../workspace/scripts/secondary-fulltext-score.mjs';
+import { finalizeRfpScore, unscoredRfp } from '../workspace/scripts/rfp-scoring-policy.mjs';
 import { companySources, recordedJudgment } from './fixtures/rfp-recorded-judgments.mjs';
 
 const assessment = createAssessmentContext({ runDate: '2026-09-28' });
@@ -13,7 +14,7 @@ const businessText = 'Custom build a data warehouse on Azure with AI support and
 const candidate = { frontmatter: { title: 'Synthetic Analytics Platform', agency_name: 'State of Example', due_date: '2026-10-26', val_est_low: '180000' }, body: businessText };
 const score = text => {
   const input = { candidate, documents: [document(text)], assessment, companySources, phase: 'full-text' };
-  return buildScore(candidate, `${businessText}\n${text}`, { ...input, judgment: recordedJudgment(input) });
+  return finalizeRfpScore(input, recordedJudgment(input));
 };
 
 test('MDR regression: actual submission deadline, 28 days, four points, and unchanged other categories', () => {
@@ -218,12 +219,12 @@ test('unknown deadlines cannot inflate qualified counts or get finalized scores'
 
 test('candidate notes cannot establish an official deadline; independent no-bid reasons remain', () => {
   const notes = { ...candidate, body: `${businessText}\nProposal deadline: October 26, 2026` };
-  const result = buildScore(notes, notes.body, { assessment });
+  const result = unscoredRfp({ candidate: notes, documents: [], assessment, phase: 'full-text' }, 'No validated AI judgment.');
   assert.equal(result.timeline.status, 'metadata-only');
   assert.equal(result.total, null);
   assert.equal(result.recommendation, 'Deadline needs review');
   const hardwareInput = { candidate, assessment, documents: [], companySources, phase: 'full-text' };
-  const hardware = buildScore(candidate, 'Hardware procurement', { ...hardwareInput, judgment: recordedJudgment(hardwareInput, { gate3: false }) });
+  const hardware = finalizeRfpScore(hardwareInput, recordedJudgment(hardwareInput, { gate3: false }));
   assert.equal(hardware.recommendation, 'No-bid');
   assert.equal(hardware.gate.gate3, false);
   assert.equal(hardware.total, null);

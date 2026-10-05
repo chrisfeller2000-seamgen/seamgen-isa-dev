@@ -8,8 +8,8 @@ import { companySources, fixturePolicies, recordedJudgment, referenceJudgment } 
 import { CATEGORY_BANDS, assessProjectValue, documentEvidence, finalizeRfpScore } from '../workspace/scripts/rfp-scoring-policy.mjs';
 import { createAssessmentContext } from '../workspace/scripts/rfp-deadline.mjs';
 import { createOpenClawJudge, scoreRfp } from '../workspace/scripts/rfp-scoring-judgment.mjs';
-import { buildWeeklyScore, persistValidatedScore, scoreCandidateFromText, shouldFetchDocuments } from '../workspace/scripts/weekly-rfp-pursue-decision.mjs';
-import { buildScore, buildSecondaryReport, resolveSelectedCandidates, scoreSecondaryCandidate } from '../workspace/scripts/secondary-fulltext-score.mjs';
+import { persistValidatedScore, scoreCandidateFromText, shouldFetchDocuments } from '../workspace/scripts/weekly-rfp-pursue-decision.mjs';
+import { buildSecondaryReport, resolveSelectedCandidates } from '../workspace/scripts/secondary-fulltext-score.mjs';
 
 const assessment = createAssessmentContext({ runDate: '2026-09-30' });
 const policies = await fixturePolicies();
@@ -60,16 +60,7 @@ test('a no-bid judgment cannot retain inaccurate non-decisive supporting citatio
   }), /citation does not match/);
 });
 
-test('both pure callers use the identical policy result, not keyword fallbacks', () => {
-  for (const fixture of alignmentCases.filter(item => item.kind === 'scoring')) {
-    const input = packet(fixture.id), judgment = recordedJudgment(input);
-    const expected = finalizeRfpScore(input, judgment);
-    assert.deepEqual(buildWeeklyScore(input.candidate, { ...input, judgment }), expected);
-    assert.deepEqual(buildScore(input.candidate, 'not a document', { ...input, judgment }), expected);
-  }
-});
-
-test('both actual asynchronous callers consume the same bounded judge', async () => {
+test('the weekly adapter returns the shared scorer result from one bounded judge request', async () => {
   const input = packet(); let calls = 0;
   const judge = async ({ input: supplied, systemPrompt, prompt, signal }) => {
     calls++;
@@ -93,8 +84,9 @@ test('both actual asynchronous callers consume the same bounded judge', async ()
     return { text: JSON.stringify(referenceJudgment(recordedJudgment(supplied), JSON.parse(prompt).sources)), model: 'recorded-fixture' };
   };
   const weekly = await scoreCandidateFromText({ ...input, candidate: input.candidate, runDate: assessment.runDate, judge });
-  const secondary = await scoreSecondaryCandidate(input.candidate, { ...input, judge });
-  for (const key of ['gate', 'categories', 'total', 'recommendation', 'qualification_status', 'provenance']) assert.deepEqual(weekly[key], secondary[key], key);
+  const shared = await scoreRfp(input, { judge });
+  for (const key of ['gate', 'categories', 'total', 'recommendation', 'qualification_status', 'provenance']) assert.deepEqual(weekly[key], shared[key], key);
+  assert.equal(weekly.score, shared.total);
   assert.equal(calls, 2);
   assert.equal(weekly.provenance.evidenceFormat, 'source-excerpt-ids-v1');
 });
@@ -338,7 +330,7 @@ test('reports only count a validated document-backed qualification as Strong Pur
   const result = finalize(packet());
   const row = { title: 'Synthetic', agency: 'Example', preliminary_score: 80, fulltext_score: result.total, ...result, competitive: result.cp, fetchStatus: 'downloaded' };
   assert.equal(buildSecondaryReport([row], assessment).summary.strongPursue, 1);
-  assert.equal(buildSecondaryReport([{ ...row, scoring_confidence: 'metadata-only' }], assessment).summary.strongPursue, 0);
+  assert.equal(buildSecondaryReport([{ ...row, qualification_status: 'provisional' }], assessment).summary.strongPursue, 0);
 });
 
 test('model failures, invalid JSON, unsupported citations, and timeouts stay unscored', async () => {

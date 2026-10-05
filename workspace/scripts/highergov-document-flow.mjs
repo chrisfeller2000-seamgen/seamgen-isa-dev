@@ -59,6 +59,13 @@ function classifyDocumentRecord(record = {}) {
     required = true;
     priority = Math.max(priority, 100);
   }
+  // Agencies often name the RFP after the project; once text is extracted, an
+  // otherwise unclassified file can be recognized as the solicitation by content.
+  if (role === 'other' && looksLikeSolicitationText(record.text)) {
+    role = 'solicitation';
+    required = true;
+    priority = 100;
+  }
   // An RFP-prefixed rating form or bid-board export is not the RFP itself.
   if (/rating form|committee rating|bid.board export|bidboard export/.test(haystack)
       || /(?:bid.board export|download (?:the )?(?:actual |separate )?rfp|separate rfp (?:pdf|document))/i.test(record.text || '')) {
@@ -71,8 +78,29 @@ function classifyDocumentRecord(record = {}) {
     required = true;
     priority = 50;
   }
+  // Bidder forms and contract templates are not scoring requirements. If one cannot be
+  // read it is reported, but it does not block an otherwise readable solicitation.
+  if (['requirements', 'mandatory_attachment', 'other'].includes(role)
+      && /\b(agreement|contract|forms?|price|pricing|cost proposal|signature|certifications?|affidavit|insurance|checklist)\b/.test(haystack)
+      && !/\b(scope|statement of work|sow|requirements?|specs?|specifications?)\b/.test(haystack)) {
+    role = 'form';
+    required = false;
+    priority = 20;
+  }
 
   return { role, required, priority };
+}
+
+// Extracted text counts as a solicitation only when it names itself one, states how or
+// when to submit, and describes the work. A short notice that lacks any of these stays
+// unrecognized; reading its meaning needs a content review.
+const SOLICITATION_TEXT = /request\s+for\s+(?:proposals?|quotations?|qualifications?)|invitation\s+(?:to|for)\s+(?:bids?|tenders?)|solicitation\s+(?:no\b|number|#)|\b(?:RFP|RFQ|IFB|ITB)\b/i;
+const SUBMISSION_TEXT = /\b(?:proposals?|quotes?|quotations?|offers?|responses?|bids?|submissions?|submittals?)\s+(?:must|shall|will|are)\s+be\s+(?:received|submitted|delivered|due)|\b(?:proposals?|quotes?|offers?|responses?|bids?)\s+(?:are\s+)?due\b|\bdue\s+date\b|\bclosing\s+date\b|\bsubmission\s+deadline\b|\bdeadline\s+for\s+(?:submissions?|proposals?|responses?|offers?|quotes?)\b/i;
+const SCOPE_TEXT = /scope\s+of\s+(?:work|services)|statement\s+of\s+work|minimum\s+(?:requirements|qualifications)|evaluation\s+criteria|technical\s+requirements|functional\s+requirements/i;
+
+function looksLikeSolicitationText(text = '') {
+  const value = String(text || '');
+  return SOLICITATION_TEXT.test(value) && SUBMISSION_TEXT.test(value) && SCOPE_TEXT.test(value);
 }
 
 async function ensureCandidateResourcesDir(slug, { stage = '1-pre-submission' } = {}) {
@@ -310,10 +338,8 @@ function countBy(rows, key) {
 
 function evaluateDocumentCompleteness({ manifest = [], extractedTextByPath = new Map() } = {}) {
   const rows = Array.isArray(manifest) ? manifest : [];
-  const usable = row => typeof extractedTextByPath.get(row.local_path || row.local_file_name) === 'string'
-    && normalizeText(extractedTextByPath.get(row.local_path || row.local_file_name)).length > 0;
-  const primary = rows.find((row) => row.role === 'solicitation' && row.downloaded && row.extracted && usable(row));
-  const missingRequired = rows.filter((row) => row.required && (!row.downloaded || !row.extracted || !usable(row) || ['portal-gated', 'failed', 'downloaded but unsupported'].includes(row.document_status)));
+  const primary = rows.find((row) => row.role === 'solicitation' && row.downloaded && row.extracted);
+  const missingRequired = rows.filter((row) => row.required && (!row.downloaded || !row.extracted || ['portal-gated', 'failed', 'downloaded but unsupported'].includes(row.document_status)));
   const hasAnyDocs = rows.some((row) => row.downloaded);
   const hasPortalBlock = rows.some((row) => row.document_status === 'portal-gated');
   const hasFailure = rows.some((row) => row.document_status === 'failed');
@@ -389,6 +415,7 @@ export {
   evaluateDocumentCompleteness,
   hashFile,
   listDocumentRecords,
+  looksLikeSolicitationText,
   lookupOpportunityRecord,
   saveDocumentRecord,
   sanitizeRemoteFilename,

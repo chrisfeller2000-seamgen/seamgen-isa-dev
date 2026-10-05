@@ -5,7 +5,7 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createAssessmentContext } from './rfp-deadline.mjs';
-import { finalizeRfpScore, unscoredRfp } from './rfp-scoring-policy.mjs';
+import { unscoredRfp } from './rfp-scoring-policy.mjs';
 import { scoreRfp } from './rfp-scoring-judgment.mjs';
 import {
   classifyDocumentRecord,
@@ -347,18 +347,19 @@ function extractDeadlinesFromMetadata(candidate, metadataText, runDate) {
   return deadlines;
 }
 
-export function buildWeeklyScore(candidate, { judgment, ...input } = {}) {
-  return finalizeRfpScore({ ...input, candidate }, judgment);
-}
-
 export async function scoreCandidateFromText({ candidate, runDate, phase = 'full-text', documents = [], completeness, companySources, policies, landscapeSources, judge }) {
   const assessment = createAssessmentContext({ runDate, reportingTimeZone: process.env.RFP_ASSESSMENT_TIME_ZONE || 'UTC' });
   const result = await scoreRfp({ candidate, phase, documents, completeness, assessment, companySources, policies, landscapeSources }, { judge, workspace: WORKSPACE });
+  // Adapt the validated result to the fields the existing weekly report builders read.
+  const failedGate = result.gateReasons?.find((item) => item.pass === false)
+    || (Object.values(result.gate).includes(false) ? { gate: 'Scoring', reason: result.reasons.join('; ') } : null);
   return {
-    ...result, score: result.total,
-    gateCheck: { results: result.gateReasons || [], failed: result.gateReasons?.find(item => result.gate[item.gate.replace('Gate ', 'gate')] === false) || (Object.values(result.gate).some(value => value === false) ? { gate: 'Scoring', reason: result.reasons.join('; ') } : null) },
-    blockers: result.flags.map(flag => ({ category: flag.type, detail: flag.reason })),
-    landscape: { summary: result.cp.signals.join('; ') }, capability: { summary: result.reasons.join('; ') },
+    ...result,
+    score: result.total,
+    gateCheck: { results: result.gateReasons || [], failed: failedGate },
+    blockers: result.flags.map((flag) => ({ category: flag.type, detail: flag.reason })),
+    landscape: { summary: result.cp?.signals?.join('; ') || '' },
+    capability: { summary: result.reasons.join('; ') },
     deadlines: { proposalDue: result.timeline.due || '', questionsDue: result.timeline.questions?.due || '' },
   };
 }
@@ -982,7 +983,7 @@ async function getHigherGovDayRecords(config, day) {
   };
 }
 
-function getHigherGovPrefilter(record, config) {
+export function getHigherGovPrefilter(record, config) {
   const profile = config.seamgenProfile || {};
   const flags = [];
 

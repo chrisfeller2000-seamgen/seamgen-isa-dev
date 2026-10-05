@@ -5,6 +5,7 @@
 - [Complete Jake scoring alignment](2026-09-30__jake-scoring-alignment-minimal/spec.md): shared scoring and offline tests pass locally. Private evidence setup, initial model checks, and an [original-recipe comparison](2026-09-30__jake-scoring-alignment-minimal/reference-comparison.md) are recorded. The comparison exposed quote reliability and near-cutoff decision blockers; practical alignment, current qualification confirmation, publication, and deployment remain pending.
 - [ISA / Jake RFP rubric alignment](2026-09-30__rfp-rubric-alignment/spec.md): original baseline/spec retained. The current strict synthetic suite passes using recorded judgments; this is not production or AI-alignment proof.
 - [RFP deadline selection and scoring](2026-09-30__rfp-deadline-scoring/spec.md): three-file patch deployed September 30 from `docs/rfp-deadline-scoring`; isolated VM checks passed, normal production job not run.
+- [Secondary scorer: no final score without the solicitation](2026-10-05__rfp-needs-documents/spec.md): three-file patch deployed October 5 from `fix/rfp-evidence-gate`; post-deploy checks passed, normal secondary job not run since.
 
 Use one folder on the task branch for a substantial ISA feature, bug, or investigation: `YYYY-MM-DD__short-kebab-name/`. Start from [`_template/`](./_template/) and keep scope, evidence, and acceptance criteria next to the work. Small fixes do not require a three-file spec.
 

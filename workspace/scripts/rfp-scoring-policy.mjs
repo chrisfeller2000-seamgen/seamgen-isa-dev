@@ -96,17 +96,21 @@ function timelineFor(input) {
   return timeline;
 }
 
-export function unscoredRfp(input, reason = 'AI scoring is unavailable.') {
+// A result without a validated judgment. Only deterministic facts (deadline, known
+// sub-$100K value) are recorded, and a known failure still wins; no category is scored.
+export function unscoredRfp(input, reason = 'AI scoring is unavailable.', recommendation = null) {
   const timeline = timelineFor(input);
   const value = assessProjectValue(input.candidate?.frontmatter, input.documents);
-  const gate = Object.fromEntries([1, 2, 3, 4, 5, 6].map(n => [`gate${n}`, null]));
-  gate.gate1 = timeline.pass; gate.gate5 = value.below ? false : null;
-  gate.gate1Due = timeline.due; gate.gate1Days = timeline.days;
-  return { gate, categories: Object.fromEntries([...keys, 'timeline'].map(key => [key, 0])), cp: { score: 0, signals: [] },
-    timeline, total: null, qualification_status: value.below || timeline.pass === false ? 'failed-gate' : 'provisional',
-    recommendation: value.below || timeline.pass === false ? 'No-bid' : timeline.pass === null ? 'Deadline needs review' : 'Needs review',
+  const failed = value.below || timeline.pass === false;
+  return {
+    gate: { gate1: timeline.pass, gate2: null, gate3: null, gate4: null, gate5: value.below ? false : null, gate6: null,
+      gate1Due: timeline.due, gate1Days: timeline.days },
+    categories: null, cp: null, timeline, value, total: null,
+    qualification_status: failed ? 'failed-gate' : 'provisional',
+    recommendation: failed ? 'No-bid' : recommendation || (timeline.pass === null ? 'Deadline needs review' : 'Needs review'),
     scoring_confidence: input.phase === 'preliminary' || !input.documents?.length ? 'metadata-only' : 'partial-documents',
-    reasons: [reason], flags: [], judgments: null };
+    reasons: [reason], flags: [], judgments: null,
+  };
 }
 
 export function finalizeRfpScore(input, judgment) {
