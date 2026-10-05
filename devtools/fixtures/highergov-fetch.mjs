@@ -17,7 +17,8 @@ globalThis.fetch = async (input) => {
       results: [{
         version_key: 'fixture-version-1',
         opp_key: 'fixture-opportunity-1',
-        document_path: 'fixture-document-path',
+        // HigherGov returns document_path as a complete document-endpoint URL.
+        document_path: 'https://www.highergov.com/api-external/document/?api_key=fixture-key&related_key=fixture-document-path',
         path: 'https://example.test/synthetic-rfp',
         source_path: 'https://example.test/agency-posting',
       }],

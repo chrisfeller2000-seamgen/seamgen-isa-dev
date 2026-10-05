@@ -1986,7 +1986,15 @@ async function materializeCandidateDocuments({ candidate, config, resourcesDir, 
     capturedDate,
     versionKey,
     oppKey,
-  });
+  }).catch((error) => ({ __error: error }));
+  if (lookup.__error) {
+    return {
+      status: 'failed',
+      manifest: null,
+      resourcesDir,
+      reason: lookup.__error?.message || 'HigherGov opportunity lookup failed.',
+    };
+  }
   if (!lookup.record) {
     return {
       status: 'failed',
@@ -2020,7 +2028,7 @@ async function materializeCandidateDocuments({ candidate, config, resourcesDir, 
   }
   if (!Array.isArray(documentRecords) || !documentRecords.length) {
     return {
-      status: 'access-blocked',
+      status: 'document-list-empty',
       manifest: null,
       resourcesDir,
       reason: 'HigherGov returned no document records for the live document_path.',
@@ -2063,7 +2071,6 @@ async function materializeCandidateDocuments({ candidate, config, resourcesDir, 
     captured_date: capturedDate,
     highergov_page: normalizeText(liveRecord.path || frontmatter.source_url || ''),
     source_path: normalizeText(liveRecord.source_path || frontmatter.solicitation_url || ''),
-    document_path: normalizeText(documentPath || ''),
     fetched_utc: new Date().toISOString(),
     documents,
   };
@@ -2332,7 +2339,7 @@ async function main() {
         preliminary_score: preliminaryScore,
         final_score: null,
         score: null,
-        scoring_confidence: documentStatus === 'access-blocked' ? 'metadata-only' : 'partial-documents',
+        scoring_confidence: ['access-blocked', 'document-list-empty'].includes(documentStatus) ? 'metadata-only' : 'partial-documents',
         qualification_status: 'provisional',
         document_status: documentStatus,
         document_manifest_path: path.join(resourcesDir, '_document-manifest.json'),
