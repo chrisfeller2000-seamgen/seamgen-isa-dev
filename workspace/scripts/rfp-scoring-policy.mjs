@@ -82,9 +82,11 @@ export function assessProjectValue(frontmatter = {}, documents = []) {
   }
   const low = money(frontmatter.val_est_low), high = money(frontmatter.val_est_high);
   if (low !== null && high !== null && high < low) return { status: 'conflicting', below: false, estimate: null, reason: 'Listing value bounds are inconsistent.' };
+  const below = high !== null && high < 100000;
   return { status: low === null && high === null ? 'unstated' : 'listing',
-    below: high !== null && high < 100000, estimate: low !== null && high === low ? low : null,
-    low, high, reason: 'HigherGov estimate, not a confirmed buyer budget. A low-only estimate is not an upper bound.' };
+    below, estimate: low !== null && high === low ? low : null, low, high,
+    reason: below ? `The HigherGov listing estimate tops out at $${high.toLocaleString('en-US')}, below the $100,000 minimum.`
+      : 'HigherGov estimate, not a confirmed buyer budget. A low-only estimate is not an upper bound.' };
 }
 
 function timelineFor(input) {
@@ -93,7 +95,10 @@ function timelineFor(input) {
     documents: phase === 'preliminary' ? [] : (input.documents || []).map(doc => ({ ...doc, name: doc.name || doc.file })), assessment: input.assessment || createAssessmentContext() });
   // Jake's cheap pass can use a valid listing date, but remains metadata-only.
   if (phase === 'preliminary' && timeline.status === 'metadata-only' && Number.isFinite(timeline.days)) {
-    return { ...timeline, pass: timeline.days >= 10 && !timeline.expired, score: timelinePoints(timeline.days) };
+    const pass = timeline.days >= 10 && !timeline.expired;
+    const note = timeline.expired ? 'The listing deadline has passed.'
+      : `The listing deadline is ${timeline.days} days away${pass ? '; the solicitation must confirm it' : ', below the 10-day minimum'}.`;
+    return { ...timeline, pass, score: timelinePoints(timeline.days), note };
   }
   return timeline;
 }
@@ -148,7 +153,10 @@ function applySubrules(gate, judgment, sources, timeline) {
   if (!judgment.subrules) throw new Error('Missing mandatory subrule assessments.');
   const { product, eligibility, submission } = judgment.subrules;
   if (!product || !eligibility || !submission) throw new Error('Missing Gate 2a, 4, or 6a assessment.');
-  for (const item of [product, eligibility, submission]) cite(item.evidence, sources);
+  // A definite assessment needs evidence. "Unknown" has nothing to cite and never passes a gate.
+  cite(product.evidence, sources, { required: product.hardProductObligations !== null });
+  cite(submission.evidence, sources, { required: submission.status !== 'unknown' });
+  cite(eligibility.evidence, sources);
 
   // Gate 2a: existing installs or mandatory demos need a real integrator partner or a conditional question.
   if (![true, false, null].includes(product.hardProductObligations)) throw new Error('Invalid product obligations.');

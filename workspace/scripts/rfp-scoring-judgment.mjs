@@ -33,7 +33,8 @@ const OUTPUT_CONTRACT = {
     }])),
     timeline: { points: 'integer; deadline helper owns final value' },
   },
-  value: { kind: 'stated|inferred|uncertain', estimate: 'number or null', reason: 'scope/comparable basis', evidence: EVIDENCE },
+  value: { kind: "stated: the buyer's own project figure | inferred: a reasoned estimate, including a HigherGov listing estimate | uncertain: cannot reasonably be inferred above $100K",
+    estimate: 'number; null only when kind is uncertain', reason: 'scope/comparable basis', evidence: EVIDENCE },
   competitive: { verdict: 'Open|Leaning wired|Wired|Insufficient evidence', effortDeduction: '0 or -2..-4', wiredDeduction: '0, -2..-4, or -5..-8 per verdict',
     tells: EVIDENCE, counterEvidence: EVIDENCE, evidence: EVIDENCE },
   bidStatus: 'open: a live solicitation, even when only its listing is supplied | closed: the notice explicitly invites no submissions | watch: only an RFI, Sources Sought, or pre-solicitation notice',
@@ -46,7 +47,7 @@ const OUTPUT_CONTRACT = {
   conditional: 'null or {rule: 2|2a, question, qaStatus: open|closed|unknown, qaDueDate: verified YYYY-MM-DD or null, qaBasis: deadline|confirmed-none-posted|unknown, commercialOnly: boolean, evidence: []}. Confirmed-none-posted requires actual document evidence, not missing metadata. For a conditional gate set gate2 null, not an approved pass.',
   subrules: {
     product: { hardProductObligations: 'boolean or null; existing installs / mandatory demos', partner: 'null or {name, verified:true, sellsThroughIntegrators:true, evidence:company citations}', evidence: [] },
-    submission: { status: 'feasible|blocked|unknown', basis: 'existing-account|feasible-registration|allowed-method, not contact-email', evidence: [] },
+    submission: { status: 'feasible|blocked|unknown (nothing supplied shows how to submit; evidence may then be empty)', basis: 'existing-account|feasible-registration|allowed-method, not contact-email', evidence: [] },
     eligibility: {
       publicReferences: 'required count or null when unknown; generic references are not public',
       availableGovernmentReferences: 'verified accepted count or null. Two strictly governmental references cannot be covered by one government and one nonprofit unless explicitly allowed.',
@@ -66,6 +67,7 @@ const EVIDENCE_RULES = [
   'Original documentIds in requiredDocuments remain source IDs such as doc-1, not excerpt IDs.',
   'For caseStudy select an excerpt containing the exact project/client name AND evidence of the transferable capability.',
   'A capability-only excerpt without the project name is insufficient.',
+  "Tech bands proven, mostlyKnown, and agnostic, and compliance bands demonstrated and adjacent, must cite a case-study or company excerpt showing Seamgen's delivery, not only the buyer's requirement; for a technology-agnostic buy, cite the proven stack Seamgen would propose.",
   'Eligibility companyEvidence is mandatory when requiresCompanyProof is true; actual case-library delivery/reference or company records can support past work.',
   'Past delivery alone does not confirm current reference availability or a specifically required completion status.',
   'If required company proof is unavailable, leave eligibility unknown.',

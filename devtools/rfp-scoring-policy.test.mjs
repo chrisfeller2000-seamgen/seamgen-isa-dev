@@ -80,6 +80,8 @@ test('the weekly adapter returns the shared scorer result from one bounded judge
     const suppliedPacket = JSON.parse(prompt);
     assert.deepEqual(suppliedPacket.allowedExcerptIds, suppliedPacket.sources.flatMap(source => source.excerpts.map(item => item.id)));
     assert.match(prompt, /capability-only excerpt without the project name is insufficient/);
+    assert.match(prompt, /for a technology-agnostic buy, cite the proven stack/);
+    assert.match(prompt, /null only when kind is uncertain/);
     assert.match(prompt, /Past delivery alone does not confirm current reference availability/);
     assert.equal(signal.aborted, false);
     return { text: JSON.stringify(referenceJudgment(recordedJudgment(supplied), JSON.parse(prompt).sources)), model: 'recorded-fixture' };
@@ -192,6 +194,22 @@ test('before documents exist, documents to retrieve cite the listing and never b
   // No document exists yet to point at, and full-text requirements still need document evidence.
   assert.throws(() => finalize(input, j => { toRetrieve(j); j.requiredDocuments[0].documentIds = ['doc-1']; }), /required-document evidence/);
   assert.throws(() => finalize(packet(), toRetrieve), /citation does not match/);
+});
+
+test('an unknown submission route needs no citation; a definite one still does', () => {
+  const unknown = finalize(packet(), j => { j.subrules.submission = { status: 'unknown', basis: 'unknown', evidence: [] }; });
+  assert.equal(unknown.gate.gate4, null);
+  assert.throws(() => finalize(packet(), j => { j.subrules.submission.evidence = []; }), /Missing scoring evidence/);
+});
+
+test('preliminary deadline and value reasons state the actual listing facts', () => {
+  const nine = finalize(packet('nine-days', { phase: 'preliminary', documents: [] }));
+  assert.equal(nine.gate.gate1, false);
+  assert.match(nine.gateReasons[0].reason, /9 days away, below the 10-day minimum/);
+  // Without the judge's own small-scope estimate, the listing fact supplies the reason.
+  const tiny = finalize(packet('value-5000', { phase: 'preliminary', documents: [] }), j => { j.value = { kind: 'uncertain', estimate: null, reason: 'Unclear scope', evidence: j.value.evidence }; });
+  assert.equal(tiny.gate.gate5, false);
+  assert.match(tiny.gateReasons[4].reason, /\$5,000, below the \$100,000 minimum/);
 });
 
 test('reference counts distinguish generic work, strict two references, and verified partners', () => {
