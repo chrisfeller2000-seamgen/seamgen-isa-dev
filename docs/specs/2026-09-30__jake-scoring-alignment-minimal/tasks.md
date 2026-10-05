@@ -51,8 +51,8 @@
 - [x] Perform a targeted review of Jake's Case Studies/Assets for outdated/conflicting claims; record hashes and explicit caveats. Current human confirmation of mandatory qualifications remains pending.
 - [x] Keep private local copies in ignored `.isa-local/`; prepare an isolated test workspace with the canonical filenames. Contents are not committed.
 - [x] Verify actual file loading without a model call; retain missing/empty-library failure and qualification uncertainty.
-- [ ] Before a separately authorized VM upload, inspect destination copies, compare hashes, preserve newer/uncertain files, and back up approved replacements.
-- [ ] Upload only reviewed Case Studies/Assets to the VM's canonical `resources/proposal-sources/` folder; verify hashes and runtime loading. No source-allowlist expansion or automatic sync.
+- [x] Before the authorized VM upload, inspect the destination. October 5: `resources/` did not exist and a bounded workspace search found no copies, so nothing was replaced or backed up.
+- [x] Upload only reviewed Case Studies/Assets to the VM's canonical `resources/proposal-sources/` folder; verify hashes and runtime loading. Done October 5 at Chris's request; see implementation.md. No source-allowlist expansion or automatic sync.
 - [ ] Keep People documented as an available archive source, not a loaded scoring input. Any needed loader change must be reviewed and tested separately.
 
 VM upload steps remain pending. Model tests received the evidence in memory through SSH; no files were installed in the live workspace.
@@ -92,7 +92,7 @@ VM upload steps remain pending. Model tests received the evidence in memory thro
 - [x] Commit the September 30 work as found; merge the deployed evidence gate and the VM's code.
 - [x] Fix the preliminary contract; replay the retained batch answers offline.
 - [x] Simplify the policy, adapter, and alignment tests without changing rules.
-- [ ] Upload reviewed Case Studies/Assets to the VM (separate approval).
+- [x] Upload reviewed Case Studies/Assets to the VM (approved and done October 5).
 - [ ] Run a bounded real-model batch on real RFPs: preliminary selection and full-text scoring (separate approval for model usage).
 - [ ] Release the weekly job, secondary scorer, document helper, policy, and adapter together (separate approval; coordinate with Sam and Hugo).
 

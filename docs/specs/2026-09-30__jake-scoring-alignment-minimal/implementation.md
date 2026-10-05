@@ -25,11 +25,22 @@ Also found on October 5:
 - **Keyword No-bids.** With the deployed keyword scorer, all 18 of the 42 real September 30 RFPs that were scored from documents came out No-bid on keyword gates. All 18 failed the hardware keyword. This work replaces that scorer; see the [needs-documents spec](../2026-10-05__rfp-needs-documents/spec.md).
 - **Title matching.** The secondary now matches report titles exactly. 131 of 135 current report entries match one candidate; 4 shortened titles go to Needs review instead of being guessed. Adding the slug to weekly report entries would close that gap.
 
+Company files uploaded October 5 at Chris's request:
+
+- The reviewed Case Studies and Assets went to `/home/azureuser/.openclaw/workspace/resources/proposal-sources/`. Before the upload, `resources/` did not exist and a bounded workspace search found no copies, so nothing was replaced.
+- Access: folder `700`, files `600`, owner `azureuser`.
+- SHA-256 on the VM matches the reviewed local copies and Jake's archive originals:
+  - Case Studies `78b7e2015564510a5520f6cb4e4386c74fe9a7ea765530dfdf9b1a4d89264ecd`
+  - Assets `1e058719cfb83b69087521ac54bf3e8e71115fbbd6c87dbd3c52e875f442b865`
+- This branch's `loadScoringContext()` was run on the VM from a temporary folder. It loaded all four policy skills and both company sources.
+- The files are not in the source allowlist or Git. The workspace's own git repository has no remote and no commits. How the maintainers' separate backup treats `resources/` still needs to be confirmed with them.
+- Five deployed ISA skills already name this path, so ISA's normal chat agent can now read these files.
+- The private review notes, which flag dated or unsupported claims in Assets, were not uploaded, and the loader does not read them. Current qualifications still need supporting records; see [company-confirmation.md](company-confirmation.md).
+
 Next steps, each needing separate approval:
 
-1. Upload the reviewed Case Studies/Assets files to the VM.
-2. Run a bounded real-model batch on real RFPs, covering preliminary selection and full-text scoring.
-3. Release the weekly job, secondary scorer, document helper, policy, and adapter together, coordinated with Sam and Hugo.
+1. Run a bounded real-model batch on real RFPs, covering preliminary selection and full-text scoring.
+2. Release the weekly job, secondary scorer, document helper, policy, and adapter together, coordinated with Sam and Hugo.
 
 ## September 30 status and proof
 
