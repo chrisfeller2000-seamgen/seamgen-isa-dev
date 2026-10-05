@@ -17,6 +17,7 @@ const money = value => {
   return Number.isFinite(result) && result >= 0 ? result : null;
 };
 const norm = value => String(value ?? '').replace(/\s+/g, ' ').trim();
+const PRE_SOLICITATION = /request\s+for\s+information|\bRFI\b|sources?\s+sought|pre-?solicitation|market\s+research/i;
 
 export function documentEvidence(documents = []) {
   const extractedTextByPath = new Map();
@@ -218,6 +219,10 @@ export function finalizeRfpScore(input, judgment) {
   if (failed) return { ...base, recommendation: 'No-bid', qualification_status: 'failed-gate' };
   if (judgment.bidStatus === 'closed' || judgment.bidStatus === 'watch') {
     cite(judgment.bidEvidence, sources);
+    // Watch is Jake's light screen for pre-solicitation notices, not a way to park a live bid.
+    if (judgment.bidStatus === 'watch' && !judgment.bidEvidence.some(item => PRE_SOLICITATION.test(item.quote))) {
+      throw new Error('A watch item needs evidence of an RFI, Sources Sought, or pre-solicitation notice.');
+    }
     return { ...base, recommendation: judgment.bidStatus === 'watch' ? 'Watch item' : 'Not an open bid' };
   }
   if (judgment.bidStatus !== 'open') throw new Error('Unknown bid eligibility.');
@@ -228,12 +233,15 @@ export function finalizeRfpScore(input, judgment) {
   const completeness = input.completeness?.complete === false ? input.completeness : actualCompleteness;
   const missing = judgment.requiredDocuments;
   if (!Array.isArray(missing)) throw new Error('Expected a required-document check.');
+  // Before documents are fetched, the judge may name documents to retrieve from the
+  // listing. They are notes for the fetch step and never block preliminary selection.
   for (const requirement of missing) {
-    cite(requirement.evidence, sources, { kind: 'document' });
+    cite(requirement.evidence, sources, { kind: phase === 'preliminary' ? 'metadata' : 'document' });
     if (!norm(requirement.name) || !Array.isArray(requirement.documentIds) || requirement.documentIds.some(id => sources.get(id)?.kind !== 'document')) throw new Error('Invalid required-document evidence.');
   }
   const incomplete = !completeness.complete || missing.some(item => !item.documentIds.length);
   if (phase === 'full-text' && incomplete) return { ...base, recommendation: 'Needs documents', document_status: 'partial-documents' };
+  if (phase === 'preliminary' && missing.length) base.reasons.push(`Documents to retrieve: ${missing.map(item => item.name).join('; ')}.`);
   const categories = judgment.categories;
   if (!categories || Object.keys(categories).sort().join() !== [...keys, 'timeline'].sort().join()) throw new Error('Expected exactly eight scoring categories.');
   for (const key of keys) {

@@ -75,7 +75,8 @@ test('the weekly adapter returns the shared scorer result from one bounded judge
     assert.match(systemPrompt, /standard compliance \(3–5\)/);
     assert.match(systemPrompt, /Excerpt IDs are opaque/);
     assert.match(systemPrompt, /not an expanded or combined alias/);
-    assert.match(systemPrompt, /still return the eight supported provisional category judgments/);
+    assert.match(systemPrompt, /still return the eight provisional category judgments/);
+    assert.match(systemPrompt, /At preliminary depth only the listing is supplied/);
     const suppliedPacket = JSON.parse(prompt);
     assert.deepEqual(suppliedPacket.allowedExcerptIds, suppliedPacket.sources.flatMap(source => source.excerpts.map(item => item.id)));
     assert.match(prompt, /capability-only excerpt without the project name is insufficient/);
@@ -175,6 +176,24 @@ test('unknown metadata requirements may score provisionally but never certify a 
   assert.equal(full.recommendation, 'Needs review');
 });
 
+test('before documents exist, documents to retrieve cite the listing and never block selection', () => {
+  const input = packet('clean-custom-build', { phase: 'preliminary', documents: [] });
+  const listing = [{ sourceId: 'metadata', quote: input.candidate.body }];
+  const toRetrieve = j => {
+    j.gates.gate6.pass = null;
+    j.subrules.eligibility.meetsMandatoryQualifications = null;
+    j.requiredDocuments = [{ name: 'Official solicitation and attachments', evidence: listing, documentIds: [] }];
+  };
+  const preliminary = finalize(input, toRetrieve);
+  assert.ok(Number.isFinite(preliminary.total));
+  assert.equal(preliminary.qualification_status, 'provisional');
+  assert.equal(shouldFetchDocuments(preliminary), true);
+  assert.match(preliminary.reasons.join(' '), /Documents to retrieve: Official solicitation and attachments/);
+  // No document exists yet to point at, and full-text requirements still need document evidence.
+  assert.throws(() => finalize(input, j => { toRetrieve(j); j.requiredDocuments[0].documentIds = ['doc-1']; }), /required-document evidence/);
+  assert.throws(() => finalize(packet(), toRetrieve), /citation does not match/);
+});
+
 test('reference counts distinguish generic work, strict two references, and verified partners', () => {
   assert.equal(finalize(packet('commercial-references')).gate.gate6, true);
   assert.equal(finalize(packet('three-public-references')).gate.gate6, false);
@@ -262,10 +281,11 @@ test('review flags never add points and closed notices never receive an open-bid
   const closed = finalize(packet('closed-notice'));
   assert.equal(closed.recommendation, 'Not an open bid');
   assert.equal(closed.total, null);
-  assert.equal(finalize(packet(), j => { j.bidStatus = 'watch'; }).recommendation, 'Watch item');
+  // A live solicitation cannot be parked as a watch item without pre-solicitation evidence.
+  assert.throws(() => finalize(packet(), j => { j.bidStatus = 'watch'; }), /watch item needs evidence/);
   const noDate = packet(); delete noDate.candidate.frontmatter.due_date;
   noDate.documents[0].text = 'Request for Proposals. This is a market research notice only.';
-  const watch = finalize(noDate, j => { j.bidStatus = 'watch'; j.bidEvidence = citation; });
+  const watch = finalize(noDate, j => { j.bidStatus = 'watch'; j.bidEvidence = [{ sourceId: 'doc-1', quote: 'This is a market research notice only.' }]; });
   assert.equal(watch.recommendation, 'Watch item');
   assert.equal(watch.total, null);
 });
