@@ -336,7 +336,7 @@ function countBy(rows, key) {
   return tally;
 }
 
-function evaluateDocumentCompleteness({ manifest = [], extractedTextByPath = new Map() } = {}) {
+function evaluateDocumentCompleteness({ manifest = [] } = {}) {
   const rows = Array.isArray(manifest) ? manifest : [];
   const primary = rows.find((row) => row.role === 'solicitation' && row.downloaded && row.extracted);
   const missingRequired = rows.filter((row) => row.required && (!row.downloaded || !row.extracted || ['portal-gated', 'failed', 'downloaded but unsupported'].includes(row.document_status)));

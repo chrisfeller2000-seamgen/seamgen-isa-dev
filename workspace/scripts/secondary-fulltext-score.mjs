@@ -319,15 +319,19 @@ async function fetchAndExtract(candidate, config, apiKey) {
   };
 }
 
+// Report titles must match exactly one candidate (title, slug, or "title — agency").
+// No forced titles and no fuzzy guesses: anything else is listed for review.
 export function resolveSelectedCandidates(selectedTitles, candidates) {
   const selection = [], reviews = [], seen = new Set();
-  for (const item of selectedTitles.filter(item => item.score >= 75)) {
-    const exact = candidates.filter(candidate => [candidate.frontmatter.title, candidate.frontmatter.slug,
-      `${candidate.frontmatter.title} — ${candidate.frontmatter.agency_name}`,
-      `${candidate.frontmatter.title} - ${candidate.frontmatter.agency_name}`]
-      .some(value => normalizeKey(value || '') === normalizeKey(item.title)));
-    if (exact.length !== 1) { reviews.push({ item, reason: exact.length ? 'Ambiguous candidate match; manual review required.' : 'No exact candidate match; manual review required.' }); continue; }
-    const candidate = exact[0], key = candidate.frontmatter.slug || candidate.dir;
+  for (const item of selectedTitles.filter((entry) => entry.score >= 75)) {
+    const matches = candidates.filter(({ frontmatter: { title, slug, agency_name: agency } }) =>
+      [title, slug, `${title} — ${agency}`, `${title} - ${agency}`].some((value) => normalizeKey(value || '') === normalizeKey(item.title)));
+    if (matches.length !== 1) {
+      reviews.push({ item, reason: matches.length ? 'Ambiguous candidate match; manual review required.' : 'No exact candidate match; manual review required.' });
+      continue;
+    }
+    const [candidate] = matches;
+    const key = candidate.frontmatter.slug || candidate.dir;
     if (!seen.has(key)) { selection.push({ item, candidate }); seen.add(key); }
   }
   return { selection, reviews };

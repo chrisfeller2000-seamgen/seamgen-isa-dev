@@ -1857,7 +1857,7 @@ async function materializeCandidateDocuments({ candidate, config, resourcesDir, 
 
 async function extractManifestEvidence(manifest, resourcesDir) {
   const rows = Array.isArray(manifest?.documents) ? manifest.documents : [];
-  const documents = [], extractedTextByPath = new Map();
+  const documents = [];
   let primaryDocument = null;
   for (const row of rows) {
     if (!row?.downloaded || !row.local_path) continue;
@@ -1866,15 +1866,17 @@ async function extractManifestEvidence(manifest, resourcesDir) {
     row.extracted_text_chars = text.length;
     row.document_status = row.extracted ? 'downloaded and extracted' : 'downloaded but unsupported';
     if (!row.extracted) continue;
+    // Re-classify with the text: agencies often name the RFP after the project.
     Object.assign(row, classifyDocumentRecord({ file_name: row.source_file_name || row.local_file_name, text }));
-    extractedTextByPath.set(row.local_path, text);
     documents.push({ file: row.local_file_name || row.source_file_name, text });
     if (!primaryDocument && row.role === 'solicitation') primaryDocument = row;
   }
-  const completeness = evaluateDocumentCompleteness({ manifest: rows, extractedTextByPath });
+  const completeness = evaluateDocumentCompleteness({ manifest: rows });
   return {
     manifest: { ...manifest, resources_dir: resourcesDir, extracted_docs: documents.length, primary_document: primaryDocument, completeness, documents: rows },
-    evidenceText: documents.map(doc => `## ${doc.file}\n${doc.text}`).join('\n\n'), documents, completeness,
+    evidenceText: documents.map((doc) => `## ${doc.file}\n${doc.text}`).join('\n\n'),
+    documents,
+    completeness,
   };
 }
 
