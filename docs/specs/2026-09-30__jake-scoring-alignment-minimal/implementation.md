@@ -37,9 +37,32 @@ Company files uploaded October 5 at Chris's request:
 - Five deployed ISA skills already name this path, so ISA's normal chat agent can now read these files.
 - The private review notes, which flag dated or unsupported claims in Assets, were not uploaded, and the loader does not read them. Current qualifications still need supporting records; see [company-confirmation.md](company-confirmation.md).
 
+Real-model batch, October 5 (approved by Chris, up to 36 calls):
+
+- Setup: 18 real September 30 RFPs that the deployed keyword scorer had scored from documents, all as No-bid. They ran through this branch's weekly `--test-mode` on the VM in an isolated temporary workspace, with ISA's existing model access (`openai/gpt-6-luna`) and real read-only HigherGov access.
+- Safeguards: Telegram, HubSpot, Google, and Slack hosts were blocked. The production fingerprint of candidates, reports, and company files was unchanged. Nothing was sent.
+- Usage: 28 model calls, about $0.19 as reported by OpenClaw.
+- First pass: 13 of 18 preliminary answers validated. All 5 rejections reproduced on a re-run with captured answers. All were prompt/validator contract gaps:
+  - tech-band evidence (3);
+  - a null value estimate (1);
+  - required citations for unknown submission/gate answers (2 after the first fix).
+
+  These were fixed in `5dc8086` and `9580864`, without changing Jake's rules. Offline replay of the same captured answers then validated all five.
+- Outcome with current code:
+
+  | Result | RFPs | Reasons |
+  | --- | ---: | --- |
+  | Preliminary No-bid | 12 | Hardware or equipment as the main deliverable; consulting rather than software; maintenance of an existing licensed product; a three-government-reference requirement; a 7-day deadline. The AI's stated reasons cite the actual scope and match the rubric's distinctions. |
+  | Worth a look | 6 | Scores of 61–69 |
+  | Strong Pursue (75+) | 0 | — |
+
+  With no 75+ result, no documents were fetched and full-text AI scoring was not exercised.
+- Finding: at metadata depth, competitive position stays neutral and AI and compliance are often low, so non-AI software RFPs land around 60–70. Under Jake's written policy, 50–74 is "Worth a look" with no automatic document fetch. Whether to fetch documents for that band is a business decision; this work does not change the threshold.
+- Records: private raw answers and usage are in ignored `.isa-local/rfp-ai-batch-2026-10-05/`.
+
 Next steps, each needing separate approval:
 
-1. Run a bounded real-model batch on real RFPs, covering preliminary selection and full-text scoring.
+1. Exercise full-text AI scoring on real documents, for example the six Worth-a-look RFPs.
 2. Release the weekly job, secondary scorer, document helper, policy, and adapter together, coordinated with Sam and Hugo.
 
 ## September 30 status and proof
