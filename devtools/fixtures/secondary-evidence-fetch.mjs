@@ -3,10 +3,18 @@
 const readable = 'Request for Proposals. The agency seeks a custom web portal build with secure data integration and accessibility.\n'
   + 'Proposals shall be received no later than Monday, October 26, 2026, at 4:30 p.m. Atlantic Standard Time.';
 const blank = '      \n\n      ';
+// Agencies often name the RFP after the project; the text still says what it is.
+const projectNamed = readable + '\nScope of Work: build and support a citywide learning management system.';
 
 // Files HigherGov "returns" for each listing, keyed by the scenario in its version_key.
 export const documentsByScenario = {
   complete: [{ file_name: 'RFP_Final.txt', text: readable }],
+  'named-by-project': [{ file_name: 'CITYWIDE_LEARNING_MANAGEMENT_SYSTEM.txt', text: projectNamed }],
+  'unreadable-agreement': [
+    { file_name: 'RFP 26-118 Website Redesign.txt', text: readable },
+    { file_name: 'Exhibit A - SaaS Agreement.txt', text: blank },
+  ],
+  'short-notice': [{ file_name: '36C25227Q0040.txt', text: 'Solicitation Number 36C25227Q0040. Quotes are due October 16, 2026.' }],
   empty: [],
   'hardware-empty': [],
   'no-text': [{ file_name: 'Solicitation.txt', text: blank }],

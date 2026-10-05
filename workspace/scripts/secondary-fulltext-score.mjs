@@ -9,6 +9,7 @@ import {
   classifyDocumentRecord,
   evaluateDocumentCompleteness,
   listDocumentRecords,
+  looksLikeSolicitationText,
   saveDocumentRecord,
 } from './highergov-document-flow.mjs';
 
@@ -456,6 +457,13 @@ async function fetchAndExtract(candidate, config, apiKey) {
     row.extracted = Boolean(extracted);
     row.extracted_text_chars = normalize(extracted).length;
     if (!extracted) continue;
+    // A file named after the project can still be the RFP; recognize it from its text.
+    // Files already named as requirements, addenda, or forms keep their role.
+    if (row.role === 'other' && looksLikeSolicitationText(extracted)) {
+      row.role = 'solicitation';
+      row.required = true;
+      row.role_basis = 'content';
+    }
     // Preserve existing business-category text normalization; deadline evidence keeps lines.
     texts.push(`## ${row.local_file_name || row.source_file_name}\n${normalize(extracted)}`);
     documents.push({ name: row.local_file_name || row.source_file_name, text: extracted });
@@ -463,9 +471,11 @@ async function fetchAndExtract(candidate, config, apiKey) {
   // Downloaded files are not proof that the solicitation was read. Apply the weekly
   // job's check: a readable solicitation and no missing or unreadable required document.
   const completeness = evaluateDocumentCompleteness({ manifest });
+  // A scored RFP still lists files nobody read, such as an old-format contract template.
+  const unread = manifest.filter((row) => !row.extracted).map((row) => row.source_file_name || row.local_file_name);
   return {
     status: completeness.complete ? 'downloaded' : completeness.status,
-    reason: completeness.reasons.join('; '),
+    reason: completeness.complete ? (unread.length ? `Files not read: ${unread.join('; ')}` : '') : completeness.reasons.join('; '),
     resourcesDir,
     manifest,
     documents,

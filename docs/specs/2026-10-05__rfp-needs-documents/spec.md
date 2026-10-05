@@ -194,3 +194,15 @@ Controlled run of the deployed secondary scorer on 10 real RFPs from the October
 | Needs documents, wrong | 4 | 3 real RFPs (68k–147k characters, with RFP, deadline, and scope wording) not recognized because their file names lack "RFP" or "solicitation"; 1 complete ERP package blocked by a single `.doc` contract exhibit the VM cannot read (no `.doc` converter installed). |
 
 Conclusion: no final score came from a listing summary, but file-name recognition misses too many real solicitations for an automated report. Follow-up: recognize the solicitation from its extracted text, not only its file name, and decide how unreadable contract or form exhibits and `.doc` files should count. Do not tune a rule to these 10 cases alone.
+
+## Content-recognition follow-up — local, not deployed
+
+Built and tested locally (48/48 offline tests): an otherwise unclassified file counts as the solicitation when its text names itself one, states a submission deadline, and describes the work; bidder forms and contract templates no longer block scoring when unreadable and are listed as not read.
+
+Evaluated on the VM with the undeployed code on all 42 September 30 RFPs scoring 75+: isolated temporary workspace, real read-only HigherGov calls (8 listing pages / 151 records, 41 document lists, 118 files, 434 seconds), production fingerprint `90887e67…` unchanged, nothing sent.
+
+- 18 scored from documents: 9 recognized by file name, 9 only by content. 24 Needs documents: 11 empty lists, 1 retrieval failure, 12 incomplete sets.
+- The incomplete sets include correct cases (two RFIs, a direct award, short notices) and probable misses: an RFQ whose deadline wording is "no later than", a "Request for Quotes", a West Virginia solicitation whose scope section is titled "Specifications", and a complete SAM.gov package blocked by image-only drawing attachments.
+- **All 18 document-backed results are No-bid from the existing keyword gates.** All 18 fail the keyword "software, not hardware" gate; 14 fail the references gate and 9 the custom-work gate. Long solicitations almost always contain such words. This predates the evidence gate (the September 28 report had 19 No-bids among 23 downloaded RFPs) and is the document-backed scorer the AI scoring work replaces.
+
+Because recognizing more solicitations currently turns Needs documents into keyword No-bids, do not deploy the content rule until document-backed scoring is trustworthy. The deployed name-based gate stays.

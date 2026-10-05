@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { classifyDocumentRecord } from '../workspace/scripts/highergov-document-flow.mjs';
+import { classifyDocumentRecord, looksLikeSolicitationText } from '../workspace/scripts/highergov-document-flow.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -20,16 +20,34 @@ test('file names identify the actual solicitation, not finals, agendas, rating f
     'RFP_RATING_FORM.pdf': 'evaluation',
     'Final Rating Form.pdf': 'evaluation',
     'Final Agenda.pdf': 'other',
-    'Attachment A - Pricing Form.xlsx': 'requirements',
+    'Attachment A - Pricing Form.xlsx': 'form',
+    'Exhibit A_RWC_SaaS_Agreement.doc': 'form',
+    'P-37 Standard Contract Form (v2-23).pdf': 'form',
+    'Mandatory Forms.pdf': 'form',
+    'Attachment 11 Functional Requirements.xlsx': 'requirements',
+    'Attachment A - Scope of Work.pdf': 'requirements',
   };
   for (const [fileName, role] of Object.entries(roles)) {
     assert.equal(classifyDocumentRecord({ file_name: fileName }).role, role, fileName);
   }
 });
 
-// [scenario, fetchStatus, reason] — every row except `complete` must stay unscored.
+test('solicitation text names itself, states a submission deadline, and describes the work', () => {
+  assert.equal(looksLikeSolicitationText('Request for Proposals R27-002. Proposals must be received by October 27, 2026. Scope of Work: managed GRC services.'), true);
+  assert.equal(looksLikeSolicitationText('Invitation to Bid 43-26. Bids are due November 2. Minimum requirements are listed below.'), true);
+  // A short notice that names a solicitation and a due date but not the work stays unrecognized.
+  assert.equal(looksLikeSolicitationText('Solicitation Number 36C25227Q0040. Quotes are due October 16, 2026.'), false);
+  assert.equal(looksLikeSolicitationText('Scope of Work: see the agency portal for the full solicitation package.'), false);
+  assert.equal(looksLikeSolicitationText('Pre-proposal conference agenda and sign-in sheet.'), false);
+});
+
+// [scenario, fetchStatus, reason] — rows other than those listed in `scored` must stay unscored.
+const scored = new Set(['complete', 'named-by-project', 'unreadable-agreement']);
 const expectations = [
   ['complete', 'downloaded', null],
+  ['named-by-project', 'downloaded', /^$/],
+  ['unreadable-agreement', 'downloaded', /^Files not read: Exhibit A - SaaS Agreement\.txt$/],
+  ['short-notice', 'partial-documents', /^No extractable solicitation file was saved\.$/],
   ['empty', 'document-list-empty', /^HigherGov returned no documents\.$/],
   ['hardware-empty', 'document-list-empty', /^HigherGov returned no documents\.$/],
   ['no-text', 'partial-documents', /^No extractable solicitation file was saved\.$/],
@@ -99,10 +117,11 @@ test('secondary scorer gives no final score or verdict without a readable solici
       const row = results.find(item => item.title === `Synthetic Evidence ${name}`);
       assert.ok(row, name);
       assert.equal(row.fetchStatus, fetchStatus, name);
-      if (name === 'complete') {
+      if (scored.has(name)) {
         assert.equal(typeof row.fulltext_score, 'number', name);
         assert.notEqual(row.recommendation, 'Needs documents', name);
         assert.equal(row.timeline.status, 'verified', name);
+        if (reason) assert.match(row.fetchReason, reason, name);
         continue;
       }
       assert.equal(row.recommendation, 'Needs documents', name);
@@ -116,7 +135,7 @@ test('secondary scorer gives no final score or verdict without a readable solici
       assert.equal(row.gate.gate1Days, row.timeline.days, name);
     }
 
-    const needsDocuments = expectations.length - 1;
+    const needsDocuments = expectations.length - scored.size;
     assert.equal(summary.needsDocuments, needsDocuments);
     assert.equal(summary.strongPursue + summary.worthALook + summary.noBid + summary.deadlineNeedsReview + summary.needsDocuments, summary.total);
 
