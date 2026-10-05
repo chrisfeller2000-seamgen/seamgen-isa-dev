@@ -182,3 +182,15 @@ Chris asked to deploy straight to the VM. Exact-file release of commit `b872cbc`
 - Not yet observed: a real secondary run. The next one is the first production evidence; check its Needs documents count and reasons.
 
 Rollback, if needed and separately requested: confirm the three VM files still have the new hashes above, copy the three files from the backup's `original/` folder back into place, and verify the prior hashes. Do not overwrite later VM edits or restore old reports.
+
+## Real-data check after release — October 5, 2026
+
+Controlled run of the deployed secondary scorer on 10 real RFPs from the October 2 list (preliminary 75+, captured September 30, ten different agency sites). It used an isolated temporary workspace on the VM and real read-only HigherGov calls: 4 listing pages (76 records), 10 document lists, 39 files, 92 seconds. Production RFP and report files were unchanged (fingerprint `90887e67…` before and after). Nothing was sent.
+
+| Outcome | Count | Review |
+| --- | ---: | --- |
+| Scored from documents | 2 | Both No-bid from the existing keyword scorer; unchanged by this fix. |
+| Needs documents, correct | 4 | 2 with no HigherGov documents; 2 whose only file is a short (about 1.5–2k characters) notice-like document. |
+| Needs documents, wrong | 4 | 3 real RFPs (68k–147k characters, with RFP, deadline, and scope wording) not recognized because their file names lack "RFP" or "solicitation"; 1 complete ERP package blocked by a single `.doc` contract exhibit the VM cannot read (no `.doc` converter installed). |
+
+Conclusion: no final score came from a listing summary, but file-name recognition misses too many real solicitations for an automated report. Follow-up: recognize the solicitation from its extracted text, not only its file name, and decide how unreadable contract or form exhibits and `.doc` files should count. Do not tune a rule to these 10 cases alone.
