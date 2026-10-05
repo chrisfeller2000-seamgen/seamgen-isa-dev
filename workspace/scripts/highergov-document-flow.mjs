@@ -32,7 +32,7 @@ function safeExtension(fileName = '', contentType = '') {
 }
 
 function classifyDocumentRecord(record = {}) {
-  const name = normalizeText(record.file_name || record.name || record.title || record.description || '').toLowerCase();
+  const name = normalizeText(record.file_name || record.name || record.title || record.description || '').toLowerCase().replace(/[_.-]+/g, ' ');
   const type = normalizeText(record.document_type || record.type || '').toLowerCase();
   const haystack = `${name} ${type}`;
   let role = 'other';
@@ -54,10 +54,17 @@ function classifyDocumentRecord(record = {}) {
     required = true;
     priority = Math.max(priority, 60);
   }
-  if (/\b(rfp|request for proposal|request for proposals|solicitation|bid invitation|invitation to bid|request for quotation|final)\b/.test(haystack)) {
+  if (role === 'other' && /\b(rfp|request for proposal|request for proposals|solicitation|bid invitation|invitation to bid|request for quotation)\b/.test(haystack)) {
     role = 'solicitation';
     required = true;
     priority = Math.max(priority, 100);
+  }
+  // An RFP-prefixed rating form or bid-board export is not the RFP itself.
+  if (/rating form|committee rating|bid.board export|bidboard export/.test(haystack)
+      || /(?:bid.board export|download (?:the )?(?:actual |separate )?rfp|separate rfp (?:pdf|document))/i.test(record.text || '')) {
+    role = /rating|evaluation/.test(haystack) ? 'evaluation' : 'other';
+    required = role === 'evaluation';
+    priority = role === 'evaluation' ? 60 : 0;
   }
   if (/mandatory/.test(haystack) && role === 'other') {
     role = 'mandatory_attachment';

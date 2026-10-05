@@ -12,6 +12,12 @@
 - Reload and extract the saved files before strict gates/final score. Full-text confidence requires an extracted solicitation and no known missing required scoring document. Keep metadata-only, partial-documents, and access-blocked states distinct.
 - Normal mode can update candidates/intake state and reach Drive, HubSpot, Gmail, and Telegram. Do not use it as a local smoke test. `--test-mode` branches before intake and uses a temporary resources path; the fixture also mocks HigherGov and uses synthetic candidates.
 
+## Secondary scorer evidence gate
+
+`secondary-fulltext-score.mjs` gives a final score only when the weekly job's `evaluateDocumentCompleteness()` check passes: a downloaded solicitation with readable text, and no missing or unreadable required document. A download alone is not enough; only non-empty extracted text marks a file as extracted. Otherwise the result is **Needs documents**: `fulltext_score: null`, no gate verdicts or category points from the listing text, the preliminary score kept as provisional, and a fixed, plain reason. It is not a no-bid. Reasons never repeat raw provider errors or download links, which can carry keys or signed URLs.
+
+File roles come from file names in `classifyDocumentRecord()`. Underscores, dots, and hyphens count as separators, so `RFP_Final.pdf` is a solicitation. A name containing only "final", an agenda, a rating form, a bid-board export, or an RFP-named addendum or requirements file is not the solicitation. A readable file named like an RFP can still be only a notice or summary; content checks are not implemented. Retrieving documents HigherGov does not return, for example from the agency's own posting, is separate future work.
+
 ## Secondary scorer deadlines
 
 `secondary-fulltext-score.mjs` now uses the pure `rfp-deadline.mjs` helper. It passes separately identified extracted documents to the deadline assessment; candidate notes are not official evidence. Form approval/revision dates and availability strings cannot replace the submission deadline. Written-month dates and explicit submission labels are supported; invalid dates, unresolved two-digit years, and conflicting sources remain provisional.
@@ -20,8 +26,8 @@ The timeline score and gate use one assessment. A verified deadline retains the 
 
 Normal secondary runs use the current assessment date. `RFP_RUN_DATE=YYYY-MM-DD` is an explicitly labeled historical replay override; `RFP_ASSESSMENT_TIME_ZONE` defaults to UTC and sets the reporting/day-count fallback. Known buyer cutoff timezones take precedence for day counts. The default preliminary input and output names follow the assessment date; use `RFP_PRELIM_REPORT_PATH` to explicitly assess an older input. Do not execute the normal job locally with real integrations merely to test dates.
 
-The weekly job has a different deadline extractor and is not changed by this patch. It currently mixes proposal and question/opening dates when choosing the earliest gate date and discards past matches. Do not assume it follows the secondary deadline policy; alignment needs its own focused tests and review. The separate missing-requirements qualification work is also still outstanding.
+The weekly job has a different deadline extractor and is not changed by this patch. It currently mixes proposal and question/opening dates when choosing the earliest gate date and discards past matches. Do not assume it follows the secondary deadline policy; alignment needs its own focused tests and review. Broader missing-requirements work beyond the secondary evidence gate is still outstanding.
 
 ## Known gaps
 
-The fixture covers complete, empty, and portal-gated document sets, not actual HigherGov behavior from Azure. If a live document lookup returns zero rows, record it as blocked/incomplete and investigate; do not infer that no solicitation exists. The skill named `rfp-document-fetch-skill.md` is currently a duplicate of the refresh skill, so it is not a reliable fetch implementation guide. See [RFP overview](README.md), [data contracts](../../data-models.md), and [integrations](../../integrations.md).
+The fixture covers complete, empty, and portal-gated document sets, not actual HigherGov behavior from Azure. If a live document lookup returns zero rows, record it as `document-list-empty` (Needs documents); do not infer that no solicitation exists. The skill named `rfp-document-fetch-skill.md` is currently a duplicate of the refresh skill, so it is not a reliable fetch implementation guide. See [RFP overview](README.md), [data contracts](../../data-models.md), and [integrations](../../integrations.md).
