@@ -3,9 +3,13 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { assessDeadline, createAssessmentContext } from './rfp-deadline.mjs';
+import { createAssessmentContext } from './rfp-deadline.mjs';
+import { finalizeRfpScore, unscoredRfp } from './rfp-scoring-policy.mjs';
+import { scoreRfp } from './rfp-scoring-judgment.mjs';
 
 import {
+  classifyDocumentRecord,
+  evaluateDocumentCompleteness,
   listDocumentRecords,
   saveDocumentRecord,
 } from './highergov-document-flow.mjs';
@@ -31,10 +35,6 @@ function normalize(value = '') {
 
 function normalizeKey(value = '') {
   return normalize(value).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ');
-}
-
-function stripDashSuffix(value = '') {
-  return normalize(value).replace(/\s+[—-]\s+.+$/, '').trim();
 }
 
 function parseFrontmatter(fileText) {
@@ -124,13 +124,6 @@ async function loadOpportunityRecordsForDate(apiKey, config, capturedDate) {
   }
   opportunityCache.set(cacheKey, records);
   return records;
-}
-
-function scoreBand(value, bands) {
-  for (const band of bands) {
-    if (band.test(value)) return band.score;
-  }
-  return 0;
 }
 
 function textFromPdf(filePath) {
@@ -248,151 +241,6 @@ async function extractTextRecursive(dirPath) {
   return files;
 }
 
-function countMatches(text, patterns) {
-  let count = 0;
-  for (const pattern of patterns) {
-    const matches = text.match(pattern);
-    if (matches) count += matches.length;
-  }
-  return count;
-}
-
-function detectAgencyType(frontmatter, text) {
-  const agency = normalize(`${frontmatter.agency_name || ''} ${frontmatter.agency_type || ''} ${text}`);
-  if (/(school|college|university|education|public schools|isd\b)/i.test(agency)) return 'education';
-  if (/(water|wastewater|utility|utilities|power|energy|transit|port|airport|infrastructure)/i.test(agency)) return 'utilities';
-  if (/(health|hospital|medical|public health|healthcare|trial court|court|medicaid)/i.test(agency)) return 'public-health';
-  if (/(city of|county|borough|town of|township|village of|department of|state of|municipal|parish)/i.test(agency)) return 'state-local';
-  if (/(department of|department\b|federal|army|navy|air force|marines|va\b|cms\b|fdic\b|fema\b|epa\b|hhs\b|dot\b)/i.test(agency)) return 'federal';
-  if (/(inc|corp|corporation|llc|ltd|company|foundation|association|authority)/i.test(agency)) return 'private';
-  return 'unknown';
-}
-
-function detectCompliance(text) {
-  const strong = /(HIPAA|NIST\s*800|FISMA|FITARA|Section\s*508|508\b|GDPR|ADA\b|PCI-DSS|CJIS|FedRAMP)/i;
-  const adjacent = /(security\s+standards|privacy\s+requirements|data\s+privacy|accessibility|security\s+controls|state\s+it\s+policy)/i;
-  if (strong.test(text)) return 10;
-  if (adjacent.test(text)) return 6;
-  if (/(compliance|security|privacy)/i.test(text)) return 4;
-  return 1;
-}
-
-function detectAiAngle(text) {
-  const lower = text.toLowerCase();
-  if (/(ai-powered|ai driven|artificial intelligence|machine learning|chatbot|agentic|generative ai|large language model|llm|automated assistant|intelligent assistant)/i.test(lower)) return 10;
-  if (/(ai|artificial intelligence|machine learning|chatbot|assistant|bot)/i.test(lower)) return 7;
-  if (/(analytics|predictive|automation|workflow)/i.test(lower)) return 4;
-  return 1;
-}
-
-function detectTechAlignment(text) {
-  const lower = text.toLowerCase();
-  const score = [
-    /azure|\.net|react|angular|vue|node\.js|typescript|javascript|sql server|postgresql|mongodb|aws|openai|azure ai|bedrock|salesforce|arcgis|esri|figma/,
-  ].some((re) => re.test(lower)) ? 15 : 6;
-  if (/(technology agnostic|vendor agnostic|modern web platform|custom developed solution|stack agnostic)/i.test(lower)) return 14;
-  if (/(azure|\.net|react|angular|vue|node\.js|aws|openai|salesforce|arcgis|sql server|postgresql|oracle|mongo|mobile app|mobile workforce)/i.test(lower)) return score;
-  return 4;
-}
-
-function detectDealSize(frontmatter, text) {
-  const low = Number.parseFloat(String(frontmatter.val_est_low || '').replace(/[^0-9.]/g, '')) || 0;
-  const high = Number.parseFloat(String(frontmatter.val_est_high || '').replace(/[^0-9.]/g, '')) || 0;
-  const candidateRange = high || low;
-  const t = text.toLowerCase();
-  if (candidateRange >= 250000 && candidateRange <= 3000000) return 10;
-  if ((candidateRange >= 100000 && candidateRange < 250000) || (candidateRange > 3000000 && candidateRange <= 5000000)) return 8;
-  if (candidateRange > 5000000 && candidateRange <= 10000000) return 5;
-  if (candidateRange > 10000000) return 2;
-  const budgetMatch = t.match(/\$ ?([\d,]+(?:\.\d+)?)\s*(m|million|k|thousand)?/i);
-  if (budgetMatch) {
-    const num = Number.parseFloat(budgetMatch[1].replace(/,/g, ''));
-    const unit = (budgetMatch[2] || '').toLowerCase();
-    const dollars = unit.startsWith('m') || unit === 'million' ? num * 1_000_000 : unit.startsWith('k') || unit === 'thousand' ? num * 1_000 : num;
-    if (dollars >= 250000 && dollars <= 3000000) return 10;
-    if ((dollars >= 100000 && dollars < 250000) || (dollars > 3000000 && dollars <= 5000000)) return 8;
-    if (dollars > 5000000 && dollars <= 10000000) return 5;
-    if (dollars > 10000000) return 2;
-  }
-  return 7;
-}
-
-function detectCaseStudyMatch(frontmatter, text) {
-  const combined = `${frontmatter.title || ''} ${text}`.toLowerCase();
-  const rules = [
-    { re: /(patient portal|healthcare|medical|claims|credential|clinical|medicaid|hospital|behavioral health)/i, score: 20 },
-    { re: /(lms|learning management|student|faculty|education portal|school portal|course management)/i, score: 20 },
-    { re: /(data warehouse|business intelligence|bi|analytics platform|data platform|reporting solution|warehouse)/i, score: 20 },
-    { re: /(gis|arcgis|mapping|geospatial|asset management|stormwater|water utility|utility billing|billing system|transit signal|public works)/i, score: 19 },
-    { re: /(crm|customer portal|community engagement|contact center|records management|case management|tracking system)/i, score: 16 },
-    { re: /(ai assistant|chatbot|answer engine|genai|machine learning|automation)/i, score: 17 },
-    { re: /(support and maintenance|renewal|subscription renewal|maintenance services|helpdesk)/i, score: 10 },
-  ];
-  for (const rule of rules) {
-    if (rule.re.test(combined)) return rule.score;
-  }
-  return 7;
-}
-
-function detectCompetitivePosition(text) {
-  const lower = text.toLowerCase();
-  const signals = [];
-  let score = 8;
-  if (/(incumbent|current vendor|existing vendor|replace the current|current system|existing system)/i.test(lower)) {
-    score -= 2;
-    signals.push('incumbent or existing system mentioned');
-  }
-  if (/(established|fully operational|already operating|live demonstration|live demos?|existing installs?|in production)/i.test(lower)) {
-    score -= 3;
-    signals.push('product posture / live-demo language');
-  }
-  if (/(local vendor preference|locale points|in-state|in county|must be located|availability to and familiarity with the project locale)/i.test(lower)) {
-    score -= 2;
-    signals.push('locale advantage requirement');
-  }
-  if (/(separate cost proposal|per module|per option|multiple hosting models|mandatory questionnaire|security questionnaire|demo required|presentation required)/i.test(lower)) {
-    score -= 2;
-    signals.push('proposal-effort multiplier');
-  }
-  if (/(arcgis|salesforce|tyler|accela|opengov|granicus|cisco|microsoft|oracle|open text|opentext|veeam|crowdstrike|paymentus|ionwave|bidnet|docusign|adobe sign)/i.test(lower)) {
-    score -= 1;
-    signals.push('platform/vender posture');
-  }
-  score = Math.max(0, Math.min(10, score));
-  let verdict = 'Open';
-  if (score <= 2 || /sole source|single source/i.test(lower)) verdict = 'Wired';
-  else if (score <= 5 || signals.length >= 2) verdict = 'Leaning wired';
-  else if (/insufficient evidence/i.test(lower)) verdict = 'Insufficient evidence';
-  return { score, verdict, signals };
-}
-
-function detectGates(frontmatter, text, timeline) {
-  const customPass = /(custom build|custom-developed|custom developed|build|develop|design|modernization|redesign|implementation|implement|support and maintain|support|maintenance|enhancement|expand|rebuild|upgrade)/i.test(text);
-  const customFail = /(cots|off the shelf|off-the-shelf|saaS|saas|license renewal|subscription renewal|buy and implement|existing installs?|live demonstration|already operational|commercial product)/i.test(text);
-  const gate2 = customPass && !customFail;
-  const gate3 = !/(hardware|construction|equipment|physical goods|furniture|vehicle|replacement parts)/i.test(text);
-  const gate4 = !/(portal registration takes|unable to submit|account required and not available|vendor registration closed|cannot submit|deadline has passed)/i.test(text);
-  const gate5 = detectDealSize(frontmatter, text) > 0;
-  const refs = (text.match(/government references?/gi) || []).length;
-  const refsThreePlus = /3\+|three\s+or\s+more|at least three|minimum of three|three government/i.test(text);
-  const gate6 = !refsThreePlus;
-  return {
-    gate1: timeline.pass,
-    gate2,
-    gate3,
-    gate4,
-    gate5,
-    gate6,
-    gate1Days: timeline.days,
-    gate1Due: timeline.due,
-    gate1Status: timeline.status,
-    gate1Reason: timeline.note,
-    refs,
-    refsThreePlus,
-    gate2Reason: customPass && !customFail ? 'Custom build / modernization language present.' : 'Product or COTS language present.',
-  };
-}
-
 async function fetchAndExtract(candidate, config, apiKey) {
   const resourcesDir = path.join(os.tmpdir(), `secondary-fulltext-${candidate.frontmatter.slug || 'rfp'}-${Date.now()}`, 'resources');
   await fs.mkdir(resourcesDir, { recursive: true });
@@ -443,10 +291,15 @@ async function fetchAndExtract(candidate, config, apiKey) {
   }
   const texts = [];
   const documents = [];
+  const extractedTextByPath = new Map();
   for (const row of manifest) {
     if (!row.downloaded || !row.local_path) continue;
     const extracted = String(await extractText(row.local_path)).trim();
+    row.extracted = Boolean(extracted);
+    row.document_status = extracted ? 'downloaded and extracted' : 'downloaded but unsupported';
     if (!extracted) continue;
+    Object.assign(row, classifyDocumentRecord({ file_name: row.source_file_name || row.local_file_name, text: extracted }));
+    extractedTextByPath.set(row.local_path, extracted);
     // Preserve existing business-category text normalization; deadline evidence keeps lines.
     texts.push(`## ${row.local_file_name || row.source_file_name}\n${normalize(extracted)}`);
     documents.push({ name: row.local_file_name || row.source_file_name, text: extracted });
@@ -456,55 +309,33 @@ async function fetchAndExtract(candidate, config, apiKey) {
     resourcesDir,
     manifest,
     documents,
+    completeness: evaluateDocumentCompleteness({ manifest, extractedTextByPath }),
     text: texts.join('\n\n').trim(),
   };
 }
 
-export function buildScore(candidate, fullText, { documents = [], assessment = createAssessmentContext() } = {}) {
-  const frontmatter = candidate.frontmatter;
-  const text = `${candidate.body}\n${fullText}`.trim();
-  // Only actual source documents establish an official deadline, not candidate notes.
-  const timeline = assessDeadline({ metadataDueDate: frontmatter.due_date, documents, assessment });
-  const gate = detectGates(frontmatter, text, timeline);
-  const caseStudy = detectCaseStudyMatch(frontmatter, text);
-  const agencyTypeKey = detectAgencyType(frontmatter, text);
-  const agencyTypeScore =
-    agencyTypeKey === 'state-local' ? 15 :
-    agencyTypeKey === 'education' ? 15 :
-    agencyTypeKey === 'utilities' ? 15 :
-    agencyTypeKey === 'public-health' ? 15 :
-    agencyTypeKey === 'federal' ? 12 :
-    agencyTypeKey === 'private' ? 7 : 4;
-  const tech = detectTechAlignment(text);
-  const ai = detectAiAngle(text);
-  const deal = detectDealSize(frontmatter, text);
-  const compliance = detectCompliance(text);
-  const cp = detectCompetitivePosition(text);
-  const weightedTotal = caseStudy + agencyTypeScore + tech + ai + deal + compliance + cp.score + timeline.score;
-  const total = timeline.pass === null ? null : weightedTotal;
-  const otherGateFails = [gate.gate2, gate.gate3, gate.gate4, gate.gate5, gate.gate6].some(pass => pass === false);
-  const recommendation =
-    otherGateFails || gate.gate1 === false ? 'No-bid' :
-    gate.gate1 === null ? 'Deadline needs review' :
-    total >= 75 ? 'Strong Pursue' :
-    total >= 50 ? 'Worth a look' : 'No-bid';
-  return {
-    gate,
-    categories: {
-      caseStudy,
-      agencyTypeScore,
-      tech,
-      ai,
-      deal,
-      compliance,
-      competitive: cp.score,
-      timeline: timeline.score,
-    },
-    cp,
-    timeline,
-    total,
-    recommendation,
-  };
+export function buildScore(candidate, fullText, { documents = [], assessment = createAssessmentContext(), judgment, companySources = [], landscapeSources = [], completeness } = {}) {
+  const input = { candidate, documents, assessment, companySources, landscapeSources, completeness, phase: 'full-text' };
+  // fullText is retained for caller compatibility, never treated as a document.
+  return judgment ? finalizeRfpScore(input, judgment) : unscoredRfp(input, 'No validated AI judgment was supplied.');
+}
+
+export async function scoreSecondaryCandidate(candidate, { documents = [], assessment = createAssessmentContext(), completeness, companySources, policies, landscapeSources, judge, workspace } = {}) {
+  return scoreRfp({ candidate, documents, assessment, completeness, companySources, policies, landscapeSources, phase: 'full-text' }, { judge, workspace });
+}
+
+export function resolveSelectedCandidates(selectedTitles, candidates) {
+  const selection = [], reviews = [], seen = new Set();
+  for (const item of selectedTitles.filter(item => item.score >= 75)) {
+    const exact = candidates.filter(candidate => [candidate.frontmatter.title, candidate.frontmatter.slug,
+      `${candidate.frontmatter.title} — ${candidate.frontmatter.agency_name}`,
+      `${candidate.frontmatter.title} - ${candidate.frontmatter.agency_name}`]
+      .some(value => normalizeKey(value || '') === normalizeKey(item.title)));
+    if (exact.length !== 1) { reviews.push({ item, reason: exact.length ? 'Ambiguous candidate match; manual review required.' : 'No exact candidate match; manual review required.' }); continue; }
+    const candidate = exact[0], key = candidate.frontmatter.slug || candidate.dir;
+    if (!seen.has(key)) { selection.push({ item, candidate }); seen.add(key); }
+  }
+  return { selection, reviews };
 }
 
 async function main() {
@@ -516,53 +347,19 @@ async function main() {
   const config = JSON.parse(await fs.readFile(run.configPath, 'utf8'));
   const selectedTitles = await loadSelectedTitles(run.reportPath);
   const candidates = await loadCandidates(run.candidatesRoot);
-  const index = new Map();
-  for (const candidate of candidates) {
-    const title = normalize(candidate.frontmatter.title || '');
-    const core = normalize(stripDashSuffix(candidate.frontmatter.title || ''));
-    index.set(normalizeKey(title), candidate);
-    index.set(normalizeKey(core), candidate);
-    index.set(normalizeKey(candidate.frontmatter.slug || ''), candidate);
-  }
-
-  const selection = [];
-  const seen = new Set();
-  for (const item of selectedTitles) {
-    const core = stripDashSuffix(item.title);
-    const candidate =
-      index.get(normalizeKey(item.title)) ||
-      index.get(normalizeKey(core)) ||
-      candidates.find((c) => normalizeKey(c.frontmatter.title || '').includes(normalizeKey(core)) || normalizeKey(item.title).includes(normalizeKey(c.frontmatter.title || '')));
-    if (candidate && !seen.has(candidate.frontmatter.slug || candidate.dir)) {
-      selection.push({ item, candidate });
-      seen.add(candidate.frontmatter.slug || candidate.dir);
-    }
-  }
-
-  // Ensure the six named RFPs are present even if the report parser misses one.
-  const requiredNames = [
-    'AI Technical Specification Assistant',
-    'Data Warehouse and Business Intelligence Services',
-    'Customer Portal & AMI Technology',
-    'Website & Customer Service Logging System',
-    'Investigations Tracking System',
-    'Artificial Intelligence and Information Technology Technical Support and Advising Services',
-  ];
-  for (const name of requiredNames) {
-    const candidate = candidates.find((c) => normalizeKey(c.frontmatter.title || '').includes(normalizeKey(name)));
-    if (candidate && !seen.has(candidate.frontmatter.slug || candidate.dir)) {
-      selection.push({ item: { title: candidate.frontmatter.title || name, score: Number(candidate.frontmatter.preliminary_score || 0) }, candidate });
-      seen.add(candidate.frontmatter.slug || candidate.dir);
-    }
-  }
-
-  const results = [];
+  const { selection, reviews } = resolveSelectedCandidates(selectedTitles, candidates);
+  const results = reviews.map(({ item, reason }) => {
+    const score = unscoredRfp({ candidate: { frontmatter: {}, body: '' }, assessment: run.assessment }, reason);
+    return { title: item.title, agency: 'unknown', slug: '', preliminary_score: item.score,
+      fulltext_score: null, ...score, recommendation: 'Needs review', competitive: score.cp,
+      fetchStatus: 'not-attempted', fetchReason: reason, resourcesDir: '' };
+  });
   for (const { item, candidate } of selection) {
     process.stderr.write(`[secondary-fulltext] scoring ${candidate.frontmatter.title || item.title}\n`);
     try {
       const fetch = await fetchAndExtract(candidate, config, apiKey);
-      const scoringSource = fetch.status === 'downloaded' ? fetch.text : candidate.body;
-      const score = buildScore(candidate, scoringSource, { documents: fetch.documents || [], assessment: run.assessment });
+      const score = await scoreSecondaryCandidate(candidate, { documents: fetch.documents || [], completeness: fetch.completeness || { complete: false },
+        assessment: run.assessment, workspace: run.workspace });
       process.stderr.write(`[secondary-fulltext] -> ${candidate.frontmatter.title || item.title}: fetch=${fetch.status}, full=${score.total}, rec=${score.recommendation}\n`);
       results.push({
         title: candidate.frontmatter.title || item.title,
@@ -571,6 +368,16 @@ async function main() {
         preliminary_score: Number(candidate.frontmatter.preliminary_score || item.score || 0),
         fulltext_score: score.total,
         recommendation: score.recommendation,
+        qualification_status: score.qualification_status,
+        scoring_confidence: score.scoring_confidence,
+        document_status: score.document_status || fetch.status,
+        scoring_reasons: score.reasons,
+        gateReasons: score.gateReasons || [],
+        judgments: score.judgments || null,
+        flags: score.flags || [],
+        conditional: score.conditional || null,
+        scoring_error: score.scoring_error || null,
+        provenance: score.provenance || null,
         gate: score.gate,
         categories: score.categories,
         competitive: score.cp,
@@ -581,7 +388,7 @@ async function main() {
       });
     } catch (error) {
       const fetch = { status: 'failed', reason: error?.message || 'unknown' };
-      const score = buildScore(candidate, candidate.body, { assessment: run.assessment });
+      const score = unscoredRfp({ candidate, assessment: run.assessment }, 'Document processing failed; no metadata fallback score.');
       process.stderr.write(`[secondary-fulltext] -> ${candidate.frontmatter.title || item.title}: fetch=failed, full=${score.total}, rec=${score.recommendation}\n`);
       results.push({
         title: candidate.frontmatter.title || item.title,
@@ -590,6 +397,12 @@ async function main() {
         preliminary_score: Number(candidate.frontmatter.preliminary_score || item.score || 0),
         fulltext_score: score.total,
         recommendation: score.recommendation,
+        qualification_status: score.qualification_status,
+        scoring_confidence: score.scoring_confidence,
+        document_status: score.document_status || fetch.status,
+        scoring_reasons: score.reasons,
+        gateReasons: score.gateReasons || [],
+        provenance: score.provenance || null,
         gate: score.gate,
         categories: score.categories,
         competitive: score.cp,
@@ -619,7 +432,11 @@ export function buildSecondaryReport(inputResults, assessment) {
     assessmentTimeZone: assessment.reportingTimeZone,
     assessmentOverrideUsed: assessment.overrideUsed,
     total: results.length,
-    strongPursue: results.filter((r) => r.recommendation === 'Strong Pursue').length,
+    strongPursue: results.filter((r) => r.recommendation === 'Strong Pursue' && r.scoring_confidence === 'full-text' && r.qualification_status === 'qualified').length,
+    needsDocuments: results.filter(r => r.recommendation === 'Needs documents').length,
+    needsReview: results.filter(r => r.recommendation === 'Needs review').length,
+    conditional: results.filter(r => r.recommendation === 'Conditional — Ask the Agency').length,
+    watch: results.filter(r => ['Watch item', 'Not an open bid'].includes(r.recommendation)).length,
     worthALook: results.filter((r) => r.recommendation === 'Worth a look').length,
     noBid: results.filter((r) => r.recommendation === 'No-bid').length,
     deadlineNeedsReview: results.filter((r) => r.recommendation === 'Deadline needs review').length,
@@ -644,7 +461,10 @@ export function buildSecondaryReport(inputResults, assessment) {
     mdLines.push(`- Recommendation: ${row.recommendation}`);
     mdLines.push(`- Fetch: ${row.fetchStatus}${row.fetchReason ? ` (${row.fetchReason})` : ''}`);
     const failed = [row.gate.gate1, row.gate.gate2, row.gate.gate3, row.gate.gate4, row.gate.gate5, row.gate.gate6].some(pass => pass === false);
-    mdLines.push(`- Gates: ${failed ? 'fail' : row.gate.gate1 === null ? 'deadline needs review' : 'pass'}`);
+    mdLines.push(`- Gates: ${failed ? 'fail' : [1, 2, 3, 4, 5, 6].some(n => row.gate[`gate${n}`] === null) ? 'needs review' : 'pass'}`);
+    mdLines.push(`- Confidence: ${row.scoring_confidence || 'unverified'}; qualification: ${row.qualification_status || 'unverified'}`);
+    mdLines.push(`- Wired-RFP read: ${row.competitive?.verdict || 'Insufficient evidence'}`);
+    for (const reason of row.scoring_reasons || []) mdLines.push(`- Evidence note: ${reason}`);
     mdLines.push(`- Proposal deadline: ${row.timeline.due || 'unknown'}${row.timeline.time ? ` ${row.timeline.time} ${row.timeline.timeZone || '(timezone unknown)'}` : ''}`);
     mdLines.push(`- Deadline status: ${row.timeline.status}; ${row.timeline.note}`);
     mdLines.push(`- Deadline source: ${row.timeline.source?.file || row.timeline.source?.type || 'none'}${row.timeline.source?.section ? ` (${row.timeline.source.section})` : ''}`);

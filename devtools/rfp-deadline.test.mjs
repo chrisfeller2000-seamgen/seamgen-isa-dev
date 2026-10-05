@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { assessDeadline, createAssessmentContext, parseDeadlineDate, timelinePoints } from '../workspace/scripts/rfp-deadline.mjs';
 import { buildScore, buildSecondaryReport, resolveRunConfig } from '../workspace/scripts/secondary-fulltext-score.mjs';
+import { companySources, recordedJudgment } from './fixtures/rfp-recorded-judgments.mjs';
 
 const assessment = createAssessmentContext({ runDate: '2026-09-28' });
 const document = text => ({ name: 'synthetic-solicitation.txt', text });
@@ -10,7 +11,10 @@ const assess = (text, metadataDueDate = '2026-10-26', options = {}) => assessDea
 const mdrText = 'Approved 5/7/75\nRevised 3/18/2008\nProposals shall be received no later than Monday, October 26, 2026, at 4:30 p.m. Atlantic Standard Time.';
 const businessText = 'Custom build a data warehouse on Azure with AI support and security. Incumbent and local vendor preference.';
 const candidate = { frontmatter: { title: 'Synthetic Analytics Platform', agency_name: 'State of Example', due_date: '2026-10-26', val_est_low: '180000' }, body: businessText };
-const score = text => buildScore(candidate, `${businessText}\n${text}`, { documents: [document(text)], assessment });
+const score = text => {
+  const input = { candidate, documents: [document(text)], assessment, companySources, phase: 'full-text' };
+  return buildScore(candidate, `${businessText}\n${text}`, { ...input, judgment: recordedJudgment(input) });
+};
 
 test('MDR regression: actual submission deadline, 28 days, four points, and unchanged other categories', () => {
   const result = assess(mdrText);
@@ -25,8 +29,8 @@ test('MDR regression: actual submission deadline, 28 days, four points, and unch
   const scored = score(mdrText);
   const plain = score('Proposal due date: 2026-10-26');
   assert.deepEqual(scored.categories, plain.categories);
-  assert.equal(Object.entries(scored.categories).filter(([key]) => key !== 'timeline').reduce((sum, [, value]) => sum + value, 0), 73);
-  assert.equal(scored.total, 77);
+  assert.equal(scored.categories.timeline, 4);
+  assert.equal(scored.total, Object.values(scored.categories).reduce((a, b) => a + b, 0));
   assert.equal(scored.recommendation, 'Strong Pursue');
   assert.equal(scored.gate.gate1Days, scored.timeline.days);
   assert.equal(scored.gate.gate1Due, scored.timeline.due);
@@ -218,7 +222,8 @@ test('candidate notes cannot establish an official deadline; independent no-bid 
   assert.equal(result.timeline.status, 'metadata-only');
   assert.equal(result.total, null);
   assert.equal(result.recommendation, 'Deadline needs review');
-  const hardware = buildScore(candidate, 'Hardware procurement', { assessment });
+  const hardwareInput = { candidate, assessment, documents: [], companySources, phase: 'full-text' };
+  const hardware = buildScore(candidate, 'Hardware procurement', { ...hardwareInput, judgment: recordedJudgment(hardwareInput, { gate3: false }) });
   assert.equal(hardware.recommendation, 'No-bid');
   assert.equal(hardware.gate.gate3, false);
   assert.equal(hardware.total, null);

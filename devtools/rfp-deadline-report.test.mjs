@@ -68,7 +68,10 @@ Proposal due date: October 26, 2026. This is a candidate note, not document evid
         assert.equal(row.timeline.days, 28);
         assert.equal(row.timeline.score, 4);
         assert.equal(row.timeline.status, 'verified');
-        assert.equal(row.fulltext_score, 77);
+        // The old 77 came from the removed keyword calculator. The recorded
+        // judgment exercises corrected arithmetic without freezing that bug.
+        assert.equal(row.fulltext_score, Object.values(row.categories).reduce((a, b) => a + b, 0));
+        assert.equal(row.categories.timeline, 4);
         assert.equal(row.recommendation, 'Strong Pursue');
         assert.match(row.timeline.source.file, /Synthetic[ _]Solicitation\.txt/);
         assert.match(markdown, /2026-10-26 16:30 -04:00/);

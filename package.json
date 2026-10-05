@@ -15,6 +15,7 @@
     "local:version": "node devtools/local-isa.mjs version",
     "local:chat": "node devtools/local-isa.mjs chat",
     "test": "node --test devtools/*.test.mjs",
+    "rfp:alignment": "node devtools/rfp-alignment.mjs",
     "check": "node devtools/check-source.mjs"
   },
   "engines": {

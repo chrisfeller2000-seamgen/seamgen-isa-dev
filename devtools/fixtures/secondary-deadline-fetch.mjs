@@ -1,4 +1,6 @@
 // Synthetic local integration only. Any unrecognized outbound request is forbidden.
+import { installRecordedJudge } from './rfp-recorded-judgments.mjs';
+await installRecordedJudge();
 const text = {
   complete: 'Approved 5/7/75\nRevised 3/18/2008\nProposals shall be received no later than Monday, October 26, 2026, at 4:30 p.m. Atlantic Standard Time.',
   conflict: 'Proposal deadline: October 25, 2026.',

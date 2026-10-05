@@ -3,7 +3,12 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import { createAssessmentContext } from './rfp-deadline.mjs';
+import { finalizeRfpScore, unscoredRfp } from './rfp-scoring-policy.mjs';
+import { scoreRfp } from './rfp-scoring-judgment.mjs';
 import {
+  classifyDocumentRecord,
   ensureCandidateResourcesDir,
   evaluateDocumentCompleteness,
   listDocumentRecords,
@@ -299,9 +304,27 @@ async function updateCandidateMarkdownAtomic(candidatePath, updater) {
   await fs.rename(tempPath, candidatePath);
 }
 
-async function persistCandidateState(candidatePath, updates) {
+export async function persistCandidateState(candidatePath, updates) {
   await updateCandidateMarkdownAtomic(candidatePath, async (frontmatter) => {
     Object.assign(frontmatter, updates);
+  });
+}
+
+export function shouldFetchDocuments(result, threshold = 75) {
+  return Number.isFinite(result.total) && result.total >= threshold && result.qualification_status !== 'failed-gate'
+    && !['Watch item', 'Not an open bid', 'Conditional — Ask the Agency'].includes(result.recommendation);
+}
+
+export async function persistValidatedScore(candidatePath, { preliminaryScore, result, manifestPath, runDate }) {
+  await persistCandidateState(candidatePath, {
+    preliminary_score: preliminaryScore, final_score: result.total, score: result.total,
+    scoring_confidence: result.scoring_confidence, qualification_status: result.qualification_status,
+    document_status: result.document_status || 'partial-documents',
+    document_manifest_path: manifestPath, status: result.total === null ? 'provisional' : 'scored',
+    scored_date: runDate, scoring_categories: result.categories, scoring_recommendation: result.recommendation,
+    scoring_reasons: result.reasons, scoring_flags: result.flags, scoring_conditional: result.conditional || null,
+    scoring_judgments: result.judgments || null, scoring_error: result.scoring_error || null,
+    scoring_provenance: result.provenance || null,
   });
 }
 
@@ -324,32 +347,19 @@ function extractDeadlinesFromMetadata(candidate, metadataText, runDate) {
   return deadlines;
 }
 
-function scoreCandidateFromText({ candidate, text, runDate }) {
-  const title = cleanName(candidate?.title || candidate?.slug || '');
-  const issuer = cleanName(candidate?.issuer || '');
-  const deadlines = extractDeadlinesFromMetadata(candidate, text, runDate);
-  const base = analyzeFit(text, title, deadlines, runDate);
-  const gateCheck = evaluateQualificationGates(text, title, issuer, deadlines, candidate?.frontmatter?.val_est_low || '', runDate);
-  const landscape = assessSolutionLandscape(text, title, issuer, deadlines);
-  const capability = verifyCapabilities(text, title, base.reasons);
-  let score = base.score + landscape.score + capability.score;
-  const augmentedBlockers = [...base.blockers];
-  if (landscape.hardMismatch) {
-    augmentedBlockers.push({ category: 'Solution landscape', detail: 'The RFP appears to expect a product or delivery model that does not fit a custom-build pursuit.' });
-    score -= 15;
-  }
-  if (capability.hardMismatch) {
-    augmentedBlockers.push({ category: 'Capability verification', detail: 'The brief suggests a hard mismatch with Seamgen\'s custom delivery model.' });
-    score -= 15;
-  }
+export function buildWeeklyScore(candidate, { judgment, ...input } = {}) {
+  return finalizeRfpScore({ ...input, candidate }, judgment);
+}
+
+export async function scoreCandidateFromText({ candidate, runDate, phase = 'full-text', documents = [], completeness, companySources, policies, landscapeSources, judge }) {
+  const assessment = createAssessmentContext({ runDate, reportingTimeZone: process.env.RFP_ASSESSMENT_TIME_ZONE || 'UTC' });
+  const result = await scoreRfp({ candidate, phase, documents, completeness, assessment, companySources, policies, landscapeSources }, { judge, workspace: WORKSPACE });
   return {
-    score: Math.max(0, Math.min(100, Math.round(score))),
-    reasons: base.reasons,
-    blockers: augmentedBlockers,
-    gateCheck,
-    landscape,
-    capability,
-    deadlines,
+    ...result, score: result.total,
+    gateCheck: { results: result.gateReasons || [], failed: result.gateReasons?.find(item => result.gate[item.gate.replace('Gate ', 'gate')] === false) || (Object.values(result.gate).some(value => value === false) ? { gate: 'Scoring', reason: result.reasons.join('; ') } : null) },
+    blockers: result.flags.map(flag => ({ category: flag.type, detail: flag.reason })),
+    landscape: { summary: result.cp.signals.join('; ') }, capability: { summary: result.reasons.join('; ') },
+    deadlines: { proposalDue: result.timeline.due || '', questionsDue: result.timeline.questions?.due || '' },
   };
 }
 
@@ -1518,79 +1528,6 @@ function extractDeadlines(text = '', runDate = '') {
   return wanted;
 }
 
-function evaluateQualificationGates(text = '', title = '', issuer = '', deadlines = [], amountValue = '', runDate = '') {
-  const evidence = normalizeText(text);
-  const results = [];
-  const add = (gate, pass, reason) => {
-    results.push({ gate, pass, reason });
-    return pass;
-  };
-
-  const earliestDeadline = Array.isArray(deadlines) && deadlines.length
-    ? [...deadlines].map((deadline) => deadline.date).filter(Boolean).sort()[0]
-    : '';
-  const dayDiff = earliestDeadline && runDate ? daysBetween(earliestDeadline, runDate) : null;
-  if (!earliestDeadline) {
-    add('Gate 1', false, 'No future due date could be verified in the RFP docs.');
-  } else if (dayDiff < FULL_QUALIFY_MIN_DAYS) {
-    add('Gate 1', false, `The earliest verified due date is only ${dayDiff} day(s) away.`);
-  } else {
-    add('Gate 1', true, `The earliest verified due date is ${dayDiff} day(s) away.`);
-  }
-
-  const customSignals = /\b(custom build|custom-built|moderni[sz]ation|redesign|rebuild|replatform|migration|integration|implement(?:ation)? services|development services)\b/i.test(evidence);
-  const cotsSignals = /\b(cots|off[- ]the[- ]shelf|saas|software as a service|license(?:d)? solution|reseller|install and configure|configure this product|commercial product only|turnkey|no[- ]code|self[- ]service|existing platform)\b/i.test(evidence);
-  if (cotsSignals && !customSignals) {
-    add('Gate 2', false, 'The docs read as product procurement rather than a custom-build pursuit.');
-  } else {
-    add('Gate 2', true, customSignals ? 'The docs indicate custom work or modernization.' : 'No hard product-procurement tell found in the docs.');
-  }
-
-  const physicalSignals = /\b(hardware-only|physical goods|equipment procurement|construction|install(?:ation)? of equipment|devices?|servers?|laptops?|routers?|switches?)\b/i.test(evidence);
-  if (physicalSignals) {
-    add('Gate 3', false, 'The docs point to hardware/equipment/construction rather than software/services.');
-  } else {
-    add('Gate 3', true, 'No hardware-only or construction tell found in the docs.');
-  }
-
-  const submitSignals = /\b(must be registered|must register|vendor registration|portal registration|portal account|submit(?:ted)? via (?:the )?portal|bid portal|procurement portal|submittal portal|electronic submission|email submission)\b/i.test(evidence);
-  const submitBarriers = /\b(closed|restricted|must already be approved|pre[- ]qualified|invite(?:d)? only)\b/i.test(evidence);
-  if (submitSignals && submitBarriers) {
-    add('Gate 4', false, 'The docs mention a submission path with an explicit access/registration barrier.');
-  } else {
-    add('Gate 4', true, 'No submission blocker is visible in the docs.');
-  }
-
-  const amountText = normalizeText(amountValue || extractContractValue(evidence));
-  const amountMatch = amountText.match(/(\$?\s*\d[\d,]*(?:\.\d+)?)(\s*[kKmM])?/);
-  let amountNumeric = 0;
-  if (amountMatch) {
-    const raw = parseFloat(amountMatch[1].replace(/[^0-9.]/g, ''));
-    const suffix = (amountMatch[2] || '').trim().toLowerCase();
-    amountNumeric = raw;
-    if (suffix === 'k') amountNumeric *= 1000;
-    if (suffix === 'm') amountNumeric *= 1000000;
-  }
-  if (amountNumeric > 0 && amountNumeric < FULL_QUALIFY_MIN_VALUE) {
-    add('Gate 5', false, `The documented value appears below the $${(FULL_QUALIFY_MIN_VALUE / 1000).toFixed(0)}K floor (${amountText}).`);
-  } else {
-    add('Gate 5', true, amountNumeric > 0 ? `The documented value is at or above the $${(FULL_QUALIFY_MIN_VALUE / 1000).toFixed(0)}K floor (${amountText}).` : 'No hard sub-floor value is documented.');
-  }
-
-  const setAsideSignals = /\b(8a|8\(a\)|hubzone|wosb|edwosb|veteran[- ]owned|sdvosb|local vendor|minority[- ]owned)\b/i.test(evidence);
-  const qualificationSignals = /\b(esri certified|specific license|specific certification|must provide proof of|minimum qualifications|3\+ governmental|3 or more governmental|governmental references|existing installs?|live demonstrations|must already exist|installed base)\b/i.test(evidence);
-  if (setAsideSignals || qualificationSignals) {
-    add('Gate 6', false, 'The docs contain qualification/set-aside tells that appear to exclude Seamgen.');
-  } else {
-    add('Gate 6', true, 'No disqualifying qualification or set-aside tell is visible in the docs.');
-  }
-
-  return {
-    results,
-    failed: results.find((gate) => !gate.pass) || null,
-  };
-}
-
 function extractSummary(text = '') {
   const paragraphs = String(text || '')
     .replace(/\r/g, '\n')
@@ -1646,169 +1583,6 @@ function daysBetween(left = '', right = '') {
   const rightDate = new Date(right);
   if (Number.isNaN(leftDate.getTime()) || Number.isNaN(rightDate.getTime())) return null;
   return Math.round((leftDate - rightDate) / 86400000);
-}
-
-function analyzeFit(text = '', title = '', deadlines = [], runDate = '') {
-  const lower = `${title}\n${text}`.toLowerCase();
-  let score = 0;
-  const reasons = [];
-  const blockers = [];
-  const seenBlockers = new Set();
-  const addBlocker = (category, detail, penalty = 0) => {
-    const key = `${category}|${detail}`;
-    if (seenBlockers.has(key)) return;
-    seenBlockers.add(key);
-    blockers.push({ category, detail });
-    score -= penalty;
-  };
-
-  const fitRules = [
-    [/accessibility|wcag|section 508|ada/i, 20, 'Accessibility / WCAG'],
-    [/website|web redesign|intranet|portal|cms|content management|mobile|app|responsive/i, 18, 'Web / CMS / mobile delivery'],
-    [/api|azure|react|\.net|sso|integration|cloud/i, 15, 'Integration / modern stack'],
-    [/ai|artificial intelligence|automation|workflow|data platform|analytics/i, 15, 'AI / automation / data platform'],
-    [/maintenance|support|hosting|operations|managed services/i, 10, 'Support / maintenance / hosting'],
-    [/public sector|government|district|college|department|agency|state|city|metroparks/i, 8, 'Public-sector buyer'],
-    [/fixed price|milestone|phased|implementation/i, 8, 'Delivery structure'],
-  ];
-
-  for (const [pattern, points, label] of fitRules) {
-    if (pattern.test(lower)) {
-      score += points;
-      reasons.push(label);
-    }
-  }
-
-  if (/\b(no[- ]code|self[- ]service|turnkey|cots|off[- ]the[- ]shelf|ready[- ]made product|existing platform)\b/i.test(lower)) {
-    addBlocker('Product-fit', 'Asks for a ready-made or no-code platform.', 35);
-  }
-
-  if (/\bsaas\b/i.test(lower) && !/\bcustom\b/i.test(lower)) {
-    addBlocker('Scope-fit', 'Reads like a SaaS-first ask without a clear custom-build angle.', 10);
-  }
-
-  if (/\b(sealed bid|mandatory site visit|vendor registration|two[- ]envelope|addenda required|prequalification|qualified bidder|bid bond)\b/i.test(lower)) {
-    addBlocker('Procurement risk', 'Rigid procurement mechanics suggest a heavy bid process.', 5);
-  }
-
-  if (/\b(soc\s?2|iso\s?27001|hipaa|fedramp|cjis|pci\s?dss|security questionnaire|insurance certificate|data residency|background check)\b/i.test(lower)) {
-    addBlocker('Compliance risk', 'Security or compliance requirements are material in the brief.', 5);
-  }
-
-  if (/\b(fixed price|turnkey|all[- ]inclusive|guaranteed delivery|hard deadline|liquidated damages|penalty)\b/i.test(lower)) {
-    addBlocker('Delivery risk', 'The brief suggests fixed-price or turnkey delivery with limited discovery room.', 5);
-  }
-
-  if (/\b(budget\s*(?:tbd|unknown|not stated|not disclosed)|to be determined|no budget|budget\s*[:\-]\s*tbd)\b/i.test(lower)) {
-    addBlocker('Budget risk', 'The budget is missing or explicitly unclear.', 3);
-  }
-
-  if (Array.isArray(deadlines) && deadlines.length && runDate) {
-    const earliest = [...deadlines].map((deadline) => deadline.date).filter(Boolean).sort()[0];
-    const days = earliest ? daysBetween(earliest, runDate) : null;
-    if (Number.isFinite(days) && days <= 7) {
-      addBlocker('Timeline risk', `Proposal is due in ${days} day${days === 1 ? '' : 's'}.`, 5);
-    }
-  }
-
-  if (/\bproposal\b|\brfp\b|\bsolicitation\b/i.test(lower)) {
-    score += 5;
-  }
-
-  if (/\bbudget\b|\bestimate\b|\bamount\b|\bpriced\b/i.test(lower)) {
-    score += 5;
-  }
-
-  if (score < 0) score = 0;
-  return { score, reasons: [...new Set(reasons)], blockers: [...new Set(blockers)] };
-}
-
-function assessSolutionLandscape(text = '', title = '', issuer = '', deadlines = []) {
-  const lower = `${title}\n${issuer}\n${text}`.toLowerCase();
-  const signals = [];
-  let score = 0;
-  let hardMismatch = false;
-
-  if (/website|portal|intranet|cms|content management|digital experience|user experience|responsive/.test(lower)) {
-    signals.push('web / portal solution');
-    score += 8;
-  }
-  if (/integration|api|data migration|single sign[- ]on|sso|cloud|azure|microsoft 365|salesforce/.test(lower)) {
-    signals.push('integration-heavy landscape');
-    score += 8;
-  }
-  if (/accessibility|wcag|section 508|ada/.test(lower)) {
-    signals.push('accessibility requirement');
-    score += 6;
-  }
-  if (/moderniz|replace|upgrade|migration|legacy/.test(lower)) {
-    signals.push('modernization / replacement context');
-    score += 4;
-  }
-  if (/public sector|government|agency|city|county|district|college|university|school/.test(lower)) {
-    signals.push('public-sector procurement landscape');
-    score += 3;
-  }
-  if (/\b(no[- ]code|self[- ]service|turnkey|cots|off[- ]the[- ]shelf|ready[- ]made product|existing platform)\b/i.test(lower)) {
-    hardMismatch = true;
-    signals.push('product-fit mismatch');
-    score -= 20;
-  }
-
-  const earliest = Array.isArray(deadlines) && deadlines.length ? [...deadlines].map((deadline) => deadline.date).filter(Boolean).sort()[0] : '';
-  if (earliest) {
-    signals.push(`timeline anchored to ${earliest}`);
-  }
-
-  const summary = signals.length
-    ? `Solution landscape points to ${signals.slice(0, 3).join(', ')}.`
-    : 'Solution landscape is broad; no strong directional signal from the text.';
-
-  return { summary, score, hardMismatch, signals };
-}
-
-function verifyCapabilities(text = '', title = '', reasons = []) {
-  const lower = `${title}\n${text}`.toLowerCase();
-  const signals = [];
-  let score = 0;
-  let hardMismatch = false;
-
-  if (/accessibility|wcag|section 508|ada/.test(lower)) {
-    signals.push('accessibility delivery');
-    score += 8;
-  }
-  if (/integration|api|sso|cloud|azure|\.net|react|workflow|automation|analytics|data platform/.test(lower)) {
-    signals.push('implementation and integration work');
-    score += 8;
-  }
-  if (/website|portal|intranet|cms|digital experience|responsive|content management/.test(lower)) {
-    signals.push('web delivery');
-    score += 6;
-  }
-  if (/support|maintenance|hosting|managed services/.test(lower)) {
-    signals.push('delivery and support');
-    score += 3;
-  }
-  if (/\b(no[- ]code|self[- ]service|turnkey|cots|off[- ]the[- ]shelf|ready[- ]made product|existing platform)\b/i.test(lower)) {
-    hardMismatch = true;
-    signals.push('capability mismatch with custom build model');
-    score -= 25;
-  }
-  if (/saas\b/i.test(lower) && !/custom/.test(lower)) {
-    score -= 5;
-    signals.push('SaaS-first language without custom build context');
-  }
-
-  if (!signals.length && reasons.length) {
-    signals.push(`backed by ${[...new Set(reasons)].slice(0, 3).join(', ')}`);
-    score += 2;
-  }
-
-  const summary = signals.length
-    ? `Capability verification confirms ${signals.slice(0, 3).join(', ')}.`
-    : 'Capability verification does not expose a clear mismatch.';
-
-  return { summary, score, hardMismatch, signals };
 }
 
 function formatBlocker(blocker = {}) {
@@ -1943,31 +1717,27 @@ function buildEmailHtml(runDate, qualifiedItems, manualItems, intake) {
 
 async function scoreMetadataCandidate(candidate, runDate) {
   const metadataText = buildMetadataText(candidate);
-  const candidateText = metadataText || normalizeText(candidate?.frontmatter?.title || candidate?.slug || '');
-  const preview = scoreCandidateFromText({
-    candidate,
-    text: candidateText,
-    runDate,
-  });
+  const known = value => Boolean(normalizeText(value)) && !/^(unknown|n\/a|tbd)$/i.test(normalizeText(value));
   const enoughMetadata = normalizeText(metadataText).length >= 120
     || normalizeText(candidate?.frontmatter?.ai_summary || '').length >= 80
     || normalizeText(candidate?.frontmatter?.description_text || '').length >= 80
-    || normalizeText(candidate?.frontmatter?.due_date || '').toLowerCase() !== 'unknown'
-    || normalizeText(candidate?.frontmatter?.val_est_low || '').toLowerCase() !== 'unknown';
+    || known(candidate?.frontmatter?.due_date)
+    || known(candidate?.frontmatter?.val_est_low);
 
   if (!enoughMetadata) {
     return {
       status: 'insufficient-metadata',
       score: null,
       text: metadataText,
-      preview,
+      preview: unscoredRfp({ candidate, phase: 'preliminary', assessment: createAssessmentContext({ runDate }) }, 'Insufficient metadata.'),
       evidenceSource: 'metadata-only',
     };
   }
 
+  const preview = await scoreCandidateFromText({ candidate, phase: 'preliminary', runDate });
   return {
     status: 'preliminary-below-threshold',
-    score: Math.max(0, Math.round(preview.score)),
+    score: Number.isFinite(preview.score) ? preview.score : null,
     text: metadataText,
     preview,
     evidenceSource: 'metadata-only',
@@ -1986,7 +1756,15 @@ async function materializeCandidateDocuments({ candidate, config, resourcesDir, 
     capturedDate,
     versionKey,
     oppKey,
-  });
+  }).catch((error) => ({ __error: error }));
+  if (lookup.__error) {
+    return {
+      status: 'failed',
+      manifest: null,
+      resourcesDir,
+      reason: lookup.__error?.message || 'HigherGov opportunity lookup failed.',
+    };
+  }
   if (!lookup.record) {
     return {
       status: 'failed',
@@ -2020,7 +1798,7 @@ async function materializeCandidateDocuments({ candidate, config, resourcesDir, 
   }
   if (!Array.isArray(documentRecords) || !documentRecords.length) {
     return {
-      status: 'access-blocked',
+      status: 'document-list-empty',
       manifest: null,
       resourcesDir,
       reason: 'HigherGov returned no document records for the live document_path.',
@@ -2063,7 +1841,6 @@ async function materializeCandidateDocuments({ candidate, config, resourcesDir, 
     captured_date: capturedDate,
     highergov_page: normalizeText(liveRecord.path || frontmatter.source_url || ''),
     source_path: normalizeText(liveRecord.source_path || frontmatter.solicitation_url || ''),
-    document_path: normalizeText(documentPath || ''),
     fetched_utc: new Date().toISOString(),
     documents,
   };
@@ -2078,51 +1855,25 @@ async function materializeCandidateDocuments({ candidate, config, resourcesDir, 
 }
 
 async function extractManifestEvidence(manifest, resourcesDir) {
-  const documents = Array.isArray(manifest?.documents) ? manifest.documents : [];
-  let extractedDocs = 0;
+  const rows = Array.isArray(manifest?.documents) ? manifest.documents : [];
+  const documents = [], extractedTextByPath = new Map();
   let primaryDocument = null;
-  let extractedText = '';
-  for (const row of documents) {
+  for (const row of rows) {
     if (!row?.downloaded || !row.local_path) continue;
-    const text = await extractFileText(row.local_path).catch(() => '');
-    if (normalizeText(text)) {
-      row.extracted = true;
-      row.extracted_text_chars = normalizeText(text).length;
-      row.document_status = row.document_status === 'downloaded but unsupported' ? row.document_status : 'downloaded and extracted';
-      extractedDocs += 1;
-      if (!primaryDocument && row.role === 'solicitation') {
-        primaryDocument = row;
-      }
-      extractedText += `## ${row.local_file_name || row.source_file_name}\n${text.trim()}\n\n`;
-    } else if (row.document_status !== 'failed') {
-      row.extracted = false;
-      if (row.document_status === 'downloaded') {
-        row.document_status = 'downloaded but unsupported';
-      }
-    }
+    const text = String(await extractFileText(row.local_path).catch(() => '')).trim();
+    row.extracted = Boolean(normalizeText(text));
+    row.extracted_text_chars = text.length;
+    row.document_status = row.extracted ? 'downloaded and extracted' : 'downloaded but unsupported';
+    if (!row.extracted) continue;
+    Object.assign(row, classifyDocumentRecord({ file_name: row.source_file_name || row.local_file_name, text }));
+    extractedTextByPath.set(row.local_path, text);
+    documents.push({ file: row.local_file_name || row.source_file_name, text });
+    if (!primaryDocument && row.role === 'solicitation') primaryDocument = row;
   }
-
-  const completeness = evaluateDocumentCompleteness({
-    manifest: documents,
-    extractedTextByPath: new Map(documents.filter((row) => row.extracted && row.local_path).map((row) => [row.local_path, row.extracted_text_chars])),
-  });
-  const manifestSummary = {
-    ...manifest,
-    resources_dir: resourcesDir,
-    extracted_docs: extractedDocs,
-    primary_document: primaryDocument ? {
-      local_file_name: primaryDocument.local_file_name,
-      local_path: primaryDocument.local_path,
-      role: primaryDocument.role,
-      extracted_text_chars: primaryDocument.extracted_text_chars || 0,
-    } : null,
-    completeness,
-    documents,
-  };
+  const completeness = evaluateDocumentCompleteness({ manifest: rows, extractedTextByPath });
   return {
-    manifest: manifestSummary,
-    evidenceText: normalizeText(extractedText),
-    completeness,
+    manifest: { ...manifest, resources_dir: resourcesDir, extracted_docs: documents.length, primary_document: primaryDocument, completeness, documents: rows },
+    evidenceText: documents.map(doc => `## ${doc.file}\n${doc.text}`).join('\n\n'), documents, completeness,
   };
 }
 
@@ -2141,6 +1892,10 @@ async function runIsolatedDocumentFlowTest() {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), `rfp-test-${candidate.slug}-`));
   const resourcesDir = path.join(tempDir, 'resources');
   await fs.mkdir(resourcesDir, { recursive: true });
+  if (!shouldFetchDocuments(preliminary.preview, FULL_QUALIFY_THRESHOLD)) {
+    return { candidateSlug: candidate.slug, runDate, tempDir, preliminary,
+      documentFlow: { status: 'skipped-preliminary', reason: 'No eligible validated preliminary score at or above 75.' }, final: null };
+  }
   const documentFlow = await materializeCandidateDocuments({
     candidate,
     config,
@@ -2163,7 +1918,7 @@ async function runIsolatedDocumentFlowTest() {
   const extracted = await extractManifestEvidence(documentFlow.manifest, resourcesDir);
   const finalText = extracted.completeness.complete ? extracted.evidenceText : '';
   const final = finalText
-    ? scoreCandidateFromText({ candidate, text: finalText, runDate })
+    ? await scoreCandidateFromText({ candidate, runDate, documents: extracted.documents, completeness: extracted.completeness })
     : null;
   return {
     candidateSlug: candidate.slug,
@@ -2232,7 +1987,7 @@ async function main() {
     const displayTitle = issuer && !normalizeSearchText(title).includes(normalizeSearchText(issuer))
       ? `${title} — ${issuer}`
       : title;
-    const deadlines = extractDeadlinesFromMetadata(candidate, metadataText, runDate);
+    let deadlines = extractDeadlinesFromMetadata(candidate, metadataText, runDate);
     const amountValue = (frontmatter.val_est_low && normalizeText(frontmatter.val_est_low).toLowerCase() !== 'unknown'
       ? normalizeText(frontmatter.val_est_low)
       : 'not stated');
@@ -2262,18 +2017,24 @@ async function main() {
       final_score: null,
       score: null,
       scoring_confidence: 'metadata-only',
-      qualification_status: preliminaryScore >= FULL_QUALIFY_THRESHOLD ? 'provisional' : 'preliminary-below-threshold',
+      qualification_status: preliminary.preview.qualification_status === 'failed-gate' ? 'failed-gate' : preliminaryScore === null ? 'provisional' : preliminaryScore >= FULL_QUALIFY_THRESHOLD ? 'provisional' : 'preliminary-below-threshold',
+      preliminary_categories: preliminary.preview.categories,
+      preliminary_judgments: preliminary.preview.judgments || null,
+      preliminary_reasons: preliminary.preview.reasons,
+      preliminary_error: preliminary.preview.scoring_error || null,
+      preliminary_recommendation: preliminary.preview.recommendation,
+      preliminary_provenance: preliminary.preview.provenance || null,
       document_status: 'metadata-only',
       status: 'provisional',
     });
 
-    if (preliminaryScore < FULL_QUALIFY_THRESHOLD) {
+    if (!shouldFetchDocuments(preliminary.preview, FULL_QUALIFY_THRESHOLD)) {
       manualReview.push({
         displayTitle,
         preliminaryScoreDisplay: String(preliminaryScore),
-        qualification_status: 'preliminary-below-threshold',
+        qualification_status: preliminaryScore === null ? preliminary.preview.qualification_status : 'preliminary-below-threshold',
         document_status: 'metadata-only',
-        reason: `Preliminary score ${preliminaryScore} is below the document-fetch threshold of ${FULL_QUALIFY_THRESHOLD}.`,
+        reason: preliminaryScore === null ? preliminary.preview.reasons.join('; ') : `Preliminary score ${preliminaryScore} is below the document-fetch threshold of ${FULL_QUALIFY_THRESHOLD}.`,
       });
       continue;
     }
@@ -2332,7 +2093,7 @@ async function main() {
         preliminary_score: preliminaryScore,
         final_score: null,
         score: null,
-        scoring_confidence: documentStatus === 'access-blocked' ? 'metadata-only' : 'partial-documents',
+        scoring_confidence: ['access-blocked', 'document-list-empty'].includes(documentStatus) ? 'metadata-only' : 'partial-documents',
         qualification_status: 'provisional',
         document_status: documentStatus,
         document_manifest_path: path.join(resourcesDir, '_document-manifest.json'),
@@ -2348,10 +2109,11 @@ async function main() {
       continue;
     }
 
-    const qualificationText = extracted.evidenceText || metadataText;
-    const scoringBundle = scoreCandidateFromText({ candidate, text: qualificationText, runDate });
-    const finalScore = Math.max(0, Math.round(scoringBundle.score));
+    const qualificationText = extracted.evidenceText;
+    const scoringBundle = await scoreCandidateFromText({ candidate, runDate, documents: extracted.documents, completeness });
+    const finalScore = scoringBundle.total;
     const gateCheck = scoringBundle.gateCheck;
+    deadlines = scoringBundle.timeline.due ? [{ label: 'Proposal due', date: `${scoringBundle.timeline.due}${scoringBundle.timeline.time ? ` ${scoringBundle.timeline.time} ${scoringBundle.timeline.timeZone || ''}` : ''}` }] : [];
     const whyFits = buildWhyItFitsNarrative({
       title,
       issuer,
@@ -2361,51 +2123,26 @@ async function main() {
       capabilitySummary: scoringBundle.capability.summary,
     });
     const blockers = [...scoringBundle.blockers];
-    const amountText = extractContractValue(qualificationText)
-      || (frontmatter.val_est_low && normalizeText(frontmatter.val_est_low).toLowerCase() !== 'unknown'
-        ? normalizeText(frontmatter.val_est_low)
-        : '');
-
+    await persistValidatedScore(candidatePath, { preliminaryScore, result: scoringBundle,
+      manifestPath: path.join(resourcesDir, '_document-manifest.json'), runDate });
     if (gateCheck.failed) {
-      await persistCandidateState(candidatePath, {
-        preliminary_score: preliminaryScore,
-        final_score: null,
-        score: null,
-        scoring_confidence: 'full-text',
-        qualification_status: 'failed-gate',
-        document_status: 'full-text',
-        document_manifest_path: path.join(resourcesDir, '_document-manifest.json'),
-        status: 'provisional',
-      });
       manualReview.push({
         displayTitle,
         preliminaryScoreDisplay: String(preliminaryScore),
         qualification_status: 'failed-gate',
-        document_status: 'full-text',
+        document_status: scoringBundle.document_status || 'partial-documents',
         reason: `Strict gate failed: ${gateCheck.failed.gate} - ${gateCheck.failed.reason}`,
       });
       continue;
     }
 
-    await persistCandidateState(candidatePath, {
-      preliminary_score: preliminaryScore,
-      final_score: finalScore,
-      score: finalScore,
-      scoring_confidence: 'full-text',
-      qualification_status: finalScore >= FULL_QUALIFY_THRESHOLD ? 'qualified' : 'rejected',
-      document_status: 'full-text',
-      document_manifest_path: path.join(resourcesDir, '_document-manifest.json'),
-      status: 'scored',
-      scored_date: runDate,
-    });
-
-    if (finalScore < FULL_QUALIFY_THRESHOLD) {
+    if (scoringBundle.qualification_status !== 'qualified' || !Number.isFinite(finalScore) || finalScore < FULL_QUALIFY_THRESHOLD) {
       manualReview.push({
         displayTitle,
         preliminaryScoreDisplay: String(preliminaryScore),
-        qualification_status: 'rejected',
-        document_status: 'full-text',
-        reason: `Final score ${finalScore} is below the pursue threshold.`,
+        qualification_status: scoringBundle.qualification_status,
+        document_status: scoringBundle.document_status || 'partial-documents',
+        reason: finalScore === null ? `${scoringBundle.recommendation}: ${scoringBundle.reasons.join('; ')}` : `Final score ${finalScore} is below the pursue threshold.`,
       });
       continue;
     }
@@ -2460,7 +2197,7 @@ async function main() {
       displayTitle,
       driveUrl: driveFolder.folderUrl || portalUrl || sourceUrl,
       portalUrl: portalUrl || sourceUrl,
-      amount: amountText || amountValue,
+      amount: scoringBundle.value?.estimate ? `${scoringBundle.value.estimate} (${scoringBundle.value.status}; ${scoringBundle.judgments?.value?.kind || 'unknown'} estimate)` : 'not stated',
       deadlines,
       summary: extractSummary(qualificationText) || summary,
       scoreNarrative: buildQualificationNarrative(finalScore, scoringBundle.reasons),
@@ -2576,7 +2313,7 @@ async function main() {
   );
 }
 
-main().catch((error) => {
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => {
   process.stderr.write(
     `${JSON.stringify(
       {

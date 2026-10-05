@@ -5,6 +5,7 @@ Run these from the repository root. `package.json` is the command source of trut
 | Command | What it proves or changes |
 | --- | --- |
 | `npm test` | Offline Node tests, including synthetic RFP document cases. No real HigherGov, HubSpot, Gmail, Drive, or Telegram check. |
+| `npm run rfp:alignment` | Strict offline comparison against Jake-rubric-derived synthetic expectations, using recorded judgments on the new scorer. Exits 1 for mismatches and writes ignored reports; not a real AI comparison. See [alignment tests](domains/rfp/rubric-alignment.md). |
 | `npm run check` | Source safety and JavaScript/shell syntax checks. Not an integration test. |
 | `npm run local:setup` | Installs isolated Node/OpenClaw and copies tracked ISA source into ignored `.isa-local/`, or the absolute `ISA_LOCAL_DIR` path when set (useful for WSL checkouts under `/mnt/c`). |
 | `npm run local:link-key -- /absolute/path/to/.env.local` | Links an existing local `OPENAI_API_KEY` source by path; never paste the key into the command. |
