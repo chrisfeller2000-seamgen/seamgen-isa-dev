@@ -60,10 +60,31 @@ Real-model batch, October 5 (approved by Chris, up to 36 calls):
 - Finding: at metadata depth, competitive position stays neutral and AI and compliance are often low, so non-AI software RFPs land around 60–70. Under Jake's written policy, 50–74 is "Worth a look" with no automatic document fetch. Whether to fetch documents for that band is a business decision; this work does not change the threshold.
 - Records: private raw answers and usage are in ignored `.isa-local/rfp-ai-batch-2026-10-05/`.
 
+Full-text test, October 5 (same approval; 8 of the 36 calls):
+
+- Setup: the six Worth-a-look RFPs went through this branch's secondary scorer on the VM, using a labeled test input report that listed them at 80. Each run fetched documents from HigherGov, checked completeness, and called the shared AI scorer. All six packages downloaded and passed the evidence gate.
+- Valid full-text results:
+
+  | RFP | Result | Reason |
+  | --- | --- | --- |
+  | Research project | No-bid | Gate 2: an ongoing data feed, not custom software. |
+  | Learning management system | No-bid | Gate 2: a hosted subscription product with minimal customization. |
+  | Gift platform | Deadline needs review | The submission deadline was not found in the documents. Gates unknown include an IPRO account and an unverified SOC 2 Type 2 requirement. |
+  | Registry website | Needs review | Gate 6 unknown: financial-strength documents, key-staff references, PCI DSS. Categories sum to 71. Case study HCP, adjacent. |
+
+- Fixes from this test, all committed:
+  - Packets of up to ~580k characters exceeded the old 450k limit; the model's context is ~1.05M tokens and the limit is now 1.5M characters.
+  - An expanded project name ("Healthcare Partners (HCP)") was rejected; the concrete prompt example is restored and the validator stays strict.
+  - A copied description became an enumerated value ("inferred: …"), introduced by `5dc8086`; enumerated values are plain again and tested.
+  - A large package hit the 120-second limit; it is now 300 seconds.
+- Not yet shown with the final code: the ERP (timeout) and utility-software (enumerated value) packages need one more call each. No RFP in this sample scored 75+, so a qualified Strong Pursue has not been observed on real documents.
+- Totals for the October 5 testing: 36 model calls, about $0.30 as reported by OpenClaw. Production fingerprints were unchanged and nothing was sent. Downloaded documents were removed from the VM test folder; raw private records are in `.isa-local/rfp-ai-batch-2026-10-05/`.
+
 Next steps, each needing separate approval:
 
-1. Exercise full-text AI scoring on real documents, for example the six Worth-a-look RFPs.
-2. Release the weekly job, secondary scorer, document helper, policy, and adapter together, coordinated with Sam and Hugo.
+1. Two more calls to confirm the ERP and utility-software packages with the final code.
+2. Decide whether Worth-a-look (50–74) results should fetch documents automatically.
+3. Release the weekly job, secondary scorer, document helper, policy, and adapter together, coordinated with Sam and Hugo.
 
 ## September 30 status and proof
 
