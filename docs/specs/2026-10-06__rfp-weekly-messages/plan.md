@@ -54,7 +54,7 @@ Everything in it is pure except `writeTelegramMessage()`, which takes a completi
    - `NO_TELEGRAM` keeps its current meaning.
 7. **`workspace/AGENTS.md`.** Add the short RFP section described in the spec, including how to respond to replies to Friday questions.
 8. **Docs.** Update `docs/domains/rfp/README.md` and `document-qualification.md` with the report tiers, the message and the results file, and `docs/live-jobs.md` with the single scheduler.
-9. **Before release:** the preview message to Chris confirms that `openclaw message send --channel telegram` renders Markdown bold and links. If it doesn't, switch the writer rules and the fallback to plain text.
+9. **Before release:** the group preview confirms that `openclaw message send --channel telegram` renders Markdown bold and links. If it doesn't, switch the writer rules and the fallback to plain text.
 
 ## Invariants and side effects
 
@@ -102,7 +102,7 @@ Everything in it is pure except `writeTelegramMessage()`, which takes a completi
 
 **Previews:**
 - **Local, free:** render the facts and the fallback from the six October 5 real results in ignored `.isa-local/`.
-- **In Telegram, one model call (about 1–2 cents, approved by Chris):** run the writer on the same facts on the VM. Send the result to Chris's direct chat with ISA, under a line saying it's a preview built from test RFPs. This also shows how bold titles and links render.
+- **In Telegram, one model call (about 1–2 cents, approved by Chris):** run the writer on the same facts on the VM. Post the result in the sales group under the line "Preview: here's how my new Friday RFP update will look, using RFPs from a test run. Not this week's results." This also shows how bold titles and links render.
 
 Chris reviews both before release. There is no full dry run (Chris, October 6); Friday's run is the first full run with the new message.
 

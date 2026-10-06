@@ -25,7 +25,7 @@
 - [ ] `npm test`, `npm run check`, diff review and secret scan.
 - [ ] Previews:
   - [ ] local facts and fallback from the six October 5 results;
-  - [ ] ISA's draft sent to Chris's Telegram direct chat, labeled as a preview (one model call; approved);
+  - [ ] ISA's draft posted in the sales group, labeled as a preview (one model call; approved by Chris);
   - [ ] Chris reviews both.
 - [ ] Release:
   - [ ] heads-up to Sam and Hugo;

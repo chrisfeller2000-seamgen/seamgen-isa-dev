@@ -64,7 +64,7 @@ The scorer can't settle them from company files; a teammate can in one reply.
   - more email recipients.
 - **Failure notice:** it names Chris.
 - **The separate engineering test chat** is deferred.
-- **Preview in Telegram.** ISA's draft for the six October 5 RFPs goes to Chris's direct chat with ISA, labeled as a preview. Chris may then share it with the group.
+- **Preview in the group.** ISA's draft for the six October 5 RFPs is posted in the sales group, opening with the line "Preview: here's how my new Friday RFP update will look, using RFPs from a test run. Not this week's results."
 - **No full dry run** of the weekly job before release; Friday's run is the first full run of the new message.
 
 ## Desired behavior
@@ -115,7 +115,7 @@ If the Friday run exits with an error, including before Node starts (for example
   - it is at most 3,000 characters (aim for about 2,000).
 - **Fallback:** if the draft fails any check, or the model call fails or times out, the job sends a code-built version of the same facts. Friday's message always goes out.
 
-**Formatting.** Bold titles and named links (`**title**`, `[HigherGov listing](url)`), which OpenClaw converts for Telegram; ISA's chat answers in this group already use both. Before release, the preview message to Chris confirms that `openclaw message send` renders bold and links. If it doesn't, the message is sent as plain text with bare links. Link previews are a channel-wide OpenClaw setting and stay as they are.
+**Formatting.** Bold titles and named links (`**title**`, `[HigherGov listing](url)`), which OpenClaw converts for Telegram; ISA's chat answers in this group already use both. Before release, the preview message in the group confirms that `openclaw message send` renders bold and links. If it doesn't, the message is sent as plain text with bare links. Link previews are a channel-wide OpenClaw setting and stay as they are.
 
 **Template (approved by Chris, October 6).** The fallback is sent exactly as written. ISA's own version follows the same structure and facts, phrased naturally. Placeholders are in `{braces}`; `**…**` is the Markdown sent for bold.
 
@@ -315,14 +315,14 @@ Picks, needs-documents and screened-out RFPs add up to the count in the first li
   - says plainly when nothing is ready.
 - [ ] The draft checks reject a changed number, date, budget, title or link; an extra link; a missing pick; a path, code or gate number; unsupported formatting; and more than 3,000 characters. Each rejection sends the fallback, and the results file records why.
 - [ ] A failed or timed-out model call sends the fallback, and Friday's message is never skipped because of the writer.
-- [ ] Bold titles and named links render correctly in the preview message to Chris; otherwise the message is sent as plain text.
+- [ ] Bold titles and named links render correctly in the group preview; otherwise the message is sent as plain text.
 - [ ] No message, email or results file contains a server path, an excerpt ID, an internal status code, or a signed document URL.
 - [ ] Deadlines show Pacific time and days left, and a listing-only date is marked unconfirmed.
 - [ ] The email subject and recipient are unchanged; screened-out RFPs appear as grouped lines, not cards.
 - [ ] "Why Seamgen fits" never joins gate sentences; a regression test covers the October 6 garbled output.
 - [ ] Scoring results are unchanged for the same inputs.
 - [ ] `npm test` and `npm run check` pass, and new tests use synthetic fixtures only.
-- [ ] Before release, Chris reviews the fallback version and ISA's draft for the six October 5 RFPs. The draft is sent to his Telegram direct chat with ISA and labeled as a preview.
+- [ ] Before release, Chris reviews the fallback version and ISA's draft for the six October 5 RFPs. The draft is posted in the sales group, labeled as a preview.
 
 ## Out of scope
 
@@ -347,7 +347,7 @@ Picks, needs-documents and screened-out RFPs add up to the count in the first li
   Wording in between (for example "it's a lot like the HCP portal") is not machine-checked. The preview review and the first Fridays are when Chris confirms it stays faithful.
 - **Cost and time:** the writer adds one model call per run, about 1–2 cents and up to a few minutes.
 - **Mail-to-HubSpot dependency.** ISA's mail job turns emails from ISA with this subject into HubSpot RFP deals if they reach `sales@`. Keep the subject, and do not add `sales@` without changing that job.
-- **There is no test chat yet.** The one preview goes to Chris's direct chat with ISA, labeled as a preview; the first message to the group is Friday's.
+- **There is no test chat yet.** The one preview goes to the sales group with a clear preview label. Friday's message is the first real one.
 - **Group-chat behavior** after the instruction change can only be confirmed on the next real use in the group.
 - **Real RFP results are runtime data.** They stay in ignored `.isa-local/` for previews; Git fixtures are invented.
 - **Disabling the noon job** is reversible (`openclaw cron enable`) and needs its own approval and a heads-up to Sam and Hugo.
