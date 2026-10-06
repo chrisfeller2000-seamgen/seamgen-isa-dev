@@ -11,6 +11,11 @@ export const CATEGORY_BANDS = {
   competitive: { favorable: [10, 10], someAdvantages: [7, 9], neutral: [4, 6], unfavorable: [1, 3], closed: [0, 0] },
 };
 const keys = Object.keys(CATEGORY_BANDS);
+// Preliminary score at which ISA fetches the documents and scores the full text. Jake
+// fetched only at 75+ because his browser-driven fetch was slow and manual; the HigherGov
+// API makes it cheap, and listing-only scores of good software RFPs land around 60-70.
+// The decision bands are unchanged: 75+ Strong Pursue, 50-74 Worth a look, below 50 No-bid.
+export const DOCUMENT_FETCH_THRESHOLD = 50;
 const money = value => {
   if (value === '' || value === null || value === undefined || !/^[\d,.\s$]+$/.test(String(value))) return null;
   const result = Number(String(value).replace(/[,$\s]/g, ''));

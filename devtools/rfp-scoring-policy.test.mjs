@@ -5,7 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { alignmentCases } from './fixtures/rfp-alignment-cases.mjs';
 import { companySources, fixturePolicies, recordedJudgment, referenceJudgment } from './fixtures/rfp-recorded-judgments.mjs';
-import { CATEGORY_BANDS, assessProjectValue, documentEvidence, finalizeRfpScore } from '../workspace/scripts/rfp-scoring-policy.mjs';
+import { CATEGORY_BANDS, DOCUMENT_FETCH_THRESHOLD, assessProjectValue, documentEvidence, finalizeRfpScore } from '../workspace/scripts/rfp-scoring-policy.mjs';
 import { createAssessmentContext } from '../workspace/scripts/rfp-deadline.mjs';
 import { createOpenClawJudge, scoreRfp } from '../workspace/scripts/rfp-scoring-judgment.mjs';
 import { persistValidatedScore, scoreCandidateFromText, shouldFetchDocuments } from '../workspace/scripts/weekly-rfp-pursue-decision.mjs';
@@ -335,16 +335,20 @@ test('full-text cannot be established by an ancillary document, a flag, or a mis
   assert.equal(unweighted.total, null);
 });
 
-test('threshold selection never fetches a non-finalizable or below-75 preliminary result', () => {
-  for (const total of [null, NaN, 0, 74]) assert.equal(shouldFetchDocuments({ total, recommendation: 'Worth a look', qualification_status: 'provisional' }), false);
+test('documents are fetched at a preliminary 50+, never for a non-finalizable or gate-failed result', () => {
+  assert.equal(DOCUMENT_FETCH_THRESHOLD, 50);
+  for (const total of [null, NaN, 0, 49]) assert.equal(shouldFetchDocuments({ total, recommendation: 'No-bid', qualification_status: 'provisional' }), false);
+  assert.equal(shouldFetchDocuments({ total: 50, recommendation: 'Worth a look', qualification_status: 'provisional' }), true);
   assert.equal(shouldFetchDocuments({ total: 75, recommendation: 'Strong Pursue', qualification_status: 'provisional' }), true);
   assert.equal(shouldFetchDocuments({ total: 99, recommendation: 'No-bid', qualification_status: 'failed-gate' }), false);
+  assert.equal(shouldFetchDocuments({ total: 60, recommendation: 'Worth a look', qualification_status: 'provisional' }, 75), false);
 });
 
 test('secondary selection has no forced historical titles and never guesses ambiguous matches', () => {
   const candidate = { dir: 'unique', frontmatter: { title: 'Data Warehouse', agency_name: 'City A', slug: 'a' } };
   assert.deepEqual(resolveSelectedCandidates([], [candidate]).selection, []);
-  assert.equal(resolveSelectedCandidates([{ title: 'Data Warehouse', score: 74 }], [candidate]).selection.length, 0);
+  assert.equal(resolveSelectedCandidates([{ title: 'Data Warehouse', score: 49 }], [candidate]).selection.length, 0);
+  assert.equal(resolveSelectedCandidates([{ title: 'Data Warehouse', score: 60 }], [candidate]).selection.length, 1);
   assert.equal(resolveSelectedCandidates([{ title: 'Warehouse', score: 80 }], [candidate]).reviews.length, 1);
   assert.equal(resolveSelectedCandidates([{ title: 'Data Warehouse', score: 80 }], [candidate, { ...candidate, dir: 'other' }]).reviews.length, 1);
   assert.equal(resolveSelectedCandidates([{ title: 'Data Warehouse — City A', score: 80 }], [candidate]).selection.length, 1);

@@ -5,7 +5,7 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createAssessmentContext } from './rfp-deadline.mjs';
-import { unscoredRfp } from './rfp-scoring-policy.mjs';
+import { DOCUMENT_FETCH_THRESHOLD, unscoredRfp } from './rfp-scoring-policy.mjs';
 import { scoreRfp } from './rfp-scoring-judgment.mjs';
 import {
   classifyDocumentRecord,
@@ -35,6 +35,7 @@ const DOCUMENT_FETCH_ENABLED = ['1', 'true', 'yes', 'on'].includes(String(proces
 const FULL_QUALIFY_REQUIRE_DOCS = !['0', 'false', 'no'].includes(String(process.env.RFP_FULL_QUALIFY_REQUIRE_DOCS || 'true').toLowerCase());
 const FULL_QUALIFY_MIN_DAYS = Number.parseInt(process.env.RFP_FULL_QUALIFY_MIN_DAYS || '10', 10) || 10;
 const FULL_QUALIFY_MIN_VALUE = Number.parseInt(process.env.RFP_FULL_QUALIFY_MIN_VALUE || '100000', 10) || 100000;
+// Document-backed pursue bar. Documents are fetched earlier, at DOCUMENT_FETCH_THRESHOLD.
 const FULL_QUALIFY_THRESHOLD = Number.parseInt(process.env.RFP_FULL_QUALIFY_THRESHOLD || '75', 10) || 75;
 const TEST_MODE = ['1', 'true', 'yes', 'on'].includes(String(process.env.RFP_WEEKLY_TEST_MODE || '').toLowerCase()) || process.argv.slice(2).includes('--test-mode');
 const HUBSPOT_CREDS = '/home/azureuser/.openclaw/credentials/hubspot-mcp.json';
@@ -310,7 +311,7 @@ export async function persistCandidateState(candidatePath, updates) {
   });
 }
 
-export function shouldFetchDocuments(result, threshold = 75) {
+export function shouldFetchDocuments(result, threshold = DOCUMENT_FETCH_THRESHOLD) {
   return Number.isFinite(result.total) && result.total >= threshold && result.qualification_status !== 'failed-gate'
     && !['Watch item', 'Not an open bid', 'Conditional — Ask the Agency'].includes(result.recommendation);
 }
@@ -1895,7 +1896,7 @@ async function runIsolatedDocumentFlowTest() {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), `rfp-test-${candidate.slug}-`));
   const resourcesDir = path.join(tempDir, 'resources');
   await fs.mkdir(resourcesDir, { recursive: true });
-  if (!shouldFetchDocuments(preliminary.preview, FULL_QUALIFY_THRESHOLD)) {
+  if (!shouldFetchDocuments(preliminary.preview)) {
     return { candidateSlug: candidate.slug, runDate, tempDir, preliminary,
       documentFlow: { status: 'skipped-preliminary', reason: 'No eligible validated preliminary score at or above 75.' }, final: null };
   }
@@ -2020,7 +2021,7 @@ async function main() {
       final_score: null,
       score: null,
       scoring_confidence: 'metadata-only',
-      qualification_status: preliminary.preview.qualification_status === 'failed-gate' ? 'failed-gate' : preliminaryScore === null ? 'provisional' : preliminaryScore >= FULL_QUALIFY_THRESHOLD ? 'provisional' : 'preliminary-below-threshold',
+      qualification_status: preliminary.preview.qualification_status === 'failed-gate' ? 'failed-gate' : preliminaryScore === null ? 'provisional' : preliminaryScore >= DOCUMENT_FETCH_THRESHOLD ? 'provisional' : 'preliminary-below-threshold',
       preliminary_categories: preliminary.preview.categories,
       preliminary_judgments: preliminary.preview.judgments || null,
       preliminary_reasons: preliminary.preview.reasons,
@@ -2031,13 +2032,13 @@ async function main() {
       status: 'provisional',
     });
 
-    if (!shouldFetchDocuments(preliminary.preview, FULL_QUALIFY_THRESHOLD)) {
+    if (!shouldFetchDocuments(preliminary.preview)) {
       manualReview.push({
         displayTitle,
         preliminaryScoreDisplay: String(preliminaryScore),
         qualification_status: preliminaryScore === null ? preliminary.preview.qualification_status : 'preliminary-below-threshold',
         document_status: 'metadata-only',
-        reason: preliminaryScore === null ? preliminary.preview.reasons.join('; ') : `Preliminary score ${preliminaryScore} is below the document-fetch threshold of ${FULL_QUALIFY_THRESHOLD}.`,
+        reason: preliminaryScore === null ? preliminary.preview.reasons.join('; ') : `Preliminary score ${preliminaryScore} is below the document-fetch threshold of ${DOCUMENT_FETCH_THRESHOLD}.`,
       });
       continue;
     }

@@ -4,7 +4,7 @@ import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createAssessmentContext } from './rfp-deadline.mjs';
-import { unscoredRfp } from './rfp-scoring-policy.mjs';
+import { DOCUMENT_FETCH_THRESHOLD, unscoredRfp } from './rfp-scoring-policy.mjs';
 import { scoreRfp } from './rfp-scoring-judgment.mjs';
 import {
   classifyDocumentRecord,
@@ -86,7 +86,7 @@ async function loadSelectedTitles(reportPath) {
   const matches = [...report.matchAll(/^### (.+)\n- Preliminary score: (\d+)/gm)];
   return matches
     .map((match) => ({ title: match[1].trim(), score: Number.parseInt(match[2], 10) || 0 }))
-    .filter((item) => item.score >= 75);
+    .filter((item) => item.score >= DOCUMENT_FETCH_THRESHOLD);
 }
 
 async function loadOpportunityRecordsForDate(apiKey, config, capturedDate) {
@@ -323,7 +323,7 @@ async function fetchAndExtract(candidate, config, apiKey) {
 // No forced titles and no fuzzy guesses: anything else is listed for review.
 export function resolveSelectedCandidates(selectedTitles, candidates) {
   const selection = [], reviews = [], seen = new Set();
-  for (const item of selectedTitles.filter((entry) => entry.score >= 75)) {
+  for (const item of selectedTitles.filter((entry) => entry.score >= DOCUMENT_FETCH_THRESHOLD)) {
     const matches = candidates.filter(({ frontmatter: { title, slug, agency_name: agency } }) =>
       [title, slug, `${title} — ${agency}`, `${title} - ${agency}`].some((value) => normalizeKey(value || '') === normalizeKey(item.title)));
     if (matches.length !== 1) {

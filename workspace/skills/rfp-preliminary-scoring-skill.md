@@ -2,7 +2,7 @@
 name: rfp-preliminary-scoring
 purpose: Run the HigherGov intake, then score everything that survives its prefilter against the standard rubric at metadata depth — producing one ranked list of what's worth a real look, fast, before any documents are fetched.
 audience: This skill is written to be read by both Claude (who runs the tool and applies the rubric) and a human teammate (who reads the ranked list and decides what to pursue).
-version: 1.0 — July 2026
+version: 1.1 — October 2026
 owner: Jake (Seamgen)
 ---
 
@@ -146,7 +146,7 @@ SURVIVORS, RANKED
 |---|---|---|---|---|---|
 | 82 | ... | ... | ... | Strong Pursue | Deal size inferred |
 
-WORTH FETCHING DOCUMENTS (75+)
+WORTH FETCHING DOCUMENTS (50+)
 ------------------------------
 - [Title] — [score] — [one line on why]
 
@@ -167,8 +167,7 @@ NOT YET SCORED
 
 | Score | Next step |
 |---|---|
-| **75+** | Run `skills/rfp-document-fetch-skill.md` → full-text re-score. That score is the real one. |
-| **50–74** | Jake's judgement. No document fetch by default (current policy is 75+). |
+| **50+** | ISA fetches the documents through the HigherGov API and re-scores on the full text. That score is the real one; its bands are unchanged (75+ Strong Pursue, 50–74 Worth a look). |
 | **Below 50** | No-bid. `skills/rfp-email-nobid-skill.md` if it deserves a written pass; otherwise the pipeline record is enough. |
 
 A no-bid RFP gets no `RFPs/` folder — the reasoning lives in the pipeline record and, if written, the no-bid email.
@@ -176,6 +175,8 @@ A no-bid RFP gets no `RFPs/` folder — the reasoning lives in the pipeline reco
 ---
 
 ## Notes and edit history
+
+**v1.1 — October 2026, Seamgen.** Documents are now fetched at **50+** instead of 75+. The 75+ rule limited Jake's slow, browser-driven fetch; ISA fetches through the HigherGov API in seconds, and listing-only scores of good software RFPs often land at 60–70. Scoring bands and decision thresholds are unchanged.
 
 **v1.0 — July 21, 2026, Jake + Claude.** First version. Built at Jake's request so *"run preliminary scoring"* is a single instruction covering intake → gates → weighted score → ranked list. **Supersedes the planned `rfp-daily-recap` skill**, which described the same pipeline; that entry comes off CLAUDE.md's "Planned but not yet built" list rather than being built separately. Three design decisions, all Jake's: **kill gates on everything, weighted rubric only on gate survivors** (mirrors the rubric's own two-stage design and avoids spending most of the effort on candidates a single gate already killed); **scores written back into `candidate.md`** using the `score` / `status` / `scoring_confidence` fields the intake already emits, so re-runs don't redo finished work; and **one skill rather than two**. The pre-run checklist encodes the 2026-07-21 incident where a broadened saved search silently returned 564 federal and **zero** State/Local records — the half Seamgen actually sells into. Also documents that the tool's help text is wrong about `-Confirm` (the real flag is `-AcceptQuotaCost`) and about fetching documents (never built).
 
