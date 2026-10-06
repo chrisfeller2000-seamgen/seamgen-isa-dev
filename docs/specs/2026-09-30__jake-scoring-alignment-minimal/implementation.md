@@ -57,7 +57,7 @@ Real-model batch, October 5 (approved by Chris, up to 36 calls):
   | Strong Pursue (75+) | 0 | — |
 
   With no 75+ result, no documents were fetched and full-text AI scoring was not exercised.
-- Finding: at metadata depth, competitive position stays neutral and AI and compliance are often low, so non-AI software RFPs land around 60–70. Under Jake's written policy, 50–74 is "Worth a look" with no automatic document fetch. Whether to fetch documents for that band is a business decision; this work does not change the threshold.
+- Finding: at metadata depth, competitive position stays neutral and AI and compliance are often low, so non-AI software RFPs land around 60–70. Under Jake's written policy, 50–74 is "Worth a look" with no automatic document fetch. Whether to fetch documents for that band was a business decision; Chris later chose 50+ (see Fetch threshold below).
 - Records: private raw answers and usage are in ignored `.isa-local/rfp-ai-batch-2026-10-05/`.
 
 Full-text test, October 5 (same approval; 8 of the 36 calls):
@@ -80,11 +80,33 @@ Full-text test, October 5 (same approval; 8 of the 36 calls):
 - Not yet shown with the final code: the ERP (timeout) and utility-software (enumerated value) packages need one more call each. No RFP in this sample scored 75+, so a qualified Strong Pursue has not been observed on real documents.
 - Totals for the October 5 testing: 36 model calls, about $0.30 as reported by OpenClaw. Production fingerprints were unchanged and nothing was sent. Downloaded documents were removed from the VM test folder; raw private records are in `.isa-local/rfp-ai-batch-2026-10-05/`.
 
+Fetch threshold, October 5 (Chris's decision; `f31b48e`):
+
+- Documents are now fetched at a preliminary 50+, not 75+. Jake fetched only at 75+ because his browser-driven fetch was slow and manual. The HigherGov API fetch takes seconds, and the batch above showed that good software RFPs score 60–70 at listing depth.
+- The decision bands are unchanged: 75+ Strong Pursue, 50–74 Worth a look, below 50 No-bid. ISA's preliminary-scoring skill (v1.1) and scoring skill say the same.
+
+End-to-end weekly test, October 5 (approved by Chris, about 12 calls):
+
+- Setup: the same six Worth-a-look RFPs ran through this branch's weekly `--test-mode` on the VM. The flow was AI preliminary score, HigherGov document fetch at 50+, completeness check, then AI full-text score. The branch's skill files were used, not the live ones. Safeguards were the same as in the batch above.
+- One full-text answer, for the gift platform's 48k-character solicitation, ran past the 16k output-token cap and was not scored. The other full-text answers used 6k–12k tokens. The cap is now 32k; unused headroom is not billed. The gift platform was re-run with the new cap.
+- Results with current code: every preliminary and full-text answer validated, and all six packages passed the evidence gate.
+
+  | RFP | Preliminary | Full text | Reason |
+  | --- | ---: | --- | --- |
+  | Research project | 62 | No-bid | Gate 2: an ongoing geolocation-data service, not a custom build. |
+  | Learning management system | 68 | No-bid | Gate 2: a hosted subscription product with minimal customization. Gate 6: three public-sector references required. |
+  | ERP system | 60 | No-bid | Gate 2: the city is buying the rights to an ERP product; custom work only if needed. |
+  | Registry website | 70 | Needs review | Gate 6 unknown: two similar projects within five years and NIST controls are not established by company records. Categories sum to 72. |
+  | Utility-management software | 69 | Needs review | Gate 6 unknown: utility-management and legacy-migration experience is required and not established. Categories sum to 75. |
+  | Gift platform | 62 | Deadline needs review | Listing deadline only. Gate 4 unknown: IPRO account. Gate 6 unknown: SOC 2 Type 2 and three related projects. |
+
+- The ERP and utility-software packages, unconfirmed in the full-text test above, now score. The registry and utility-software results are the ones a person should look at: everything passes except the experience gate.
+- Usage: 14 model calls, about $0.16 as reported by OpenClaw. The production fingerprint was unchanged; nothing was sent. Downloaded documents were removed; raw private records are in `.isa-local/rfp-ai-batch-2026-10-05/`.
+
 Next steps, each needing separate approval:
 
-1. Two more calls to confirm the ERP and utility-software packages with the final code.
-2. Decide whether Worth-a-look (50–74) results should fetch documents automatically.
-3. Release the weekly job, secondary scorer, document helper, policy, and adapter together, coordinated with Sam and Hugo.
+1. Release the weekly job, secondary scorer, document helper, policy, adapter, and the two updated skills together, coordinated with Sam and Hugo.
+2. Turn on weekly document fetching on the VM (`RFP_DOCUMENT_FETCH_ENABLED`, currently off). Without it, the weekly job stops at the preliminary score.
 
 ## September 30 status and proof
 

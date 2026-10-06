@@ -433,7 +433,7 @@ test('the SDK request has no tools, agent session, delivery, or production edits
   assert.deepEqual(observed.context.tools, []);
   assert.equal(observed.context.messages.length, 1);
   assert.equal(observed.options.reasoning, 'high');
-  assert.equal(observed.options.maxTokens, 16000);
+  assert.equal(observed.options.maxTokens, 32000);
   assert.equal(observed.session, undefined);
   sdk.completeWithPreparedSimpleCompletionModel = async () => ({ stopReason: 'toolUse', content: [{ type: 'toolCall' }] });
   await assert.rejects(judge({ systemPrompt: '', prompt: '' }), /tool request/);

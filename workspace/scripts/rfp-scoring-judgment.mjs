@@ -15,9 +15,11 @@ export const MAX_PACKET_CHARS = 1500000;
 const MAX_RESPONSE_CHARS = 100000;
 const MAX_EXCERPT_CHARS = 4000;
 const MAX_RESOLVED_QUOTE_CHARS = 250000;
-// The configured high-reasoning model counts reasoning against this limit.
-// An 8k cap exhausted itself on reasoning before emitting the scoring JSON.
-const MAX_COMPLETION_TOKENS = 16000;
+// The configured high-reasoning model counts reasoning against this limit, and a
+// truncated answer is a failed score. In the October 5 real runs, full-text answers
+// used 6k-12k tokens and one 48k-character solicitation ran past 16k. Unused headroom
+// is not billed; the call timeout still bounds a runaway answer.
+const MAX_COMPLETION_TOKENS = 32000;
 const judgeSymbol = Symbol.for('isa.rfp.testJudge');
 const sourcesSymbol = Symbol.for('isa.rfp.testCompanySources');
 const policiesSymbol = Symbol.for('isa.rfp.testPolicies');
