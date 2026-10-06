@@ -103,10 +103,44 @@ End-to-end weekly test, October 5 (approved by Chris, about 12 calls):
 - The ERP and utility-software packages, unconfirmed in the full-text test above, now score. The registry and utility-software results are the ones a person should look at: everything passes except the experience gate.
 - Usage: 14 model calls, about $0.16 as reported by OpenClaw. The production fingerprint was unchanged; nothing was sent. Downloaded documents were removed; raw private records are in `.isa-local/rfp-ai-batch-2026-10-05/`.
 
-Next steps, each needing separate approval:
+VM release, October 6, 2026 (Chris's explicit deployment request):
 
-1. Release the weekly job, secondary scorer, document helper, policy, adapter, and the two updated skills together, coordinated with Sam and Hugo.
-2. Turn on weekly document fetching on the VM (`RFP_DOCUMENT_FETCH_ENABLED`, currently off). Without it, the weekly job stops at the preliminary score.
+- Release `dev-deploy-2026-10-06T00-56-11-664Z-1d18aef`, uploaded with `npm run live:deploy -- --apply --files=…` from clean commit `1d18aef`. Before upload, the VM's copies of the six modified files matched the deployed evidence-gate release (`b872cbc`) byte for byte, and the two scoring modules did not exist. No RFP job was running.
+- Files, SHA-256 before → after:
+
+  | File | Before | After |
+  | --- | --- | --- |
+  | `scripts/weekly-rfp-pursue-decision.mjs` | `0032dd7feaf153e96cfb4e15d2624ff466e122df9c60a62fa026ce41cc134ed7` | `230940e0667075d20c1538601eeeb38b0ed29dea9c9a9aa6e5deba9c97b6c2bf` |
+  | `scripts/secondary-fulltext-score.mjs` | `a044acfadbb133ab39c45f6d11a799874f3eeb477ef275667034efd491a78eeb` | `d9863214dcb58308709fbd8989c10b495ded5b608148d2cc58a4ab2790bccf21` |
+  | `scripts/highergov-document-flow.mjs` | `1e0d4698a158f0ba9998bb7c55f534d2442ad0c8ce4bc851b2b406020b4e4492` | `f56f7012664fd604d6c277355145ed2698eec9606c5dfa803ae2d49efebca498` |
+  | `scripts/rfp-scoring-policy.mjs` | (new) | `e09ffe2789b2f72182ecedaba3b7c5181b8e54b136ad6dcd988ca167557bd9a8` |
+  | `scripts/rfp-scoring-judgment.mjs` | (new) | `edca308fcaab6e8458efcad1fab8a0ee06a4c08845e1b4c2ce0ae70b1f795dfa` |
+  | `scripts/run-new-rfp-qualification-cron.sh` | `c699a8e2dac495350505ae2a6b4396440d1c45da49e2b2f9f8db754eacbcd5ea` | `ea455f16a1cd8d790b5efe8301d78f827f2076289dc0ee0e498b8ddd249e28e6` |
+  | `skills/rfp-scoring-skill.md` | `4975d7383677673fb3baff1e723498cfcbaa1633e748811c1e133ec24e6a44c0` | `960109e1cb98cbabc9fb69c5cedf083cf09fb4b26d0bf50871f55672fb0b97e7` |
+  | `skills/rfp-preliminary-scoring-skill.md` | `d8ae3b6b04b9ad46f0109d81a1801c9f4e7b10ddc09dfaba61b5a921e92977c5` | `b5868c4834fbcff72aa98955451b9d21dcb1fc53e066d740660150e0b8031d1b` |
+
+- Checks on the VM after upload, none of which called the model or ran a job:
+  - all eight hashes match the commit;
+  - `node --check` and `bash -n` pass;
+  - the scoring modules load the four live policy skills and both company files;
+  - the wrapper sets `RFP_DOCUMENT_FETCH_ENABLED=1`;
+  - in a cron-like environment (empty env, the wrapper's PATH, the HigherGov env file), `npm root -g` resolves the OpenClaw install, and model preparation returns `openai/gpt-6-luna` with auth.
+- Schedule, observed read-only:
+  - The system crontab runs the wrapper at `0 12 * * 5` UTC. The weekly script mails the report and sends the Telegram summary itself.
+  - ISA's OpenClaw job "New RFP qualification" runs at noon Pacific. On October 2 it took 83 seconds and did not re-run the script.
+  - Nothing schedules the secondary scorer.
+  - No restart is needed; the cron starts a new process each week.
+- Expected weekly effect: about 48 seconds per preliminary call and 78 per full-text call, run one at a time. For 110–155 candidates, the run takes about 2.5–3.5 hours instead of about 5 minutes, at about $2 a week. Downloaded documents stay in each candidate's folder; the VM had 6.4 GB free.
+- Rollback: copy `/home/azureuser/.openclaw/workspace/backups/dev-deploy-2026-10-06T00-56-11-664Z-1d18aef/original/` back over the workspace, then delete the two new `rfp-scoring-*.mjs` modules. Restoring only the wrapper turns weekly fetching off and keeps AI preliminary scoring.
+
+Next:
+
+1. After the first scheduled run (Friday, October 9, 12:00 UTC), check `cron.log` and the report:
+   - duration;
+   - preliminary decisions;
+   - how many were fetched, Needs documents, and full-text scored;
+   - any model failures.
+2. Follow-ups: clean up downloaded documents over time; retrieve documents HigherGov cannot provide; add the slug to weekly report entries; confirm how the maintainers' backup treats `resources/`.
 
 ## September 30 status and proof
 
