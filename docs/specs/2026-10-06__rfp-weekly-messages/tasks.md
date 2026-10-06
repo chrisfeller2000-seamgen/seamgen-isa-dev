@@ -20,14 +20,13 @@
 - [ ] Policy `potential_total` and the `deadlineTimestamp` export, with tests showing decisions are unchanged.
 - [ ] Cron wrapper failure notice, with a test.
 - [ ] `workspace/AGENTS.md` RFP section, including replies to Friday questions.
-- [ ] Confirm Markdown conversion in `openclaw message send` from the installed source; otherwise switch to plain text.
+- [ ] Confirm from the preview message that bold and links render; otherwise switch to plain text.
 - [ ] Docs: RFP domain pages, live jobs, and the specs index.
 - [ ] `npm test`, `npm run check`, diff review and secret scan.
 - [ ] Previews:
   - [ ] local facts and fallback from the six October 5 results;
-  - [ ] ISA's draft on the VM (one model call, approval);
+  - [ ] ISA's draft sent to Chris's Telegram direct chat, labeled as a preview (one model call; approved);
   - [ ] Chris reviews both.
-- [ ] Optional VM dry run in preview mode (approval; about $1.50–2).
 - [ ] Release:
   - [ ] heads-up to Sam and Hugo;
   - [ ] deploy preview, then apply;

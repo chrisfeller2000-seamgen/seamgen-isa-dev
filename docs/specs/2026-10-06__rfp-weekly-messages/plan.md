@@ -54,7 +54,7 @@ Everything in it is pure except `writeTelegramMessage()`, which takes a completi
    - `NO_TELEGRAM` keeps its current meaning.
 7. **`workspace/AGENTS.md`.** Add the short RFP section described in the spec, including how to respond to replies to Friday questions.
 8. **Docs.** Update `docs/domains/rfp/README.md` and `document-qualification.md` with the report tiers, the message and the results file, and `docs/live-jobs.md` with the single scheduler.
-9. **Before release:** confirm from the installed OpenClaw source that `openclaw message send --channel telegram` converts Markdown bold and links. If it doesn't, switch the writer rules and the fallback to plain text.
+9. **Before release:** the preview message to Chris confirms that `openclaw message send --channel telegram` renders Markdown bold and links. If it doesn't, switch the writer rules and the fallback to plain text.
 
 ## Invariants and side effects
 
@@ -102,15 +102,9 @@ Everything in it is pure except `writeTelegramMessage()`, which takes a completi
 
 **Previews:**
 - **Local, free:** render the facts and the fallback from the six October 5 real results in ignored `.isa-local/`.
-- **On the VM, one model call (about 1–2 cents, needs approval):** run the writer on the same facts in a temporary folder, with nothing sent.
+- **In Telegram, one model call (about 1–2 cents, approved by Chris):** run the writer on the same facts on the VM. Send the result to Chris's direct chat with ISA, under a line saying it's a preview built from test RFPs. This also shows how bold titles and links render.
 
-Chris reviews both before release.
-
-**Optional VM dry run, recommended:**
-- The real weekly job runs in an isolated temporary workspace, with copies of the HigherGov config, `state.json`, `seen.csv`, skills and company files, and `RFP_DELIVERY=preview`.
-- The production fingerprint is taken before and after.
-- Cost and time: about $1.50–2 and about 3 hours.
-- Needs Chris's approval.
+Chris reviews both before release. There is no full dry run (Chris, October 6); Friday's run is the first full run with the new message.
 
 **Release:**
 1. `npm run live:deploy` preview, then `--apply`, with the changed files from a clean commit.
