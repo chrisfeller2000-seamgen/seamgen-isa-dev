@@ -8,11 +8,15 @@ The October 6 release made the Friday RFP job score with AI and fetch documents.
 - some Fridays, a second run that says nothing was found.
 
 This task changes what the job sends:
-- one run;
-- a Telegram message naming up to three RFPs worth acting on;
-- an email organized by decision;
-- a notice when the run fails;
-- chat answers that can find the week's results.
+- **one run** each Friday;
+- **a Telegram message** in ISA's own voice that:
+  - says how many RFPs ISA went through;
+  - names up to three worth a look;
+  - turns each blocker into a question the team can answer;
+  - names the biggest RFP being skipped when a partner could change the call;
+- **an email** organized by decision;
+- **a notice** when the run fails;
+- **chat answers** that can find the week's results and respond to the team's replies.
 
 Scoring rules and decisions do not change.
 
@@ -37,7 +41,29 @@ Checked read-only on the VM on October 6, from the Friday job's log, report file
   - sometimes answers in over 10,000 characters;
   - includes server paths (`/home/azureuser/...`, `/tmp/...`) and internal codes.
 
-**What the team asked for.** On September 30 someone asked ISA in the group: *"which RFPs from the latest batch are worth Seamgen pursuing this week? Give me up to three, ranked. For each, briefly explain what they need, why we're a fit, the budget if known, any requirements that could rule us out, and the next step. Include the proposal and questions deadlines. Link the documents you reviewed and flag anything unconfirmed. If you couldn't review the requirements, keep it as a lead to check rather than recommending we bid. It's fine if none are ready."* ISA's answer was right in substance, but on-demand, long, and full of server paths. This request is the specification for the Friday message.
+**What the team asked for.** On September 30 someone asked ISA in the group: *"which RFPs from the latest batch are worth Seamgen pursuing this week? Give me up to three, ranked. For each, briefly explain what they need, why we're a fit, the budget if known, any requirements that could rule us out, and the next step. Include the proposal and questions deadlines. Link the documents you reviewed and flag anything unconfirmed. If you couldn't review the requirements, keep it as a lead to check rather than recommending we bid. It's fine if none are ready."* ISA's answer was right in substance, but on-demand, long, and full of server paths. This request is the starting point for the Friday message.
+
+**Why blockers become questions.** The open gates in the October 5 tests are facts about Seamgen that someone on the team knows:
+- utility-management experience;
+- two similar projects in five years;
+- a SOC 2 Type 2 audit.
+
+The scorer can't settle them from company files; a teammate can in one reply.
+
+## Decisions (Chris, October 6)
+
+- **Tone.** The message should sound human-written: simple words, natural and casual, in ISA's voice ("warm, direct, commercially sharp", from `workspace/IDENTITY.md`). It must not sound robotic or generic.
+- **ISA writes it.** ISA's model writes the Telegram message from facts the code prepares. A code template can only paste in the scorer's formal rubric sentences. Code checks every draft, and a plainer code-built version is sent if a check fails.
+- **Message improvements accepted:**
+  - turn each catch into a question for the team;
+  - open with how many RFPs ISA went through;
+  - name the biggest RFP being skipped when a partner could fix the reason;
+  - bold titles and short "HigherGov listing" links.
+- **Not now:**
+  - a closing "reply here / ask me" line;
+  - more email recipients.
+- **Failure notice:** it names Chris.
+- **The separate engineering test chat** is deferred.
 
 ## Desired behavior
 
@@ -49,49 +75,78 @@ Checked read-only on the VM on October 6, from the Friday job's log, report file
 
 ### 2. A failure notice
 
-If the Friday run exits with an error, including before Node starts (for example a missing HigherGov key), the group gets one plain message. For example: *"This week's RFP run didn't finish, so there's no RFP report today. The error is in the job log."*
+If the Friday run exits with an error, including before Node starts (for example a missing HigherGov key), the group gets one message: *"Heads up: this morning's RFP run didn't finish, so there's no RFP report today. Chris, the details are in the job log."*
 - It never includes error text, keys or URLs.
 - It is sent once per failed run.
 - It respects `NO_TELEGRAM`.
 
 ### 3. The Friday Telegram message
 
-- **Up to three RFPs, ranked.** Each has:
-  - what they need;
-  - why Seamgen fits;
-  - anything that could rule us out, or the open question;
-  - the proposal deadline;
-  - the value;
-  - the next step;
-  - one public link.
-- **Nothing recommended when nothing qualifies.** The message says so.
-- **Recommendations come only from RFPs whose documents ISA read.** RFPs scored from the listing alone are counted as "need documents", never ranked. This keeps the September 30 rule and the evidence gate.
-- **One footer line** with the counts of RFPs that need documents and that were screened out, by reason, plus a pointer to the email.
-- **Format:**
-  - plain text with line breaks; no Markdown, because `openclaw message send` has no formatting option;
-  - about 1,500 characters at most, well under Telegram's 4,096 limit.
+**What it says, in order:**
 
-Example (illustrative values):
+1. **How many RFPs ISA went through, and the verdict.** For example: "I went through 148 new RFPs this week. 2 are worth a look, plus a long shot." The count is every unique RFP in this week's intake.
+2. **Up to three ranked picks,** only from RFPs whose documents ISA read. Each pick has:
+   - a bold title, the agency and state;
+   - what they want, in one line;
+   - **why us:** the closest Seamgen work, from the AI's case-study reason;
+   - **a question for the team** for each open blocker (at most two), asked as a plain yes/no question about Seamgen, with the score if the answer is yes. For example: "Have we done utility management work, like moving a client off an old system? If yes, this scores 75, a strong pursue." An unconfirmed deadline is stated, not asked;
+   - the proposal deadline in Pacific time with days left, and the budget, with estimates said to be estimates;
+   - a "HigherGov listing" link.
+3. **The biggest RFP being skipped,** in one line, when one qualifies (see Tiers). For example: "Biggest one I skipped: managed security for the U.S. Virgin Islands, about $750k–3.5M. It's 24/7 security operations, not software, so it's only worth it with a security partner."
+4. **What wasn't a fit,** as counts by reason, and where the full list is: "Full list is in Marianne's email."
+
+**When nothing qualifies,** the message says so plainly, with the count and the main reasons. For example: "Morning team. Nothing worth chasing this week. I went through 148 RFPs. Most were hardware or off-the-shelf products…"
+
+**Voice:**
+- simple words and short sentences, written by ISA in the first person ("I went through…");
+- no rubric terms (gate numbers, "eligibility verification"), internal codes or file paths;
+- ISA never adds facts about Seamgen, guesses at answers, or creates urgency.
+
+**How it's produced:**
+- **Code prepares the facts:** picks, scores, deadline text, budget text, links, counts and the skipped RFP.
+- **ISA writes the draft:** its model writes the message from only those facts and the style rules, as one tools-free completion with the existing OpenClaw model access.
+- **Code checks the draft before sending:**
+  - every link, title, score, date, day count, budget and count matches the facts, in order;
+  - there are no other links;
+  - there are no paths, codes or gate numbers;
+  - the only formatting is bold and links;
+  - it is at most 3,000 characters (aim for about 2,000).
+- **Fallback:** if the draft fails any check, or the model call fails or times out, the job sends a code-built version of the same facts. Friday's message always goes out.
+
+**Formatting.** Bold titles and named links (`**title**`, `[HigherGov listing](url)`), which OpenClaw converts for Telegram; ISA's chat answers in this group already use both. Before release, confirm from the installed OpenClaw source that `openclaw message send` converts Markdown. If it doesn't, send plain text with bare links. Link previews are a channel-wide OpenClaw setting and stay as they are.
+
+**Example.** The three picks are the real October 5 test results, with days left counted from October 6. The counts and the skipped RFP are illustrative. Bold and links are shown as they would render.
 
 ```text
-RFPs this week (Oct 9): 2 worth a look
+Morning team! I went through 148 new RFPs this week. 2 are worth a look, plus a long shot.
 
-1. Utility-management software — State Office of Sustainability
-Need: hosted software to track utility use, with data migration and training.
-Fit: our data-platform work is close; utility-specific experience is the gap.
-Open question: do we have utility-management experience? Scores 75 if yes.
-Due: Nov 3, 2:00 pm PT (5:00 pm ET), 28 days left
-Value: $250k–$1.5M (HigherGov estimate)
-Next: confirm the experience question, then decide.
-https://www.highergov.com/...
+1. Utility management software, State of Colorado
+They want software to track and manage utility use across state buildings.
+Why us: our ELEAF work is close (large water datasets in the cloud), but it isn't utility billing.
+Question for the team: have we done utility management work, like moving a client off an old system? If yes, this scores 75, a strong pursue.
+Due Nov 2 at 2pm PT (27 days). Budget about $250k–1.5M (HigherGov's guess).
+HigherGov listing
 
-2. …
+2. Sex offender registry website, New Hampshire Dept. of Safety
+They want to rebuild the public registry website.
+Why us: it's a lot like the HCP portal we built (secure logins, admin roles, audit logs).
+Question for the team: do we have 2 similar projects from the last 5 years, and can we meet NIST security controls? If yes, it scores 72.
+Due Dec 16 at 11am PT (71 days). Budget about $250k–900k (HigherGov's guess).
+HigherGov listing
 
-Also: 1 needs documents · 140 screened out (41 buying a product, 22 hardware, 8 deadline too close, 7 under $100k). Full list in Marianne's email.
+3. Long shot: online giving platform, State of Idaho (for Idaho Public TV)
+They want a platform for donations, including planned and non-cash gifts.
+Question for the team: do we have a SOC 2 Type 2 audit? It's required, along with 3 recent similar projects. The budget might also be under our $100k minimum, and I couldn't confirm the deadline (the listing says Oct 28).
+HigherGov listing
+
+Biggest one I skipped: managed security for the U.S. Virgin Islands, about $750k–3.5M. It's 24/7 security operations, not software, so it's only worth it with a security partner.
+
+The other 144 weren't a fit: 52 are buying existing products, 31 are hardware, 12 are due too soon, and the rest are smaller or off-target. Full list is in Marianne's email.
 ```
 
 ### 4. The Friday email
 
+The email is built by code; it is the factual record, while the Telegram message is the note to the team.
 - **Same recipient and subject.** The subject stays `New qualified RFP's for pursue decision - week N`, because ISA's mail-to-HubSpot job matches that subject when the email reaches `sales@`.
 - **Sections in decision order:**
   1. Strong Pursue;
@@ -108,22 +163,29 @@ Also: 1 needs documents · 140 screened out (41 buying a product, 22 hardware, 8
 ### 5. One results file per run
 
 The job saves `reports/new-rfp-qualification/<run date>.json` and `latest.json`, with one entry per RFP:
-- tier;
-- score, or the potential score when one question is open;
-- what they need, the fit reason and the open question;
+- tier and rank score;
+- what they want;
+- the fit reason;
+- the open questions and the score if they are answered yes;
 - deadline with time zone and days left;
 - value and whether it is an estimate;
 - public links;
-- document status;
-- next step.
+- document status.
 
-The email, Telegram message and Markdown report are all rendered from this file, and ISA's chat reads it.
+The file also records:
+- the week's counts;
+- the skipped RFP named in the message;
+- the Telegram text that was sent;
+- whether ISA's draft or the fallback was used, and why.
+
+The email, the Telegram facts and the Markdown report all come from this file, and ISA's chat reads it.
 
 ### 6. ISA's chat instructions
 
 A short RFP section in `workspace/AGENTS.md` says:
 - **Where results are:** this week's results are in `latest.json` and the report; each RFP's file has the scoring detail.
-- **How to answer:** in the September 30 style, short, with public links, plain words, no server paths, and estimates marked as estimates.
+- **Answering questions:** in the same voice as the Friday message — short, plain words, public links, estimates marked, no server paths.
+- **Replies to Friday questions:** say what the answer means from the results file. For example: "Got it, that makes Colorado a 75, a strong pursue." Or: "Then it's a pass." Don't change any records.
 - **Group chats:** at most one short acknowledgement before the answer.
 - **The weekly job:** never run it unless someone explicitly asks.
 
@@ -131,56 +193,87 @@ A short RFP section in `workspace/AGENTS.md` says:
 
 Built from the existing scoring outcomes; no scoring rule changes.
 
-| Tier | Includes | Ranked in Telegram |
+| Tier | Includes | In the Telegram message |
 | --- | --- | --- |
-| Strong Pursue | Full-text Strong Pursue and not already in HubSpot | Yes, first |
-| Worth a look | Full-text Worth a look; full-text Needs review, Deadline needs review, or Conditional — Ask the Agency with a potential score of 50+ | Yes, by score |
-| Needs documents | Preliminary 50+ whose documents could not be fetched or read | No, counted |
-| Screened out | Every No-bid, preliminary below 50, Not an open bid, Watch item, too little listing detail, already in HubSpot | No, counted by reason |
+| Strong Pursue | Full-text Strong Pursue and not already in HubSpot | Picked first |
+| Worth a look | Full-text Worth a look, Needs review, Deadline needs review, or Conditional — Ask the Agency, with a rank score of 50+ | Picked by rank score |
+| Needs documents | Preliminary 50+ whose documents could not be fetched or read | Counted |
+| Screened out | Every No-bid, preliminary below 50, Not an open bid, Watch item, too little listing detail, already in HubSpot | Counted by reason; may be the skipped RFP |
 
-Screened-out reasons use plain words for Jake's gates:
-- Gate 1: deadline too close or passed;
-- Gate 2: buying a product, not custom software;
-- Gate 3: hardware, goods or equipment;
+**Rank score:**
+- the full-text total when there is one;
+- otherwise the potential total, which is the sum of the AI's category points when they were scored;
+- otherwise the preliminary score. This happens for Deadline needs review, which stops before category scoring.
+
+**Long shot.** A pick is flagged as a long shot when any of these is true, and ISA may only use the words "long shot" for a flagged pick:
+- its rank score is the preliminary score;
+- it has two or more open questions;
+- the low end of its budget is under $100,000.
+
+**The skipped RFP.** The largest screened-out RFP whose deciding reason is Gate 2 (buying a product) or Gate 6 (eligibility), with a high-end value of at least $500,000. It is omitted when none qualifies. Peter asked that product-shaped RFPs be treated as a teaming question rather than an automatic No-bid (feedback log, July 26), so this is the exclusion most worth a second look.
+
+**Plain words for screened-out reasons.** For Jake's gates:
+- Gate 1: due too soon or passed;
+- Gate 2: buying an existing product;
+- Gate 3: hardware or equipment;
 - Gate 4: can't be submitted;
 - Gate 5: under $100k;
 - Gate 6: eligibility we can't meet.
 
 The remaining reasons are:
-- score under 50;
+- weak fit (score under 50);
 - not an open bid;
 - pre-solicitation (watch);
 - too little listing detail;
 - already in HubSpot.
 
+Picks, needs-documents and screened-out RFPs add up to the count in the first line.
+
 ## Acceptance
 
 - [ ] The noon OpenClaw job is disabled after approval, and the cron wrapper is the only scheduler of the weekly job.
-- [ ] A failed run, including a wrapper-level failure, sends exactly one failure notice; a `NO_TELEGRAM` run sends none.
-- [ ] Telegram text:
-  - lists at most three RFPs, all from full-text results;
-  - says nothing is ready when none qualify;
-  - stays at or under 1,500 characters.
+- [ ] A failed run, including a wrapper-level failure, sends exactly one failure notice naming Chris; a `NO_TELEGRAM` run sends none.
+- [ ] Telegram message:
+  - opens with the count of RFPs gone through;
+  - lists at most three picks, all from full-text results, in rank order;
+  - asks each open blocker as a question with the score if yes;
+  - names the skipped RFP only when one qualifies;
+  - says plainly when nothing is ready.
+- [ ] The draft checks reject a changed number, date, budget, title or link; an extra link; a missing pick; a path, code or gate number; unsupported formatting; and more than 3,000 characters. Each rejection sends the fallback, and the results file records why.
+- [ ] A failed or timed-out model call sends the fallback, and Friday's message is never skipped because of the writer.
+- [ ] Markdown conversion in `openclaw message send` is confirmed from the installed source before release, or the message is sent as plain text.
 - [ ] No message, email or results file contains a server path, an excerpt ID, an internal status code, or a signed document URL.
-- [ ] Every listed RFP has its HigherGov link.
 - [ ] Deadlines show Pacific time and days left, and a listing-only date is marked unconfirmed.
 - [ ] The email subject and recipient are unchanged; screened-out RFPs appear as grouped lines, not cards.
 - [ ] "Why Seamgen fits" never joins gate sentences; a regression test covers the October 6 garbled output.
 - [ ] Scoring results are unchanged for the same inputs.
 - [ ] `npm test` and `npm run check` pass, and new tests use synthetic fixtures only.
-- [ ] A local preview built from the six October 5 real results is reviewed by Chris before release.
+- [ ] Chris reviews ISA's own draft for the six October 5 RFPs (one model call on the VM) and the fallback version before release.
 
 ## Out of scope
 
-- **Getting the questions deadline.** The deadline module deliberately ignores question dates, and nothing extracts them yet, so the message shows the proposal deadline only. This is a follow-up.
+- **Questions deadlines and mandatory pre-bid meetings.** The deadline module deliberately ignores them, so the message shows the proposal deadline only. Extracting them needs a scorer change and a retest; it is the next follow-up.
+- **Later message ideas:**
+  - reminders for last week's picks;
+  - flagging agencies Seamgen already knows from HubSpot;
+  - running twice a week;
+  - a closing "reply here" line;
+  - more email recipients.
 - **The separate test chat for engineering work.** Deferred by Chris on October 6.
-- **Other work:** splitting the rest of the weekly script, the run speed-up, merging the full-text-only script, trimming Jake's rubric files, the comparison with Jake's 557 scored RFPs, and new RFP features.
+- **Other work:** splitting the rest of the weekly script, the run speed-up, merging the full-text-only script, trimming Jake's rubric files, and the comparison with Jake's 557 scored RFPs.
 - **Changes to scoring rules, thresholds, recipients, HubSpot or Drive behavior.**
 
 ## Constraints and risks
 
+- **ISA could misstate a fact when writing.**
+  - The writer sees only the prepared facts, never the documents.
+  - The checks compare every link, number, date and budget with those facts.
+  - The fallback covers any failure.
+
+  Wording in between (for example "it's a lot like the HCP portal") is not machine-checked. The preview review and the first Fridays are when Chris confirms it stays faithful.
+- **Cost and time:** the writer adds one model call per run, about 1–2 cents and up to a few minutes.
 - **Mail-to-HubSpot dependency.** ISA's mail job turns emails from ISA with this subject into HubSpot RFP deals if they reach `sales@`. Keep the subject, and do not add `sales@` without changing that job.
-- **Telegram tests can't be sent anywhere safe.** There is no separate test chat yet. Verify the message from preview files, not by sending; the first live message is Friday's.
+- **Telegram can't be test-sent anywhere safe.** There is no separate test chat yet. Verify from preview files; the first live message is Friday's.
 - **Group-chat behavior** after the instruction change can only be confirmed on the next real use in the group.
 - **Real RFP results are runtime data.** They stay in ignored `.isa-local/` for previews; Git fixtures are invented.
 - **Disabling the noon job** is reversible (`openclaw cron enable`) and needs its own approval and a heads-up to Sam and Hugo.
@@ -188,7 +281,8 @@ The remaining reasons are:
 ## References
 
 - `workspace/scripts/weekly-rfp-pursue-decision.mjs`: report and Telegram builders, the main loop's review entries, and the score adapter.
-- `workspace/scripts/rfp-scoring-policy.mjs` (outcomes and totals) and `workspace/scripts/rfp-deadline.mjs` (deadline fields).
+- `workspace/scripts/rfp-scoring-policy.mjs` (outcomes and totals), `workspace/scripts/rfp-deadline.mjs` (deadline fields), and `workspace/scripts/rfp-scoring-judgment.mjs` (the tools-free OpenClaw completion).
 - `workspace/scripts/run-new-rfp-qualification-cron.sh`: the scheduled entry point.
 - `workspace/scripts/daily-mail-hubspot-sync.mjs`: `RFP_PURSUE_SUBJECT_PATTERN`.
+- `workspace/IDENTITY.md` and `workspace/SOUL.md`: ISA's voice.
 - [Scoring alignment record](../2026-09-30__jake-scoring-alignment-minimal/implementation.md) (October 6 release) and [needs-documents spec](../2026-10-05__rfp-needs-documents/spec.md).

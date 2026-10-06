@@ -2,14 +2,20 @@
 
 ## Approach and alternatives
 
-**One new module and structured entries.** Add `workspace/scripts/rfp-report.mjs`, which owns the weekly results format and its three renderers: Telegram text, email HTML and Markdown.
-- The renderers are pure: they take the results and return text, with no file, network or CLI calls.
-- The weekly script stops writing free-text "manual review" reasons. Instead it records one structured entry per RFP, saves the results file, renders from it, and sends as it does today.
+**One new module, structured entries, and one writing step.** Add `workspace/scripts/rfp-report.mjs`. It owns:
+- the weekly results format;
+- the facts for the Telegram message;
+- the draft checks;
+- the fallback message;
+- the email and Markdown renderers.
+
+Everything in it is pure except `writeTelegramMessage()`, which takes a completion function as a parameter, so tests pass a fake one. The weekly script records one structured entry per RFP instead of free-text "manual review" reasons. It saves the results file, renders from it, and sends as it does today.
 
 **Rejected alternatives:**
-- **Patching the existing builders in place.** That keeps the keyword-era helpers and free-text reasons that caused the garbled text.
+- **A code-only Telegram template.** It can only paste in the scorer's formal rubric sentences, so it reads robotic, which fails Chris's tone requirement. It is kept as the fallback.
+- **Rewriting the scorer's prompt to produce casual reasons.** That would change scoring inputs and need a retest. The writer step leaves scoring untouched.
+- **Patching the existing builders in place.** That keeps the keyword-era helpers that caused the garbled text.
 - **A wider split of the weekly script.** It is out of scope.
-- **Asking the AI to write the Telegram message.** The scorer already returns every needed field. Code-built text is deterministic, testable and free.
 
 **Stays outside Git:**
 - disabling the OpenClaw noon job;
@@ -17,70 +23,93 @@
 
 ## Source and insertion points
 
-1. **`rfp-report.mjs` (new).** It contains:
-   - `reportEntry()`, which builds one entry from the candidate, the preliminary result, the full-text result (if any), the document outcome, the HubSpot check and the Drive link;
-   - `rankForTelegram()`;
-   - `renderTelegram()`, `renderEmailHtml()` and `renderMarkdown()`;
-   - the plain-label maps for gates and statuses.
-
-   The entry gets its fields as follows:
-   - **Fit:** the AI's `categories.caseStudy.reason`.
-   - **Open question:** the first unknown gate's reason.
-   - **Rule-out risk:** the failed gate's reason.
-   - **Need:** HigherGov's `ai_summary`, first sentence.
-   - **Next step:** derived from the tier and outcome.
+1. **`rfp-report.mjs` (new).**
+   - `reportEntry()` builds one entry from the candidate, the preliminary result, the full-text result (if any), the document outcome, the HubSpot check and the Drive link. Its fields:
+     - **Need:** HigherGov's summary from the candidate body, without its "Background" heading.
+     - **Fit:** the AI's `categories.caseStudy.reason`.
+     - **Open questions:** unknown Gates 2–6 in order 6, 2, 5, 4, 3, at most two. An unconfirmed deadline is a fact, not a question.
+     - **Rank score, score if yes, and long-shot flag:** as in the spec's Tiers.
+     - **Deadline and budget text:** computed once, so the writer and the checks use the same strings.
+   - `telegramFacts()`: the count, verdict counts, up to three picks, the skipped RFP (if any), and reason counts.
+   - `writeTelegramMessage(facts, complete)`, which:
+     - builds the prompt: ISA's "Vibe" line from `IDENTITY.md`, the style rules from the spec, and the facts as JSON;
+     - calls `complete` with a 120-second timeout;
+     - runs `checkTelegramDraft()`;
+     - returns `{ text, source: 'isa' | 'fallback', reason }`.
+   - `checkTelegramDraft(draft, facts)`: the checks listed in the spec's Acceptance section.
+   - `renderTelegramFallback(facts)`, `renderEmailHtml(results)` and `renderMarkdown(results)`.
 2. **`weekly-rfp-pursue-decision.mjs`.**
    - **Main loop:** replace the eight `manualReview.push` sites and the one `qualified.push` with `reportEntry(...)`.
-   - **Report block:** write `<date>.json` and `latest.json`, then render.
+   - **Report block:** build the results, write the message, save `<date>.json` and `latest.json`, then send.
+   - **The completion function:** created once from `createOpenClawJudge()` in `rfp-scoring-judgment.mjs`, the same tools-free path the scorer uses.
    - **Delete** `buildTelegramSummary`, `buildEmailHtml`, `buildSection`, `buildReviewSection`, `buildQualificationNarrative`, `buildWhyItFitsNarrative`, `reasonToWhyFit` and `scoreBand`.
    - **Delete** the adapter's placeholder `landscape` and `capability` fields, and the `deadlines.questionsDue` field that is always empty.
-3. **`rfp-scoring-policy.mjs`.** Expose the category sum as `potential_total` on full-text Needs review results. It uses the same summing helper as `total`, so arithmetic stays in one place. Decisions are unchanged.
+3. **`rfp-scoring-policy.mjs`.** Expose the category sum as `potential_total` on full-text Needs review and Conditional results. It uses the same summing helper as `total`, so arithmetic stays in one place. Decisions are unchanged.
 4. **`rfp-deadline.mjs`.** Export the existing `deadlineTimestamp()` so the report can show Pacific time from the verified cutoff.
 5. **`run-new-rfp-qualification-cron.sh`.** Replace `exec node …` with a run that keeps the exit status. On a non-zero status, send the one-line notice with `openclaw message send`, unless `NO_TELEGRAM=1`, then exit with the original status. An `EXIT` trap also covers failures before Node starts.
 6. **Preview mode.** Add `RFP_DELIVERY=preview` to the weekly script.
-   - It writes the email HTML and `telegram.txt` beside the report.
+   - It writes the email HTML and `telegram.md` beside the report.
    - It skips the Gmail send, the Telegram send, and Drive folder creation and mirroring.
-   - It is used by the local preview and the optional VM dry run.
+   - The writer still runs, so a preview shows ISA's real draft.
    - `NO_TELEGRAM` keeps its current meaning.
-7. **`workspace/AGENTS.md`.** Add the short RFP section described in the spec.
-8. **Docs.** Update `docs/domains/rfp/README.md` and `document-qualification.md` with the report tiers and results file, and `docs/live-jobs.md` with the single scheduler.
+7. **`workspace/AGENTS.md`.** Add the short RFP section described in the spec, including how to respond to replies to Friday questions.
+8. **Docs.** Update `docs/domains/rfp/README.md` and `document-qualification.md` with the report tiers, the message and the results file, and `docs/live-jobs.md` with the single scheduler.
+9. **Before release:** confirm from the installed OpenClaw source that `openclaw message send --channel telegram` converts Markdown bold and links. If it doesn't, switch the writer rules and the fallback to plain text.
 
 ## Invariants and side effects
 
 **Unchanged:**
 - Scoring inputs, prompts, gates, thresholds and recommendations.
-- The evidence gate: Needs documents is never ranked.
+- The evidence gate: Needs documents is never picked.
 - Strong Pursue qualification, the HubSpot duplicate check, and Drive behavior for qualified RFPs.
 - The email recipient and subject, and the Telegram target.
 
-**Rules for the new behavior:**
+**The writer:**
+- It receives only `telegramFacts()`, never documents or company files.
+- Its draft is sent only if every check passes.
+- A failure, a timeout or a rejected draft sends the fallback, so the message is never skipped.
+
+**Other rules:**
 - Preview mode never sends mail or Telegram and never writes to Drive; tests assert this.
 - The failure notice fires only on a non-zero exit, once per run, and never includes error text.
 - Messages use public links only: the HigherGov `source_url` and the agency `solicitation_url`. Document download URLs can carry signed tokens and are never shown.
-- Intake state (`RFP-pipeline/state.json`, `seen.csv`) is untouched by rendering. A failed render after scoring leaves candidate files as they are today; re-running the job is unchanged.
+- Intake state (`RFP-pipeline/state.json`, `seen.csv`) is untouched by reporting. A failed report step after scoring leaves candidate files as they are today; re-running the job is unchanged.
 
 ## Context to keep beside code
 
-- Why only full-text results are ranked: the evidence gate, and the team's September 30 rule.
-- Why the email subject must not change: the mail-to-HubSpot match.
-- Why the Telegram message is plain text: the CLI has no formatting option.
-- Why the noon job is disabled: one scheduler, after the September 18 and 25 double runs. Record this in `docs/live-jobs.md`, not in code.
+- **Why only full-text results are picked:** the evidence gate, and the team's September 30 rule.
+- **Why ISA writes the message:** Chris's tone requirement. Why every draft is checked against the facts and falls back: so a Friday message is never wrong or missing.
+- **Why the skipped-RFP rule uses Gates 2 and 6 and $500k:** Peter's teaming guidance.
+- **Why the email subject must not change:** the mail-to-HubSpot match.
+- **Why the noon job is disabled:** one scheduler, after the September 18 and 25 double runs. Record this in `docs/live-jobs.md`, not in code.
 
 ## Verification and release boundary
 
 **Offline,** with synthetic fixtures in `devtools/fixtures/`:
-- renderer tests for ranking, the three-item cap, the "nothing ready" message, the character limit, Pacific-time deadlines, listing-only dates, links on every entry, and no paths, excerpt IDs or codes;
-- a regression test for the garbled fit text;
-- a delivery test: the send step takes the command runner as a parameter, and in preview mode it makes no `gog` or `openclaw` call;
-- a wrapper test that a failing command produces one notice and keeps the exit status;
-- `npm test`, `npm run check`, `git diff --check`.
+- **Facts:** ranking, the three-pick cap, rank-score fallbacks, long-shot flags, the skipped-RFP rule, counts that add up, and Pacific-time and listing-only deadlines.
+- **Checks:** a good recorded draft passes. Each rejection case falls back with a recorded reason:
+  - a changed number, date, budget or title;
+  - an extra or missing link;
+  - a path or gate number;
+  - unsupported formatting;
+  - too long.
 
-**Local preview, free:** render from the six October 5 real results in ignored `.isa-local/` for Chris to review.
+  A thrown or timed-out completion also falls back.
+- **Fallback, email and Markdown renderers:** links on every entry; no paths, excerpt IDs or codes; and the garbled-fit regression.
+- **Delivery:** the send step takes the command runner as a parameter, and in preview mode it makes no `gog` or `openclaw` call.
+- **Wrapper:** a failing command produces one notice and keeps the exit status.
+- **Repository checks:** `npm test`, `npm run check`, `git diff --check`.
+
+**Previews:**
+- **Local, free:** render the facts and the fallback from the six October 5 real results in ignored `.isa-local/`.
+- **On the VM, one model call (about 1–2 cents, needs approval):** run the writer on the same facts in a temporary folder, with nothing sent.
+
+Chris reviews both before release.
 
 **Optional VM dry run, recommended:**
 - The real weekly job runs in an isolated temporary workspace, with copies of the HigherGov config, `state.json`, `seen.csv`, skills and company files, and `RFP_DELIVERY=preview`.
 - The production fingerprint is taken before and after.
-- Cost and time: about $1.50–2 and about 3 hours, on the same model and HigherGov quota.
+- Cost and time: about $1.50–2 and about 3 hours.
 - Needs Chris's approval.
 
 **Release:**
@@ -88,4 +117,9 @@
 2. After approval: `openclaw cron disable 88d67daa-5c31-4383-aadb-ca9b846a98ae`. Rollback is `enable`.
 3. Rollback for files: the deploy backup folder.
 
-**First live check:** Friday's run — its Telegram message, the email, `latest.json`, the job log, and that no noon re-run happens.
+**First live check:** Friday's run:
+- the Telegram message, and whether ISA's draft or the fallback was sent and why;
+- the email;
+- `latest.json`;
+- the job log;
+- that no noon re-run happens.

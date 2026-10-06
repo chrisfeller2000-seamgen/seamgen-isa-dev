@@ -2,25 +2,35 @@
 
 - [x] Branch `feat/rfp-weekly-messages` from `test/rfp-rubric-alignment` at `e5511df`, which is the October 6 release. The worktree was clean.
 - [x] Evidence gathered read-only on the VM (October 6): the job log, report files, the team group's history, and OpenClaw job settings.
-- [ ] Chris reviews this spec.
-- [ ] `rfp-report.mjs`: the entry format, ranking, three renderers and plain labels, with synthetic-fixture tests.
+- [x] Chris chose the tone, the writer approach, and four message improvements (October 6); see the spec's Decisions.
+- [ ] Chris approves this spec.
+- [ ] `rfp-report.mjs`:
+  - [ ] entries;
+  - [ ] Telegram facts;
+  - [ ] writer and draft checks;
+  - [ ] fallback, email and Markdown renderers;
+  - [ ] synthetic-fixture tests.
 - [ ] Weekly script:
   - [ ] structured entries;
-  - [ ] the results file;
-  - [ ] render from the file;
+  - [ ] results file;
+  - [ ] writer call;
   - [ ] preview mode;
   - [ ] delete the keyword-era builders and the adapter's placeholder fields.
 - [ ] Policy `potential_total` and the `deadlineTimestamp` export, with tests showing decisions are unchanged.
 - [ ] Cron wrapper failure notice, with a test.
-- [ ] `workspace/AGENTS.md` RFP section.
+- [ ] `workspace/AGENTS.md` RFP section, including replies to Friday questions.
+- [ ] Confirm Markdown conversion in `openclaw message send` from the installed source; otherwise switch to plain text.
 - [ ] Docs: RFP domain pages, live jobs, and the specs index.
 - [ ] `npm test`, `npm run check`, diff review and secret scan.
-- [ ] Local preview from the six October 5 results; Chris reviews the Telegram text and email.
+- [ ] Previews:
+  - [ ] local facts and fallback from the six October 5 results;
+  - [ ] ISA's draft on the VM (one model call, approval);
+  - [ ] Chris reviews both.
 - [ ] Optional VM dry run in preview mode (approval; about $1.50–2).
 - [ ] Release:
   - [ ] heads-up to Sam and Hugo;
   - [ ] deploy preview, then apply;
   - [ ] disable the noon job (approval);
   - [ ] record the release here.
-- [ ] After Friday: check the message, the email, the results file, the job log, and that there was no second run.
+- [ ] After Friday: check the message (ISA's draft or fallback, and why), the email, the results file, the job log, and that there was no second run.
 - [ ] Push the branch and open a pull request so Sam and Hugo can review.
