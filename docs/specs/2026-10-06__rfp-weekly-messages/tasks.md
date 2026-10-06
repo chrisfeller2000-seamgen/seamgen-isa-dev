@@ -3,6 +3,7 @@
 - [x] Branch `feat/rfp-weekly-messages` from `test/rfp-rubric-alignment` at `e5511df`, which is the October 6 release. The worktree was clean.
 - [x] Evidence gathered read-only on the VM (October 6): the job log, report files, the team group's history, and OpenClaw job settings.
 - [x] Chris chose the tone, the writer approach, and four message improvements (October 6); see the spec's Decisions.
+- [x] Chris approved the message template (October 6); see the spec's section 3.
 - [ ] Chris approves this spec.
 - [ ] `rfp-report.mjs`:
   - [ ] entries;

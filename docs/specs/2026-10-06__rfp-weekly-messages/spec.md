@@ -115,6 +115,78 @@ If the Friday run exits with an error, including before Node starts (for example
 
 **Formatting.** Bold titles and named links (`**title**`, `[HigherGov listing](url)`), which OpenClaw converts for Telegram; ISA's chat answers in this group already use both. Before release, confirm from the installed OpenClaw source that `openclaw message send` converts Markdown. If it doesn't, send plain text with bare links. Link previews are a channel-wide OpenClaw setting and stay as they are.
 
+**Template (approved by Chris, October 6).** The fallback is sent exactly as written. ISA's own version follows the same structure and facts, phrased naturally. Placeholders are in `{braces}`; `**…**` is the Markdown sent for bold.
+
+Friday update:
+
+```text
+Morning team! I went through {total} new RFPs this week. {verdict}
+
+1. **{title}, {agency}**
+They want {what they need}.
+Why us: {closest Seamgen work, and how close it is}.
+Question for the team: {yes/no question about Seamgen}? If yes, it scores {score if yes}.
+Due {date} at {time} PT ({days} days). Budget {budget}.
+[HigherGov listing]({link})
+
+2. **{title}, {agency}**
+…same as above…
+
+3. Long shot: **{title}, {agency}**
+…same as above…
+
+Biggest one I skipped: {title}, about {budget}. {why it was skipped}, so it's only worth it with a partner.
+
+{documents line}
+The other {count} weren't a fit: {n} {reason}, {n} {reason}, and the rest are {smaller reasons}. Full list is in Marianne's email.
+```
+
+When nothing qualifies:
+
+```text
+Morning team. Nothing worth chasing this week.
+
+I went through {total} RFPs. Most were {top reason} or {second reason}. {documents line}
+```
+
+The failure notice is the fixed text in section 2.
+
+How each part varies:
+- **{verdict}:**
+  - "{n} are worth a look.";
+  - "{n} are worth a look, plus a long shot.";
+  - "1 is a strong pursue and {n} are worth a look."
+- **Picks:** up to three, by rank score. "Long shot:" appears only for flagged picks (see Tiers).
+- **Why us:** left out when the scorer gave no case-study reason.
+- **Question for the team:**
+  - one per open blocker, at most two;
+  - "If yes, it scores {n}" appears only when there is a potential score, plus "a strong pursue" at 75+;
+  - with no open questions, the line is "It scores {n}." (plus "a strong pursue" at 75+).
+- **Due line:**
+  - a verified deadline with a time: "Due Nov 2 at 2pm PT (27 days)";
+  - a verified date with no time: "Due Nov 2 (27 days)";
+  - a listing-only date: "I couldn't confirm the deadline (the listing says Oct 28)".
+- **Budget:**
+  - "about $250k–1.5M (HigherGov's guess)";
+  - "$400k (from the RFP)";
+  - "not listed".
+- **Biggest one I skipped:** only when an RFP qualifies (see Tiers).
+- **{documents line}:** only when some RFPs need documents: "{n} looked promising, but I couldn't get their documents to check the requirements. They're at the top of Marianne's email."
+- **Reasons:** the plain words in Tiers.
+
+Sources:
+
+| Placeholder | Source |
+| --- | --- |
+| {total}, counts and reasons | Counted by code from the week's results |
+| {title}, {agency}, {link} | The HigherGov listing |
+| {what they need} | HigherGov's summary of the RFP |
+| Why us | The scorer's case-study reason |
+| Question for the team | The scorer's unknown gates (2–6), asked as questions |
+| {score if yes} | `potential_total`, the scorer's category points added up by code |
+| {date}, {time}, {days} | The deadline found in the RFP documents, converted to Pacific time by code |
+| {budget} | The RFP if it states one, otherwise HigherGov's estimate |
+
 **Example.** The three picks are the real October 5 test results, with days left counted from October 6. The counts and the skipped RFP are illustrative. Bold and links are shown as they would render.
 
 ```text
