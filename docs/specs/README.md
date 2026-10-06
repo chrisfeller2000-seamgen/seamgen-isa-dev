@@ -2,7 +2,8 @@
 
 ## Active local specs
 
-- [Complete Jake scoring alignment](2026-09-30__jake-scoring-alignment-minimal/spec.md): shared AI scoring on `test/rfp-rubric-alignment`, merged October 5 with the deployed evidence gate and a fix for the preliminary contract. Offline tests pass; a bounded real-model batch, the company-file upload, and release remain pending. Earlier model checks are in the [implementation record](2026-09-30__jake-scoring-alignment-minimal/implementation.md).
+- [Complete Jake scoring alignment](2026-09-30__jake-scoring-alignment-minimal/spec.md): shared AI scoring from `test/rfp-rubric-alignment`, released to the VM October 6 with documents fetched at a preliminary 50+. Real-model checks, the release record and rollback are in the [implementation record](2026-09-30__jake-scoring-alignment-minimal/implementation.md); the first scheduled run is October 9.
+- [Weekly RFP update the sales team can act on](2026-10-06__rfp-weekly-messages/spec.md): one scheduled run, a ranked Telegram message, an email organized by decision, a failure notice, and chat access to the week's results. Spec on `feat/rfp-weekly-messages`; not implemented.
 - [RFP deadline selection and scoring](2026-09-30__rfp-deadline-scoring/spec.md): three-file patch deployed September 30 from `docs/rfp-deadline-scoring`; isolated VM checks passed, normal production job not run.
 - [Secondary scorer: no final score without the solicitation](2026-10-05__rfp-needs-documents/spec.md): three-file patch deployed October 5 from `fix/rfp-evidence-gate`; post-deploy checks passed, normal secondary job not run since.
 
