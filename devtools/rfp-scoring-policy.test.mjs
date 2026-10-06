@@ -201,6 +201,19 @@ test('before documents exist, documents to retrieve cite the listing and never b
   assert.throws(() => finalize(packet(), toRetrieve), /citation does not match/);
 });
 
+test('potential_total is the category sum: the score if an open question checks out, never a decision', () => {
+  const scored = finalize(packet());
+  assert.equal(scored.potential_total, scored.total);
+  const open = finalize(packet(), j => {
+    j.gates.gate6 = { pass: null, reason: 'Two completed similar projects are required; our records do not show them.', evidence: [] };
+    j.subrules.eligibility.meetsMandatoryQualifications = null;
+  });
+  assert.equal(open.recommendation, 'Needs review');
+  assert.equal(open.total, null);
+  assert.equal(open.potential_total, Object.values(open.categories).reduce((a, b) => a + b, 0));
+  assert.notEqual(open.qualification_status, 'qualified');
+});
+
 test('an unknown gate or submission route needs no citation; a definite one still does', () => {
   const unknown = finalize(packet(), j => {
     j.gates.gate4 = { pass: null, reason: 'The listing does not say how to submit.', evidence: [] };

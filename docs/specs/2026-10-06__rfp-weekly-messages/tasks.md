@@ -4,25 +4,25 @@
 - [x] Evidence gathered read-only on the VM (October 6): the job log, report files, the team group's history, and OpenClaw job settings.
 - [x] Chris chose the tone, the writer approach, and four message improvements (October 6); see the spec's Decisions.
 - [x] Chris approved the message template (October 6); see the spec's section 3.
-- [ ] Chris approves this spec.
-- [ ] `rfp-report.mjs`:
-  - [ ] entries;
-  - [ ] Telegram facts;
-  - [ ] writer and draft checks;
-  - [ ] fallback, email and Markdown renderers;
-  - [ ] synthetic-fixture tests.
-- [ ] Weekly script:
-  - [ ] structured entries;
-  - [ ] results file;
-  - [ ] writer call;
-  - [ ] preview mode;
-  - [ ] delete the keyword-era builders and the adapter's placeholder fields.
-- [ ] Policy `potential_total` and the `deadlineTimestamp` export, with tests showing decisions are unchanged.
-- [ ] Cron wrapper failure notice, with a test.
-- [ ] `workspace/AGENTS.md` RFP section, including replies to Friday questions.
+- [x] Chris approved the spec and the build (October 6).
+- [x] `rfp-report.mjs`:
+  - [x] entries;
+  - [x] Telegram facts;
+  - [x] writer and draft checks;
+  - [x] fallback, email and Markdown renderers;
+  - [x] synthetic-fixture tests.
+- [x] Weekly script:
+  - [x] structured entries;
+  - [x] results file;
+  - [x] writer call;
+  - [x] preview mode;
+  - [x] delete the keyword-era builders and the adapter's placeholder fields.
+- [x] Policy `potential_total` and the `deadlineTimestamp` export, with tests showing decisions are unchanged.
+- [x] Cron wrapper failure notice, with a test.
+- [x] `workspace/AGENTS.md` RFP section, including replies to Friday questions.
 - [ ] Confirm from the preview message that bold and links render; otherwise switch to plain text.
-- [ ] Docs: RFP domain pages, live jobs, and the specs index.
-- [ ] `npm test`, `npm run check`, diff review and secret scan.
+- [x] Docs: RFP domain pages, live jobs, and the specs index.
+- [x] `npm test`, `npm run check`, diff review and secret scan.
 - [ ] Previews:
   - [ ] local facts and fallback from the six October 5 results;
   - [ ] ISA's draft posted in the sales group, labeled as a preview (one model call; approved by Chris);

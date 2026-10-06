@@ -6,6 +6,25 @@ ISA's RFP pillar turns HigherGov opportunities into candidate records, scores li
 
 The weekly job in `workspace/scripts/weekly-rfp-pursue-decision.mjs` runs intake, scores candidate metadata, optionally fetches documents for candidates above the preliminary threshold, then applies fuller qualification and prepares a report. Its normal path writes runtime candidate/report state and can use HubSpot, Drive, Gmail, and Telegram. `workspace/tools/Get-HigherGovOpportunities.ps1` and the RFP skills describe related workflows, but do not assume they are the exact implementation of the scheduled Node job.
 
+## Friday update
+
+`workspace/scripts/rfp-report.mjs` turns each run into one results file, `reports/new-rfp-qualification/<run date>.json` and `latest.json`, with one entry per RFP. Each entry is in one tier:
+
+- **Strong pursue.**
+- **Worth a look.**
+- **Couldn't check yet:** documents missing or unreadable, or scoring didn't finish.
+- **Screened out:** with a plain reason.
+
+From that file:
+
+- **The email** to Marianne lists every RFP by tier. It is built by code, and its subject must not change, because the mail-to-HubSpot job matches it.
+- **The Telegram message** names up to three RFPs whose documents ISA read, asks the team the open questions, and names the biggest skipped RFP a partner could rescue. ISA's model writes it in ISA's voice from facts the code prepares. `checkTelegramDraft()` compares every link and number with those facts; if anything differs or the writer fails, the code-built version is sent.
+- **The results file** records which version was sent and why. ISA's chat reads the file to answer questions about the week's RFPs.
+
+`RFP_DELIVERY=preview` writes the same files, including the Telegram text, but sends no email or Telegram message and creates no Drive folders. It still runs intake, so use it only with an isolated `WORKSPACE_DIR`.
+
+If the run fails, the cron wrapper posts one failure notice to the group. See the [weekly update spec](../../specs/2026-10-06__rfp-weekly-messages/spec.md).
+
 ## Invariants and sharp edges
 
 - A metadata score is provisional; it must not be presented as document-backed qualification. Track `document_status`, `qualification_status`, and `scoring_confidence` separately.

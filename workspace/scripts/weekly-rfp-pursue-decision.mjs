@@ -6,7 +6,8 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createAssessmentContext } from './rfp-deadline.mjs';
 import { DOCUMENT_FETCH_THRESHOLD, unscoredRfp } from './rfp-scoring-policy.mjs';
-import { scoreRfp } from './rfp-scoring-judgment.mjs';
+import { createOpenClawJudge, scoreRfp } from './rfp-scoring-judgment.mjs';
+import { buildResults, renderEmailHtml, renderMarkdown, reportEntry, telegramFacts, vibeFrom, writeTelegramMessage } from './rfp-report.mjs';
 import {
   classifyDocumentRecord,
   ensureCandidateResourcesDir,
@@ -31,6 +32,11 @@ const REPORT_FROM = 'isa@seamgen.com';
 const REPORT_TO = process.env.REPORT_TO || 'mariannefaro@seamgen.com';
 const TELEGRAM_TARGET = process.env.TELEGRAM_TARGET || '-1003890997073';
 const NO_TELEGRAM = ['1', 'true', 'yes'].includes(String(process.env.NO_TELEGRAM || '').toLowerCase());
+// RFP_DELIVERY=preview runs the job and writes every report file, including the Telegram
+// text, but sends no email or Telegram message and creates no Drive folders.
+const DELIVERY_PREVIEW = String(process.env.RFP_DELIVERY || '').toLowerCase() === 'preview';
+// Tests install a recorded writer here instead of calling ISA's model.
+const writerSymbol = Symbol.for('isa.rfp.testWriter');
 const DOCUMENT_FETCH_ENABLED = ['1', 'true', 'yes', 'on'].includes(String(process.env.RFP_DOCUMENT_FETCH_ENABLED || '').toLowerCase());
 const FULL_QUALIFY_REQUIRE_DOCS = !['0', 'false', 'no'].includes(String(process.env.RFP_FULL_QUALIFY_REQUIRE_DOCS || 'true').toLowerCase());
 const FULL_QUALIFY_MIN_DAYS = Number.parseInt(process.env.RFP_FULL_QUALIFY_MIN_DAYS || '10', 10) || 10;
@@ -59,23 +65,6 @@ function isoDate(value) {
   const date = value ? new Date(value) : new Date();
   if (Number.isNaN(date.getTime())) return '';
   return date.toISOString().slice(0, 10);
-}
-
-function summarizeCount(count, label) {
-  return `${count} ${label}${count === 1 ? '' : 's'}`;
-}
-
-function buildTelegramSummary(runDate, intake, qualifiedCount, manualReviewCount = 0) {
-  const scanned = intake?.fetched || 0;
-  const days = (intake?.daysFetched || []).length || 0;
-  const passed = intake?.pass || 0;
-  const filteredOut = Math.max(scanned - passed, 0);
-  return [
-    `Weekly RFP job ${runDate}: ${summarizeCount(scanned, 'record')} scanned across ${summarizeCount(days, 'day')}; ${summarizeCount(passed, 'candidate')} passed intake; ${summarizeCount(filteredOut, 'record')} filtered out.`,
-    `${summarizeCount(qualifiedCount, 'RFP')} qualified for the digest.`,
-    `${summarizeCount(manualReviewCount, 'candidate')} sent to manual review.`,
-    `Mail sent to ${REPORT_TO}.`,
-  ].join(' ');
 }
 
 async function withTimeout(promise, timeoutMs, label = 'operation') {
@@ -110,15 +99,6 @@ function getTestCandidateSlug() {
 
 function getTestCandidateVersionKey() {
   return normalizeText(process.env.RFP_TEST_VERSION_KEY || getCliOption('--candidate-version-key'));
-}
-
-function escapeHtml(text = '') {
-  return String(text)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
 }
 
 function cleanName(value = '') {
@@ -222,59 +202,6 @@ function parseIsoDate(value = '') {
   return match ? match[0] : '';
 }
 
-function scoreBand(score) {
-  if (score >= 95) return 'Exceptional fit';
-  if (score >= 90) return 'Very strong fit';
-  if (score >= 80) return 'Strong fit';
-  return 'Qualified fit';
-}
-
-function reasonToWhyFit(reason) {
-  const map = {
-    'Accessibility / WCAG': 'accessibility/WCAG support',
-    'Web / CMS / mobile delivery': 'web, CMS, intranet, or mobile delivery',
-    'Integration / modern stack': 'integration and modern stack capability',
-    'AI / automation / data platform': 'AI, automation, or data platform capability',
-    'Support / maintenance / hosting': 'hosting, support, or maintenance capability',
-    'Public-sector buyer': 'a public-sector procurement context',
-    'Delivery structure': 'a phased delivery structure',
-  };
-  return map[reason] || reason.toLowerCase();
-}
-
-function clipText(value = '', limit = 180) {
-  const text = normalizeText(value);
-  if (!text) return '';
-  if (text.length <= limit) return text;
-  return `${text.slice(0, limit).trimEnd()}…`;
-}
-
-function buildWhyItFitsNarrative({ title = '', issuer = '', summary = '', reasons = [], landscapeSummary = '', capabilitySummary = '' } = {}) {
-  const parts = [...new Set(reasons)].map((reason) => reasonToWhyFit(reason)).filter(Boolean);
-  const coreAsk = clipText(summary, 140);
-  const fitBits = [];
-  if (parts.length) {
-    fitBits.push(`Seamgen matches the ask with ${parts.slice(0, 2).join(' and ')}`);
-  }
-  if (coreAsk) {
-    fitBits.push(`the RFP specifically asks for ${coreAsk}`);
-  }
-  const landscapeText = clipText(landscapeSummary || '', 90);
-  const capabilityText = clipText(capabilitySummary || '', 90);
-  if (landscapeText) {
-    fitBits.push(landscapeText.replace(/^Solution landscape points to\s+/i, 'the landscape points to '));
-  }
-  if (capabilityText) {
-    fitBits.push(capabilityText.replace(/^Capability verification confirms\s+/i, 'our delivery fit shows '));
-  }
-  const lead = issuer
-    ? `For ${title}${issuer ? ` — ${issuer}` : ''},`
-    : `For ${title},`;
-  if (!fitBits.length) return `${lead} Seamgen looks like a solid custom-build fit.`;
-  if (fitBits.length === 1) return `${lead} ${fitBits[0]}.`;
-  return `${lead} ${fitBits[0]}; ${fitBits.slice(1).join('; ')}.`;
-}
-
 function serializeFrontmatterValue(value) {
   if (value === null || value === undefined || value === '') return 'unknown';
   if (Array.isArray(value)) {
@@ -339,15 +266,6 @@ function buildMetadataText(candidate) {
   ].filter(Boolean).join('\n\n');
 }
 
-function extractDeadlinesFromMetadata(candidate, metadataText, runDate) {
-  const frontmatter = candidate?.frontmatter || {};
-  const deadlines = extractDeadlines(metadataText, runDate).slice(0, 4);
-  if (!deadlines.length && frontmatter.due_date && normalizeText(frontmatter.due_date).toLowerCase() !== 'unknown') {
-    deadlines.push({ label: 'Proposal due', date: normalizeText(frontmatter.due_date) });
-  }
-  return deadlines;
-}
-
 export async function scoreCandidateFromText({ candidate, runDate, phase = 'full-text', documents = [], completeness, companySources, policies, landscapeSources, judge }) {
   const assessment = createAssessmentContext({ runDate, reportingTimeZone: process.env.RFP_ASSESSMENT_TIME_ZONE || 'UTC' });
   const result = await scoreRfp({ candidate, phase, documents, completeness, assessment, companySources, policies, landscapeSources }, { judge, workspace: WORKSPACE });
@@ -358,28 +276,7 @@ export async function scoreCandidateFromText({ candidate, runDate, phase = 'full
     ...result,
     score: result.total,
     gateCheck: { results: result.gateReasons || [], failed: failedGate },
-    blockers: result.flags.map((flag) => ({ category: flag.type, detail: flag.reason })),
-    landscape: { summary: result.cp?.signals?.join('; ') || '' },
-    capability: { summary: result.reasons.join('; ') },
-    deadlines: { proposalDue: result.timeline.due || '', questionsDue: result.timeline.questions?.due || '' },
   };
-}
-
-function buildQualificationNarrative(score, reasons = []) {
-  const band = scoreBand(score);
-  const reasonText = [...new Set(reasons)].length ? `Signals: ${[...new Set(reasons)].join(', ')}.` : 'Signals are general but still supportive.';
-  return `${band}. ${reasonText}`;
-}
-
-function deadlineLabelFromText(text = '') {
-  const lower = normalizeText(text).toLowerCase();
-  if (/nda/.test(lower)) return 'NDA deadline';
-  if (/questions?|clarification|inquiry/.test(lower)) return 'Questions due';
-  if (/proposal submission|submit proposals|submittal|response due|submitted by|due date|proposal due/.test(lower)) return 'Proposal due';
-  if (/bid opening|opening date/.test(lower)) return 'Bid opening';
-  if (/offer shall be valid|valid for/.test(lower)) return 'Offer validity';
-  if (/deadline/.test(lower)) return 'Deadline';
-  return 'Deadline';
 }
 
 function run(cmd, args, options = {}) {
@@ -1489,47 +1386,6 @@ function extractIssuer(text = '', title = '') {
   return '';
 }
 
-function extractDeadlines(text = '', runDate = '') {
-  const lines = String(text || '')
-    .replace(/\r/g, '\n')
-    .split('\n')
-    .map((line) => normalizeText(line))
-    .filter(Boolean);
-  const wanted = [];
-  const deadlinePatterns = /deadline|due date|proposal submission|questions due|submission date|questions deadline|bid opening|proposal opening|submitted by|written questions|offer due|response due|clarification deadline/i;
-  const datePatterns = [
-    /\b\d{4}-\d{2}-\d{2}\b/g,
-    /\b\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}\b/g,
-    /\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+\d{1,2},?\s+\d{4}\b/gi,
-    /\b\d{1,2}\s+(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?,?\s+\d{4}\b/gi,
-  ];
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (!deadlinePatterns.test(line)) continue;
-    const window = [line, lines[index + 1] || '', lines[index + 2] || ''].filter(Boolean).join(' ');
-    const dates = [];
-    for (const pattern of datePatterns) {
-      for (const match of window.matchAll(pattern)) {
-        const parsed = formatIsoDate(match[0]);
-        if (parsed) dates.push(parsed);
-      }
-    }
-    if (dates.length) {
-      for (const date of dates) {
-        const label = deadlineLabelFromText(window);
-        if (runDate && date <= runDate) continue;
-        if (!wanted.some((item) => item.label === label && item.date === date)) {
-          wanted.push({ label, date });
-        }
-        if (wanted.length >= 5) break;
-      }
-    }
-    if (wanted.length >= 5) break;
-  }
-  return wanted;
-}
-
 function extractSummary(text = '') {
   const paragraphs = String(text || '')
     .replace(/\r/g, '\n')
@@ -1587,16 +1443,6 @@ function daysBetween(left = '', right = '') {
   return Math.round((leftDate - rightDate) / 86400000);
 }
 
-function formatBlocker(blocker = {}) {
-  if (!blocker || typeof blocker !== 'object') return '';
-  const category = normalizeText(blocker.category || '');
-  const detail = normalizeText(blocker.detail || '');
-  if (!category && !detail) return '';
-  if (!category) return detail;
-  if (!detail) return category;
-  return `${category}: ${detail}`;
-}
-
 function extractContractValue(text = '') {
   const lines = String(text || '')
     .replace(/\r/g, '\n')
@@ -1621,100 +1467,6 @@ function extractContractValue(text = '') {
   }
 
   return 'not stated';
-}
-
-function buildSection(item) {
-  const deadlineRows = item.deadlines.length
-    ? item.deadlines.map((line) => `${escapeHtml(line.label)}: ${escapeHtml(line.date)}`).join('<br>')
-    : 'No future deadline found in the extracted material.';
-
-  const blockerRows = item.blockers.length
-    ? item.blockers.map((blocker) => escapeHtml(formatBlocker(blocker))).join('<br>')
-    : 'No major blocker detected from the extracted material.';
-
-  return `
-    <article style="border:1px solid #dbeafe;border-left:6px solid #2563eb;border-radius:18px;padding:18px 20px;margin:0 0 18px;background:#ffffff;box-shadow:0 1px 2px rgba(15,23,42,0.04);">
-      <h3 style="margin:0 0 12px;font-size:20px;line-height:1.25;color:#111827;">${escapeHtml(item.displayTitle)}</h3>
-      <div style="font-size:14px;color:#374151;">
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Documentation link:</strong> <a href="${escapeHtml(item.driveUrl)}">Open documentation</a>
-        </div>
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Portal source:</strong> <a href="${escapeHtml(item.portalUrl || item.driveUrl)}">Open HigherGov listing</a>
-        </div>
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Contract value:</strong> ${escapeHtml(item.amount)}
-        </div>
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Qualification:</strong> ${escapeHtml(item.scoreNarrative)}
-        </div>
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Key dates:</strong><br>${deadlineRows}
-        </div>
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>What the RFP is asking for:</strong> ${escapeHtml(item.summary || 'Not enough text extracted to summarize clearly.')}
-        </div>
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Why Seamgen fits:</strong> ${escapeHtml(item.whyFits || 'Fit came from general procurement signals.')}
-        </div>
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Potential blockers:</strong><br>${blockerRows}
-        </div>
-      </div>
-    </article>
-  `;
-}
-
-function buildReviewSection(item) {
-  const details = [
-    item.document_status ? `Document status: ${item.document_status}` : '',
-    item.qualification_status ? `Qualification status: ${item.qualification_status}` : '',
-    item.reason ? `Reason: ${item.reason}` : '',
-  ].filter(Boolean).join('<br>');
-  return `
-    <article style="border:1px solid #fee2e2;border-left:6px solid #dc2626;border-radius:18px;padding:18px 20px;margin:0 0 18px;background:#fff7f7;box-shadow:0 1px 2px rgba(15,23,42,0.04);">
-      <h3 style="margin:0 0 12px;font-size:20px;line-height:1.25;color:#111827;">${escapeHtml(item.displayTitle)}</h3>
-      <div style="font-size:14px;color:#374151;">
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Preliminary score:</strong> ${escapeHtml(item.preliminaryScoreDisplay)}
-        </div>
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Status:</strong> ${escapeHtml(item.qualification_status || 'provisional')}
-        </div>
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Why it paused:</strong> ${escapeHtml(item.reason || 'Manual review required.')}
-        </div>
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Document state:</strong> ${escapeHtml(item.document_status || 'metadata-only')}
-        </div>
-      </div>
-    </article>
-  `;
-}
-
-function buildEmailHtml(runDate, qualifiedItems, manualItems, intake) {
-  const week = weekNumber(new Date(runDate));
-  const itemCount = qualifiedItems.length;
-  const manualCount = manualItems.length;
-  const intakeSummary = intake
-    ? `${summarizeCount(intake.fetched || 0, 'record')} scanned across ${summarizeCount((intake.daysFetched || []).length, 'day')}; ${summarizeCount(intake.pass || 0, 'candidate')} passed, ${summarizeCount(Math.max((intake.fetched || 0) - (intake.pass || 0), 0), 'filtered out')}.`
-    : 'HigherGov intake completed before qualification.';
-  return `
-    <html>
-      <body style="font-family:Arial,Helvetica,sans-serif;line-height:1.5;color:#111827;background:#f9fafb;padding:24px;">
-        <div style="max-width:980px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;padding:24px;">
-          <h2 style="margin:0 0 10px;font-size:24px;">New qualified RFP's for pursue decision - week ${escapeHtml(week)}</h2>
-          <p style="margin:0 0 8px;color:#374151;">${escapeHtml(intakeSummary)}</p>
-          <p style="margin:0 0 16px;color:#374151;">${escapeHtml(summarizeCount(itemCount, 'qualified RFP'))} found in the current portal intake. Only items at or above the 75 threshold, and without an existing HubSpot RFP record, are included.</p>
-          ${itemCount ? qualifiedItems.map(buildSection).join('') : '<p style="margin:0;color:#374151;">No qualified new RFPs were found in this run.</p>'}
-          <h3 style="margin:24px 0 12px;font-size:20px;color:#111827;">Manual review</h3>
-          <p style="margin:0 0 16px;color:#374151;">${escapeHtml(summarizeCount(manualCount, 'candidate'))} require follow-up or document review.</p>
-          ${manualCount ? manualItems.map(buildReviewSection).join('') : '<p style="margin:0;color:#374151;">No candidates were held for manual review.</p>'}
-          <p style="margin-top:24px;color:#6b7280;font-size:12px;">This email is generated by ISA, the AI assistant of Seamgen. ISA has been fed and trained with relevant knowledge, and the content and expressions are supervised. For personal contact, you can always call or email me.</p>
-        </div>
-      </body>
-    </html>
-  `;
 }
 
 async function scoreMetadataCandidate(candidate, runDate) {
@@ -1950,8 +1702,7 @@ async function main() {
   const candidatePaths = await loadPortalCandidates().catch(() => []);
   process.stderr.write(`[weekly-rfp] candidates on disk: ${candidatePaths.length}\n`);
 
-  const qualified = [];
-  const manualReview = [];
+  const entries = [];
   let hubspotDealIndex = null;
   const getHubspotIndex = async () => {
     if (hubspotDealIndex) return hubspotDealIndex;
@@ -1970,13 +1721,11 @@ async function main() {
     const candidatePath = candidatePaths[i];
     const candidate = await readPortalCandidate(candidatePath).catch(() => null);
     if (!candidate) continue;
-    const { slug, title: frontTitle, issuer: frontIssuer, sourceUrl, portalUrl, frontmatter, body } = candidate;
+    const { slug, title: frontTitle, issuer: frontIssuer } = candidate;
     const title = cleanName(frontTitle || slug);
     const issuer = cleanName(frontIssuer || '');
-    const metadataText = buildMetadataText(candidate);
     const preliminary = await scoreMetadataCandidate(candidate, runDate);
     const preliminaryScore = preliminary.score;
-    const summary = extractSummary(metadataText) || normalizeText(frontmatter.ai_summary || '').slice(0, 260) || normalizeText(frontmatter.description_text || '').slice(0, 260) || '';
     const rfpKey = buildRfpKey(title, issuer);
     if (rfpKey && seenRfpKeys.has(rfpKey)) {
       continue;
@@ -1991,10 +1740,8 @@ async function main() {
     const displayTitle = issuer && !normalizeSearchText(title).includes(normalizeSearchText(issuer))
       ? `${title} — ${issuer}`
       : title;
-    let deadlines = extractDeadlinesFromMetadata(candidate, metadataText, runDate);
-    const amountValue = (frontmatter.val_est_low && normalizeText(frontmatter.val_est_low).toLowerCase() !== 'unknown'
-      ? normalizeText(frontmatter.val_est_low)
-      : 'not stated');
+    // Every RFP ends up as exactly one report entry; rfp-report.mjs decides its tier.
+    const addEntry = (fields = {}) => entries.push(reportEntry({ candidate: { ...candidate, title, issuer }, preliminary, ...fields }));
 
     if (preliminary.status === 'insufficient-metadata') {
       await persistCandidateState(candidatePath, {
@@ -2006,13 +1753,7 @@ async function main() {
         document_status: 'metadata-only',
         status: 'provisional',
       });
-      manualReview.push({
-        displayTitle,
-        preliminaryScoreDisplay: 'insufficient metadata',
-        qualification_status: 'insufficient-metadata',
-        document_status: 'metadata-only',
-        reason: 'Not enough metadata to score reliably.',
-      });
+      addEntry();
       continue;
     }
 
@@ -2033,24 +1774,12 @@ async function main() {
     });
 
     if (!shouldFetchDocuments(preliminary.preview)) {
-      manualReview.push({
-        displayTitle,
-        preliminaryScoreDisplay: String(preliminaryScore),
-        qualification_status: preliminaryScore === null ? preliminary.preview.qualification_status : 'preliminary-below-threshold',
-        document_status: 'metadata-only',
-        reason: preliminaryScore === null ? preliminary.preview.reasons.join('; ') : `Preliminary score ${preliminaryScore} is below the document-fetch threshold of ${DOCUMENT_FETCH_THRESHOLD}.`,
-      });
+      addEntry();
       continue;
     }
 
     if (!DOCUMENT_FETCH_ENABLED) {
-      manualReview.push({
-        displayTitle,
-        preliminaryScoreDisplay: String(preliminaryScore),
-        qualification_status: 'provisional',
-        document_status: 'metadata-only',
-        reason: 'Document fetching is disabled by feature flag, so this candidate stays provisional.',
-      });
+      addEntry({ documentStatus: 'fetch-disabled' });
       continue;
     }
 
@@ -2072,13 +1801,7 @@ async function main() {
         document_status: fetchResult.status,
         status: 'provisional',
       });
-      manualReview.push({
-        displayTitle,
-        preliminaryScoreDisplay: String(preliminaryScore),
-        qualification_status: 'provisional',
-        document_status: fetchResult.status,
-        reason: fetchResult.reason || 'Document fetch did not produce retrievable files.',
-      });
+      addEntry({ documentStatus: fetchResult.status });
       continue;
     }
 
@@ -2103,164 +1826,109 @@ async function main() {
         document_manifest_path: path.join(resourcesDir, '_document-manifest.json'),
         status: 'provisional',
       });
-      manualReview.push({
-        displayTitle,
-        preliminaryScoreDisplay: String(preliminaryScore),
-        qualification_status: 'provisional',
-        document_status: documentStatus,
-        reason: completeness.reasons.join('; ') || 'Document completeness could not be proven.',
-      });
+      addEntry({ documentStatus });
       continue;
     }
 
-    const qualificationText = extracted.evidenceText;
     const scoringBundle = await scoreCandidateFromText({ candidate, runDate, documents: extracted.documents, completeness });
-    const finalScore = scoringBundle.total;
-    const gateCheck = scoringBundle.gateCheck;
-    deadlines = scoringBundle.timeline.due ? [{ label: 'Proposal due', date: `${scoringBundle.timeline.due}${scoringBundle.timeline.time ? ` ${scoringBundle.timeline.time} ${scoringBundle.timeline.timeZone || ''}` : ''}` }] : [];
-    const whyFits = buildWhyItFitsNarrative({
-      title,
-      issuer,
-      summary: extractSummary(qualificationText) || summary,
-      reasons: scoringBundle.reasons,
-      landscapeSummary: scoringBundle.landscape.summary,
-      capabilitySummary: scoringBundle.capability.summary,
-    });
-    const blockers = [...scoringBundle.blockers];
     await persistValidatedScore(candidatePath, { preliminaryScore, result: scoringBundle,
       manifestPath: path.join(resourcesDir, '_document-manifest.json'), runDate });
-    if (gateCheck.failed) {
-      manualReview.push({
-        displayTitle,
-        preliminaryScoreDisplay: String(preliminaryScore),
-        qualification_status: 'failed-gate',
-        document_status: scoringBundle.document_status || 'partial-documents',
-        reason: `Strict gate failed: ${gateCheck.failed.gate} - ${gateCheck.failed.reason}`,
-      });
+    const qualifies = scoringBundle.qualification_status === 'qualified' && Number.isFinite(scoringBundle.total)
+      && scoringBundle.total >= FULL_QUALIFY_THRESHOLD;
+    if (!qualifies) {
+      addEntry({ final: scoringBundle, documentStatus: 'full-text' });
       continue;
     }
 
-    if (scoringBundle.qualification_status !== 'qualified' || !Number.isFinite(finalScore) || finalScore < FULL_QUALIFY_THRESHOLD) {
-      manualReview.push({
-        displayTitle,
-        preliminaryScoreDisplay: String(preliminaryScore),
-        qualification_status: scoringBundle.qualification_status,
-        document_status: scoringBundle.document_status || 'partial-documents',
-        reason: finalScore === null ? `${scoringBundle.recommendation}: ${scoringBundle.reasons.join('; ')}` : `Final score ${finalScore} is below the pursue threshold.`,
-      });
-      continue;
-    }
-
+    const summary = extractSummary(buildMetadataText(candidate)) || normalizeText(candidate.frontmatter.ai_summary || '').slice(0, 260)
+      || normalizeText(candidate.frontmatter.description_text || '').slice(0, 260) || '';
     const hubspotDuplicate = await hasHubSpotDuplicate(title, issuer, summary, await getHubspotIndex()).catch(() => false);
     if (hubspotDuplicate) {
       await persistCandidateState(candidatePath, {
         qualification_status: 'rejected',
       });
-      manualReview.push({
-        displayTitle,
-        preliminaryScoreDisplay: String(preliminaryScore),
-        qualification_status: 'rejected',
-        document_status: 'full-text',
-        reason: 'A HubSpot RFP record already exists for this opportunity.',
-      });
+      addEntry({ final: scoringBundle, documentStatus: 'full-text', hubspotDuplicate: true });
       continue;
     }
 
     process.stderr.write(`[weekly-rfp] qualify ${candidatePaths.length ? `${i + 1}/${candidatePaths.length}` : i + 1}: ${displayTitle}\n`);
-    const driveFolder = await withTimeout(
-      ensureRfpDriveFolder(issuer, title, slug),
-      60000,
-      `Drive folder creation for ${displayTitle}`,
-    ).catch((error) => ({
-      created: false,
-      folderId: '',
-      folderUrl: '',
-      reason: error?.message || 'Could not resolve destination folder.',
-    }));
-    if (!driveFolder.folderId) {
-      process.stderr.write(`[weekly-rfp] drive folder skipped for ${displayTitle}: ${driveFolder.reason || 'unknown reason'}\n`);
+    let documentsLink = '';
+    if (DELIVERY_PREVIEW) {
+      process.stderr.write(`[weekly-rfp] preview mode: Drive folder skipped for ${displayTitle}\n`);
     } else {
-      process.stderr.write(`[weekly-rfp] drive folder ready for ${displayTitle}\n`);
-    }
-    const mirrorStatus = driveFolder.folderId
-      ? await withTimeout(
-        mirrorLocalResourcesToDrive(driveFolder.folderId, slug),
+      const driveFolder = await withTimeout(
+        ensureRfpDriveFolder(issuer, title, slug),
         60000,
-        `Drive mirroring for ${displayTitle}`,
+        `Drive folder creation for ${displayTitle}`,
       ).catch((error) => ({
-        mirrored: 0,
-        reason: error?.message || 'Drive mirroring failed.',
-      }))
-      : { mirrored: 0, reason: 'Drive folder missing.' };
-    process.stderr.write(`[weekly-rfp] drive mirror for ${displayTitle}: ${mirrorStatus.mirrored || 0} file(s)\n`);
-
-    qualified.push({
-      id: slug,
-      title,
-      issuer,
-      displayTitle,
-      driveUrl: driveFolder.folderUrl || portalUrl || sourceUrl,
-      portalUrl: portalUrl || sourceUrl,
-      amount: scoringBundle.value?.estimate ? `${scoringBundle.value.estimate} (${scoringBundle.value.status}; ${scoringBundle.judgments?.value?.kind || 'unknown'} estimate)` : 'not stated',
-      deadlines,
-      summary: extractSummary(qualificationText) || summary,
-      scoreNarrative: buildQualificationNarrative(finalScore, scoringBundle.reasons),
-      whyFits,
-      blockers,
-      landscapeSummary: scoringBundle.landscape.summary,
-      capabilitySummary: scoringBundle.capability.summary,
-      mirrorStatus,
-    });
+        created: false,
+        folderId: '',
+        folderUrl: '',
+        reason: error?.message || 'Could not resolve destination folder.',
+      }));
+      if (!driveFolder.folderId) {
+        process.stderr.write(`[weekly-rfp] drive folder skipped for ${displayTitle}: ${driveFolder.reason || 'unknown reason'}\n`);
+      } else {
+        process.stderr.write(`[weekly-rfp] drive folder ready for ${displayTitle}\n`);
+        const mirrorStatus = await withTimeout(
+          mirrorLocalResourcesToDrive(driveFolder.folderId, slug),
+          60000,
+          `Drive mirroring for ${displayTitle}`,
+        ).catch((error) => ({
+          mirrored: 0,
+          reason: error?.message || 'Drive mirroring failed.',
+        }));
+        process.stderr.write(`[weekly-rfp] drive mirror for ${displayTitle}: ${mirrorStatus.mirrored || 0} file(s)\n`);
+      }
+      documentsLink = driveFolder.folderUrl || '';
+    }
+    addEntry({ final: scoringBundle, documentStatus: 'full-text', documentsLink });
   }
-  process.stderr.write(`[weekly-rfp] qualification complete: ${qualified.length} qualified, ${manualReview.length} manual review\n`);
 
-  const reportMarkdown = [
-    `# New qualified RFP's for pursue decision - week ${weekNumber(new Date(runDate))}`,
-    '',
-    `- Run date: ${runDate}`,
-    `- Qualified RFPs: ${qualified.length}`,
-    `- Manual review: ${manualReview.length}`,
-    '',
-    ...qualified.flatMap((item) => [
-      `## ${item.displayTitle}`,
-      item.issuer ? `- Requesting party: ${item.issuer}` : null,
-      `- Documentation link: [Open documentation](${item.driveUrl})`,
-      item.portalUrl ? `- Portal source: [Open HigherGov listing](${item.portalUrl})` : null,
-      `- Contract value: ${item.amount}`,
-      `- Qualification: ${item.scoreNarrative}`,
-      `- Key dates: ${item.deadlines.length ? item.deadlines.map((deadline) => `${deadline.label}: ${deadline.date}`).join(' | ') : 'no future deadline found'}`,
-      `- What the RFP is asking for: ${item.summary || 'not enough text extracted to summarize clearly.'}`,
-      `- Why Seamgen fits: ${item.whyFits}`,
-      `- Potential blockers: ${item.blockers.length ? item.blockers.map((blocker) => formatBlocker(blocker)).filter(Boolean).join('; ') : 'none detected'}`,
-      '',
-    ].filter(Boolean)),
-    '## Manual review',
-    '',
-    ...manualReview.flatMap((item) => [
-      `### ${item.displayTitle}`,
-      `- Preliminary score: ${item.preliminaryScoreDisplay}`,
-      `- Qualification status: ${item.qualification_status}`,
-      `- Document status: ${item.document_status}`,
-      `- Why it paused: ${item.reason}`,
-      '',
-    ].filter(Boolean)),
-    '---',
-    'This email is generated by ISA, the AI assistant of Seamgen. ISA has been fed and trained with relevant knowledge, and the content and expressions are supervised. For personal contact, you can always call or email me.',
-  ].join('\n');
+  const week = weekNumber(new Date(runDate));
+  const subject = `New qualified RFP's for pursue decision - week ${week}`;
+  const results = buildResults({ runDate, week, entries, intake });
+  const { strong, worth, check, screened } = results.counts;
+  process.stderr.write(`[weekly-rfp] qualification complete: ${strong} strong pursue, ${worth} worth a look, ${check} to check, ${screened} screened out\n`);
 
-  const reportHtml = buildEmailHtml(runDate, qualified, manualReview, intake);
-  process.stderr.write(`[weekly-rfp] rendering report and sending mail\n`);
+  // ISA words the Telegram message from these facts; the draft is checked against them and
+  // the code-built version is sent if it doesn't match or the writer fails.
+  const facts = telegramFacts(results);
+  const complete = globalThis[writerSymbol] || await createOpenClawJudge().catch(() => null);
+  const vibe = vibeFrom(await fs.readFile(path.join(WORKSPACE, 'IDENTITY.md'), 'utf8').catch(() => ''));
+  const message = await writeTelegramMessage(facts, complete, { vibe });
+  process.stderr.write(`[weekly-rfp] Telegram message: ${message.source}${message.reason ? ` (${message.reason})` : ''}\n`);
+
+  process.stderr.write(`[weekly-rfp] rendering report${DELIVERY_PREVIEW ? ' (preview mode: nothing is sent)' : ' and sending mail'}\n`);
+  const reportHtml = renderEmailHtml(results, { subject });
+  const reportMarkdown = renderMarkdown(results, { subject });
+  const resultsJson = `${JSON.stringify({ ...results, telegram: message }, null, 2)}\n`;
   await fs.mkdir(REPORT_DIR, { recursive: true });
-  const reportMarkdownPath = path.join(REPORT_DIR, `${runDate}.md`);
-  const reportMarkdownLatestPath = path.join(REPORT_DIR, 'latest.md');
-  const reportHtmlPath = path.join(REPORT_DIR, `${runDate}.html`);
-  const reportHtmlLatestPath = path.join(REPORT_DIR, 'latest.html');
-  await fs.writeFile(reportMarkdownPath, reportMarkdown, 'utf8');
-  await fs.writeFile(reportMarkdownLatestPath, reportMarkdown, 'utf8');
-  await fs.writeFile(reportHtmlPath, reportHtml, 'utf8');
-  await fs.writeFile(reportHtmlLatestPath, reportHtml, 'utf8');
+  const reportFiles = {
+    [`${runDate}.json`]: resultsJson, 'latest.json': resultsJson,
+    [`${runDate}.md`]: reportMarkdown, 'latest.md': reportMarkdown,
+    [`${runDate}.html`]: reportHtml, 'latest.html': reportHtml,
+  };
+  if (DELIVERY_PREVIEW) reportFiles[`${runDate}-telegram.md`] = `${message.text}\n`;
+  for (const [name, content] of Object.entries(reportFiles)) await fs.writeFile(path.join(REPORT_DIR, name), content, 'utf8');
 
-  const sendResult = await runJson('gog', [
+  const delivery = await deliverWeeklyReport({ subject, htmlPath: path.join(REPORT_DIR, `${runDate}.html`), telegramText: message.text });
+  process.stdout.write(`${JSON.stringify({
+    runDate,
+    qualifiedRfps: strong,
+    counts: results.counts,
+    reportDir: REPORT_DIR,
+    telegramSource: message.source,
+    telegramReason: message.reason || undefined,
+    ...delivery,
+  }, null, 2)}\n`);
+}
+
+// Sends the email, then the Telegram message. Preview mode sends nothing; the report
+// files are already written. `run` is a parameter so tests can prove that.
+export async function deliverWeeklyReport({ subject, htmlPath, telegramText, preview = DELIVERY_PREVIEW, noTelegram = NO_TELEGRAM, run = runJson }) {
+  if (preview) return { emailStatus: 'preview', telegramStatus: 'preview' };
+  const sendResult = await run('gog', [
     '-a',
     'isa@seamgen.com',
     'gmail',
@@ -2270,51 +1938,27 @@ async function main() {
     '--to',
     REPORT_TO,
     '--subject',
-    `New qualified RFP's for pursue decision - week ${weekNumber(new Date(runDate))}`,
+    subject,
     '--body-html-file',
-    reportHtmlPath,
+    htmlPath,
     '--no-input',
   ], { timeoutMs: 120000 });
-
-  let telegramStatus = 'skipped';
-  let telegramError = '';
-  if (!NO_TELEGRAM) {
-    const telegramMessage = buildTelegramSummary(runDate, intake, qualified.length, manualReview.length);
-    const telegramResult = await runJson('openclaw', [
-      'message',
-      'send',
-      '--channel',
-      'telegram',
-      '--target',
-      TELEGRAM_TARGET,
-      '--message',
-      telegramMessage,
-    ], { timeoutMs: 45000 }).then(() => ({ exitCode: 0 })).catch((error) => ({
-      exitCode: typeof error?.exitCode === 'number' ? error.exitCode : 1,
-      stdout: error?.stdout || '',
-      stderr: error?.stderr || error?.message || 'unknown Telegram error',
-    }));
-    telegramStatus = telegramResult.exitCode === 0 ? 'sent' : `failed (${telegramResult.exitCode})`;
-    telegramError = telegramResult.exitCode === 0 ? '' : normalizeText(telegramResult.stderr || telegramResult.stdout || 'unknown Telegram error');
-  }
-
-  process.stdout.write(
-    `${JSON.stringify(
-      {
-        runDate,
-        qualifiedRfps: qualified.length,
-        manualReviewRfps: manualReview.length,
-        reportDir: REPORT_DIR,
-        emailStatus: 'sent',
-        telegramStatus,
-        telegramTarget: NO_TELEGRAM ? '' : TELEGRAM_TARGET,
-        telegramError: telegramError || undefined,
-        gmailResponse: sendResult.slice(0, 200),
-      },
-      null,
-      2,
-    )}\n`,
-  );
+  const email = { emailStatus: 'sent', gmailResponse: String(sendResult || '').slice(0, 200) };
+  if (noTelegram) return { ...email, telegramStatus: 'skipped' };
+  const telegram = await run('openclaw', [
+    'message',
+    'send',
+    '--channel',
+    'telegram',
+    '--target',
+    TELEGRAM_TARGET,
+    '--message',
+    telegramText,
+  ], { timeoutMs: 45000 }).then(() => ({ telegramStatus: 'sent' })).catch((error) => ({
+    telegramStatus: `failed (${typeof error?.exitCode === 'number' ? error.exitCode : 1})`,
+    telegramError: normalizeText(error?.stderr || error?.stdout || error?.message || 'unknown Telegram error'),
+  }));
+  return { ...email, telegramTarget: TELEGRAM_TARGET, ...telegram };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => {

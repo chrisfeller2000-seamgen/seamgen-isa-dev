@@ -117,7 +117,7 @@ If the Friday run exits with an error, including before Node starts (for example
 
 **Formatting.** Bold titles and named links (`**title**`, `[HigherGov listing](url)`), which OpenClaw converts for Telegram; ISA's chat answers in this group already use both. Before release, the preview message in the group confirms that `openclaw message send` renders bold and links. If it doesn't, the message is sent as plain text with bare links. Link previews are a channel-wide OpenClaw setting and stay as they are.
 
-**Template (approved by Chris, October 6).** The fallback is sent exactly as written. ISA's own version follows the same structure and facts, phrased naturally. Placeholders are in `{braces}`; `**…**` is the Markdown sent for bold.
+**Template (approved by Chris, October 6).** ISA's version follows this structure and the facts, phrased naturally. The fallback follows it too; where it can't rephrase, it uses the source sentence as written. That means HigherGov's summary sentence instead of "They want …", and the scorer's reason after "Question for the team: can we meet this?". Placeholders are in `{braces}`; `**…**` is the Markdown sent for bold.
 
 Friday update:
 
@@ -173,7 +173,8 @@ How each part varies:
   - "$400k (from the RFP)";
   - "not listed".
 - **Biggest one I skipped:** only when an RFP qualifies (see Tiers).
-- **{documents line}:** only when some RFPs need documents: "{n} looked promising, but I couldn't get their documents to check the requirements. They're at the top of Marianne's email."
+- **{documents line}:** only when some RFPs couldn't be checked: "{n} looked promising, but I couldn't get their documents to check the requirements." When some failed for another reason (scoring didn't finish, no deadline in the listing), it says "{n} I couldn't finish checking." It then points to Marianne's email: "in" it when there are picks, "at the top of" it when there are none.
+- **More picks:** when more than three RFPs qualify: "{n} more are worth a look in Marianne's email."
 - **Reasons:** the plain words in Tiers.
 
 Sources:
@@ -225,7 +226,7 @@ The email is built by code; it is the factual record, while the Telegram message
 - **Sections in decision order:**
   1. Strong Pursue;
   2. Worth a look;
-  3. Needs documents;
+  3. Couldn't check yet;
   4. Screened out, as one line per RFP grouped by reason, not cards.
 - **Every RFP links to its HigherGov listing,** plus the agency posting when known.
 - **Deadlines are shown in Pacific time** with days left. A date taken only from the listing says so.
@@ -271,7 +272,7 @@ Built from the existing scoring outcomes; no scoring rule changes.
 | --- | --- | --- |
 | Strong Pursue | Full-text Strong Pursue and not already in HubSpot | Picked first |
 | Worth a look | Full-text Worth a look, Needs review, Deadline needs review, or Conditional — Ask the Agency, with a rank score of 50+ | Picked by rank score |
-| Needs documents | Preliminary 50+ whose documents could not be fetched or read | Counted |
+| Couldn't check yet | Preliminary 50+ whose documents could not be fetched or read; scoring that didn't finish; a listing with no deadline; or one that needs an agency answer first | Counted |
 | Screened out | Every No-bid, preliminary below 50, Not an open bid, Watch item, too little listing detail, already in HubSpot | Counted by reason; may be the skipped RFP |
 
 **Rank score:**
@@ -301,7 +302,7 @@ The remaining reasons are:
 - too little listing detail;
 - already in HubSpot.
 
-Picks, needs-documents and screened-out RFPs add up to the count in the first line.
+Picks, extra picks, couldn't-check-yet and screened-out RFPs add up to the count in the first line.
 
 ## Acceptance
 

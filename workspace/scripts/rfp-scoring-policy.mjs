@@ -370,6 +370,9 @@ function reviewFlags(flags = [], sources) {
   });
 }
 
+// One sum for the final total, the conditional route's check, and the potential total.
+const categoryTotal = categories => Object.values(categories).reduce((a, b) => a + b, 0);
+
 // Gates 2/2a "Conditional — Ask the Agency": product framing must be the sole
 // unresolved blocker and the question window must still be open.
 function conditionalOutcome(base, conditional, { sources, runDate, phase, deal, value }) {
@@ -389,7 +392,7 @@ function conditionalOutcome(base, conditional, { sources, runDate, phase, deal, 
     // A date-only assessment cannot prove that today's question cutoff is open.
     if (qa.date === runDate) return review;
   }
-  const hypothetical = Object.values(base.categories).reduce((a, b) => a + b, 0);
+  const hypothetical = categoryTotal(base.categories);
   if (conditional.rule === '2' && (hypothetical < 50 || base.categories.caseStudy <= 5)) return noBid;
   return { ...base, recommendation: 'Conditional — Ask the Agency', conditional };
 }
@@ -425,7 +428,11 @@ export function finalizeRfpScore(input, judgment) {
   validateDealSize(judgment.value, judgment.categories.deal.band, categories.deal, value, sources, phase, base.reasons);
   if (value.status === 'conflicting') base.reasons.push(value.reason);
   const cp = competitivePosition(judgment.competitive, categories.competitive, sources, phase, base.reasons);
-  const scored = { ...base, cp, categories: { ...categories, competitive: cp.score, timeline: timeline.score }, flags: reviewFlags(judgment.flags, sources) };
+  const scoredCategories = { ...categories, competitive: cp.score, timeline: timeline.score };
+  // What the categories add up to before an open gate is settled. A Needs review or
+  // conditional result has no total; the weekly update shows this as the score if the
+  // team confirms the open question. It never changes a decision.
+  const scored = { ...base, cp, categories: scoredCategories, potential_total: categoryTotal(scoredCategories), flags: reviewFlags(judgment.flags, sources) };
   if (judgment.conditional) {
     const runDate = input.assessment?.runDate || timeline.assessmentDate;
     return conditionalOutcome(scored, judgment.conditional, { sources, runDate, phase, deal: judgment.value, value });
@@ -433,7 +440,7 @@ export function finalizeRfpScore(input, judgment) {
   if ((phase === 'full-text' && (GATE_NAMES.some(name => gate[name] === null) || judgment.value.kind === 'uncertain')) || value.status === 'conflicting') {
     return { ...scored, recommendation: 'Needs review' };
   }
-  const total = Object.values(scored.categories).reduce((a, b) => a + b, 0);
+  const total = scored.potential_total;
   return { ...scored, total, recommendation: total >= 75 ? 'Strong Pursue' : total >= 50 ? 'Worth a look' : 'No-bid',
     qualification_status: phase === 'preliminary' ? 'provisional' : total >= 75 ? 'qualified' : 'rejected',
     scoring_confidence: phase === 'preliminary' ? 'metadata-only' : 'full-text',
