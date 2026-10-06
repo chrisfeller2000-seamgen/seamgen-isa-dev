@@ -361,3 +361,37 @@ Picks, extra picks, couldn't-check-yet and screened-out RFPs add up to the count
 - `workspace/scripts/daily-mail-hubspot-sync.mjs`: `RFP_PURSUE_SUBJECT_PATTERN`.
 - `workspace/IDENTITY.md` and `workspace/SOUL.md`: ISA's voice.
 - [Scoring alignment record](../2026-09-30__jake-scoring-alignment-minimal/implementation.md) (October 6 release) and [needs-documents spec](../2026-10-05__rfp-needs-documents/spec.md).
+
+## Release (October 6, 2026, Chris's explicit request)
+
+- **Release** `dev-deploy-2026-10-06T21-24-10-595Z-a4d2658`, uploaded with `npm run live:deploy -- --apply --files=…` from clean commit `a4d2658`.
+  - Before upload, `live:pull` found no VM changes since the last accepted baseline. The VM's copies of the five changed files matched the morning release (`1d18aef`).
+  - No RFP job was running.
+- **Files,** SHA-256 before → after:
+
+  | File | Before | After |
+  | --- | --- | --- |
+  | `AGENTS.md` | `ef98a23c4cee13baadb950eb11879832397b1282d0a45db89bac6ba434b97094` | `687eca14e77396e7236f6cbc4ce60cd38483baf5a6f35f93bb7a451d025b9b6c` |
+  | `scripts/rfp-deadline.mjs` | `410a27b202947c6d74ef83ba0b9add5c02126e514b42aa1838b1f37cce3af238` | `00c606e72b93c99f05f6fa90fa01f1ac06261290ac1b0f3aae4c0341bc52e8a2` |
+  | `scripts/rfp-report.mjs` | (new) | `b69b3d844ea07d72b92a49365591c57a21c908dce4d0ead5e6991d69725f3959` |
+  | `scripts/rfp-scoring-policy.mjs` | `e09ffe2789b2f72182ecedaba3b7c5181b8e54b136ad6dcd988ca167557bd9a8` | `20e29aa3e804b3d915a1053a98ab60afaa0ea1a73ea43650a2e03e26aac9818a` |
+  | `scripts/run-new-rfp-qualification-cron.sh` | `ea455f16a1cd8d790b5efe8301d78f827f2076289dc0ee0e498b8ddd249e28e6` | `75780b3f5a671d4bbcdeb2a99ef6112e418a49a6c91db8b5c37d6697f25d5792` |
+  | `scripts/weekly-rfp-pursue-decision.mjs` | `230940e0667075d20c1538601eeeb38b0ed29dea9c9a9aa6e5deba9c97b6c2bf` | `5dc85a126eb64e3bc449756a108eead883d4002f6c5cc298827324abea36073c` |
+
+- **Checks on the VM after upload.** None called a model or sent anything.
+  - All six hashes match the commit, and the wrapper is still executable.
+  - `node --check` and `bash -n` pass.
+  - The weekly script and report module load together.
+  - A report rendered from invented data gave the expected tier and Pacific-time deadline, and its fallback passed the draft checks.
+  - With the crontab's own `PATH` (it sets `/home/azureuser/.npm-global/bin` first), the wrapper finds `openclaw` for the failure notice.
+- **Scheduler.**
+  - `openclaw cron disable 88d67daa-5c31-4383-aadb-ca9b846a98ae` turned off ISA's noon "New RFP qualification" job. It was `enabled: true`, and `openclaw cron list --all` now shows `enabled: false`; the plain `list` hides disabled jobs.
+  - The crontab entry `0 12 * * 5` (UTC) is the only scheduler of the weekly job.
+- **First real run:** Friday, October 9, 12:00 UTC. Check:
+  - the Telegram message, and whether it was ISA's draft or the fallback (`latest.json` → `telegram.source`, `reason`);
+  - the email;
+  - the job log;
+  - that no second run happens at noon Pacific.
+- **Rollback:**
+  - **Files:** copy `/home/azureuser/.openclaw/workspace/backups/dev-deploy-2026-10-06T21-24-10-595Z-a4d2658/original/` back over the workspace, then delete `scripts/rfp-report.mjs`.
+  - **Noon job:** `openclaw cron enable 88d67daa-5c31-4383-aadb-ca9b846a98ae`.

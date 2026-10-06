@@ -29,9 +29,9 @@
   - [x] ISA's draft posted in the sales group, labeled as a preview (Telegram message 856, October 6). The first draft passed the checks but read stiffly: long official titles, an ISO date, an invented documents line. The writer instructions were tightened, and the second draft was posted. Two model calls, about 15–25 seconds each.
   - [ ] Chris reviews both.
 - [ ] Release:
-  - [ ] heads-up to Sam and Hugo;
-  - [ ] deploy preview, then apply;
-  - [ ] disable the noon job (approval);
-  - [ ] record the release here.
+  - [ ] heads-up to Sam and Hugo (Chris);
+  - [x] deploy preview, then apply (`dev-deploy-2026-10-06T21-24-10-595Z-a4d2658`);
+  - [x] disable the noon job (Chris approved; disabled October 6);
+  - [x] record the release (see the spec's Release section).
 - [ ] After Friday: check the message (ISA's draft or fallback, and why), the email, the results file, the job log, and that there was no second run.
 - [ ] Push the branch and open a pull request so Sam and Hugo can review.
