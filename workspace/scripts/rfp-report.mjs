@@ -231,6 +231,15 @@ function reasonCounts(entries) {
     count, text: count === 1 ? REASONS[key].one : REASONS[key].many, noun: REASONS[key].noun }));
 }
 
+function verdict(picks) {
+  const counts = {
+    strong: picks.filter(pick => pick.tier === 'strong').length,
+    worth: picks.filter(pick => pick.tier === 'worth' && !pick.longShot).length,
+    longShots: picks.filter(pick => pick.longShot).length,
+  };
+  return { ...counts, text: picks.length ? verdictText(counts) : 'Nothing worth chasing this week.' };
+}
+
 /** Everything the Telegram message may say, and nothing else. */
 export function telegramFacts(results, { emailOwner = 'Marianne' } = {}) {
   const ranked = results.entries.filter(entry => entry.tier === 'strong' || entry.tier === 'worth');
@@ -241,15 +250,12 @@ export function telegramFacts(results, { emailOwner = 'Marianne' } = {}) {
   const notAFit = screened.filter(entry => entry !== skipped);
   return {
     total: results.total,
-    verdict: {
-      strong: picks.filter(pick => pick.tier === 'strong').length,
-      worth: picks.filter(pick => pick.tier === 'worth' && !pick.longShot).length,
-      longShots: picks.filter(pick => pick.longShot).length,
-    },
+    verdict: verdict(picks),
     picks: picks.map((entry, index) => ({
       number: index + 1,
       title: entry.title,
       agency: entry.agency,
+      state: entry.state,
       need: entry.need,
       fit: entry.fit,
       questions: entry.questions,
@@ -263,7 +269,7 @@ export function telegramFacts(results, { emailOwner = 'Marianne' } = {}) {
         entry.questions.length >= 2 ? 'it has two open questions' : null,
         entry.budget.low !== null && entry.budget.low < MINIMUM_DEAL ? 'the budget may be under our $100k minimum' : null,
       ].filter(Boolean) : [],
-      deadline: { confirmed: entry.deadline.confirmed, date: entry.deadline.date, text: entry.deadline.text },
+      deadline: { confirmed: entry.deadline.confirmed, listed: Boolean(entry.deadline.date), text: entry.deadline.text },
       budget: entry.budget.text,
       link: entry.links.highergov,
     })),
@@ -307,7 +313,7 @@ function questionLine(pick) {
 
 function dueLine(pick) {
   const due = pick.deadline.confirmed ? `Due ${pick.deadline.text}.`
-    : pick.deadline.date ? `I couldn't confirm the deadline (${pick.deadline.text}).` : 'No deadline found.';
+    : pick.deadline.listed ? `I couldn't confirm the deadline (${pick.deadline.text}).` : 'No deadline found.';
   return `${due} Budget ${pick.budget}.`;
 }
 
@@ -355,7 +361,7 @@ export function renderTelegramFallback(facts) {
   ].filter(Boolean).join('\n'));
   const more = facts.morePicks ? `${facts.morePicks} more ${plural(facts.morePicks, 'is', 'are')} worth a look in ${facts.emailOwner}'s email.` : '';
   return [
-    `Morning team! I went through ${facts.total} new RFPs this week. ${verdictText(facts.verdict)}`,
+    `Morning team! I went through ${facts.total} new RFPs this week. ${facts.verdict.text}`,
     ...blocks,
     facts.skipped ? skippedLine(facts.skipped) : '',
     [documentsLine(facts), more, notAFitLine(facts)].filter(Boolean).join('\n'),
@@ -372,6 +378,7 @@ const FORBIDDEN = [
   [/\b[a-z][a-z-]*:e\d+\b/, 'an excerpt ID'],
   [/\b(?:metadata-only|full-text|failed-gate|preliminary-below-threshold|access-blocked|partial-documents|insufficient-metadata)\b/i, 'an internal code'],
   [/\p{Extended_Pictographic}/u, 'an emoji'],
+  [/\b\d{4}-\d{2}-\d{2}\b/, 'a raw date'],
 ];
 
 /** Compares ISA's draft with the facts. Returns { ok, reason }. */
@@ -442,13 +449,14 @@ I went through {total} RFPs. Most were {top reason} or {second reason}. {documen
 function writerSystemPrompt(vibe) {
   return [
     "You are ISA, Seamgen's AI sales assistant, posting the weekly RFP update in the sales team's Telegram group.",
-    `Your voice: ${vibe}. Write like a helpful teammate: simple words, short sentences, natural and casual, first person. No corporate filler, no hype, no emoji.`,
+    `Your voice: ${vibe}. Write the way a helpful teammate writes in a team chat: simple words, short sentences, natural and casual. Say "I" for yourself and "we" or "us" for Seamgen. No corporate filler, no hype, no emoji.`,
     'Use only the facts you are given. Never add claims about Seamgen, guess answers, or create urgency.',
     'Copy every number, date, budget and link exactly as given, and do not add other links or numbers.',
-    'Follow the structure below and keep the picks in the given order and numbering.',
+    'Follow the structure below and keep the picks in the given order and numbering. Open with verdict.text, or your own wording of it.',
+    'Shorten long official titles to the plain name people would use (for example "Utility management software"), and name the place people know, such as the state, instead of an internal department name.',
     'For each pick: one line on what they want; "Why us:" from fit (leave it out when fit is null); then turn the open questions into one short yes/no question for the team about Seamgen, followed by the score if the answer is yes (scoreIfYes), adding "a strong pursue" when it is 75 or more. With no questions but a score, say "It scores N". With an agencyQuestion, say it is a question to ask the agency.',
     "If deadline.confirmed is false, say you couldn't confirm the deadline and give the listing date. Call a pick a long shot only when longShot is true.",
-    "Mention a skipped RFP only when skipped is given, and say it's only worth it with a partner. Mention more picks only when morePicks is above zero.",
+    "Mention a skipped RFP only when skipped is given, and say it's only worth it with a partner. Mention more picks only when morePicks is above zero. Write the documents line only when check.count is above zero; otherwise say nothing about documents.",
     'Never use rubric words such as "gate" or "eligibility verification", internal codes, or file paths.',
     'Formatting: bold only the pick titles with **…**, and write each link as [HigherGov listing](url). No headings, bullet dashes, tables or italics.',
     'Keep it under 2,000 characters. Reply with the message only.',

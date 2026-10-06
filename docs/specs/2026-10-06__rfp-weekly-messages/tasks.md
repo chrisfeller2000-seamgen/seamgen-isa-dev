@@ -24,8 +24,8 @@
 - [x] Docs: RFP domain pages, live jobs, and the specs index.
 - [x] `npm test`, `npm run check`, diff review and secret scan.
 - [ ] Previews:
-  - [ ] local facts and fallback from the six October 5 results;
-  - [ ] ISA's draft posted in the sales group, labeled as a preview (one model call; approved by Chris);
+  - [x] local facts and fallback from the six October 5 results (ignored `.isa-local/report-preview/`);
+  - [x] ISA's draft posted in the sales group, labeled as a preview (Telegram message 856, October 6). The first draft passed the checks but read stiffly: long official titles, an ISO date, an invented documents line. The writer instructions were tightened, and the second draft was posted. Two model calls, about 15–25 seconds each.
   - [ ] Chris reviews both.
 - [ ] Release:
   - [ ] heads-up to Sam and Hugo;

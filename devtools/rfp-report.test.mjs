@@ -102,7 +102,7 @@ test('the Telegram facts pick at most three, strong pursues first, and every RFP
   const facts = telegramFacts(results);
   assert.deepEqual(facts.picks.map(pick => pick.title), ['Permit portal strong', 'Utility management software', 'Online giving platform']);
   assert.equal(facts.morePicks, 2);
-  assert.deepEqual(facts.verdict, { strong: 1, worth: 1, longShots: 1 });
+  assert.deepEqual(facts.verdict, { strong: 1, worth: 1, longShots: 1, text: '1 is a strong pursue and 1 is worth a look, plus a long shot.' });
   assert.equal(facts.total, facts.picks.length + facts.morePicks + facts.check.count + (facts.skipped ? 1 : 0) + facts.notAFit.count);
 });
 
@@ -155,6 +155,7 @@ test('the draft checks reject changed facts, wrong links, and anything the team 
     'bullets': good.replace('Why us:', '- Why us:'),
     'emoji': `${good} 📈`,
     'too long': `${good}\n${'Extra words. '.repeat(250)}`,
+    'raw date': good.replace('the listing says Oct 28', 'the listing date is 2026-10-28'),
     'unflagged long shot': good.replace('**Permit portal strong', 'Long shot: **Permit portal strong').replace('3. Long shot: ', '3. '),
   };
   for (const [name, draft] of Object.entries(rejected)) {
