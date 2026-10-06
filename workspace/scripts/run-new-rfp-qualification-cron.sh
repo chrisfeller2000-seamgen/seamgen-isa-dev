@@ -7,6 +7,9 @@ export GOG_ACCOUNT="${GOG_ACCOUNT:-isa@seamgen.com}"
 export GOG_KEYRING_BACKEND="${GOG_KEYRING_BACKEND:-file}"
 export REPORT_TO="${REPORT_TO:-mariannefaro@seamgen.com}"
 export TELEGRAM_TARGET="${TELEGRAM_TARGET:--1003890997073}"
+# Fetch HigherGov documents for preliminary 50+ candidates and AI-score their full text.
+# Nothing else runs full-text scoring on a schedule. This adds roughly 2-3 hours to the run.
+export RFP_DOCUMENT_FETCH_ENABLED="${RFP_DOCUMENT_FETCH_ENABLED:-1}"
 if [[ -z "${GOG_KEYRING_PASSWORD:-}" && -f /home/azureuser/.openclaw/credentials/gog-keyring-password ]]; then
   export GOG_KEYRING_PASSWORD="$(< /home/azureuser/.openclaw/credentials/gog-keyring-password)"
 fi
