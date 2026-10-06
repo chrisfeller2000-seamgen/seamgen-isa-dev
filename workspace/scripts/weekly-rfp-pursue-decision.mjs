@@ -1898,7 +1898,7 @@ async function runIsolatedDocumentFlowTest() {
   await fs.mkdir(resourcesDir, { recursive: true });
   if (!shouldFetchDocuments(preliminary.preview)) {
     return { candidateSlug: candidate.slug, runDate, tempDir, preliminary,
-      documentFlow: { status: 'skipped-preliminary', reason: 'No eligible validated preliminary score at or above 75.' }, final: null };
+      documentFlow: { status: 'skipped-preliminary', reason: `No eligible validated preliminary score at or above ${DOCUMENT_FETCH_THRESHOLD}.` }, final: null };
   }
   const documentFlow = await materializeCandidateDocuments({
     candidate,
