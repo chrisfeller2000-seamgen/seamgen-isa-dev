@@ -20,6 +20,7 @@
 - [x] Policy `potential_total` and the `deadlineTimestamp` export, with tests showing decisions are unchanged.
 - [x] Cron wrapper failure notice, with a test.
 - [x] `workspace/AGENTS.md` RFP section, including replies to Friday questions.
+- [x] After the plain-words instruction (`d399fa9`), a third draft was posted as an updated preview (Telegram message 857, October 6). It is 2,212 characters before the label; the 1,500 target was not met.
 - [x] Bold titles and "HigherGov listing" links render in Telegram (Chris's screenshot of message 856, October 6). Telegram also adds a preview card for the first link; that is OpenClaw's channel-wide link-preview setting, left unchanged.
 - [x] Docs: RFP domain pages, live jobs, and the specs index.
 - [x] `npm test`, `npm run check`, diff review and secret scan.
