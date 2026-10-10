@@ -1,3 +1,2 @@
-# The deploy tool hashes and uploads files exactly as they are on disk, and the VM
-# is Linux. Keep Unix line endings on every platform, whatever core.autocrlf says.
+# The VM runs these files on Linux; keep LF on every checkout so hashes and uploads match it.
 * text=auto eol=lf
