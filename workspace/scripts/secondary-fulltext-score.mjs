@@ -1,9 +1,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createAssessmentContext } from './rfp-deadline.mjs';
+import { extractDocumentText } from './document-text.mjs';
 import { DOCUMENT_FETCH_THRESHOLD, unscoredRfp } from './rfp-scoring-policy.mjs';
 import { scoreRfp } from './rfp-scoring-judgment.mjs';
 import {
@@ -125,106 +125,6 @@ async function loadOpportunityRecordsForDate(apiKey, config, capturedDate) {
   return records;
 }
 
-function textFromPdf(filePath) {
-  try {
-    return execFileSync('pdftotext', [filePath, '-'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-  } catch {
-    return '';
-  }
-}
-
-function textFromDocx(filePath) {
-  const script = `
-from zipfile import ZipFile
-from xml.etree import ElementTree as ET
-path = ${JSON.stringify(filePath)}
-with ZipFile(path) as z:
-    xml = z.read('word/document.xml')
-root = ET.fromstring(xml)
-texts = [node.text for node in root.iter() if node.tag.endswith('}t') and node.text]
-print(' '.join(texts))
-`;
-  try {
-    return execFileSync('python3', ['-c', script], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-  } catch {
-    return '';
-  }
-}
-
-function textFromXlsx(filePath) {
-  const script = `
-from zipfile import ZipFile
-from xml.etree import ElementTree as ET
-path = ${JSON.stringify(filePath)}
-ns = {'a': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
-with ZipFile(path) as z:
-    shared = []
-    if 'xl/sharedStrings.xml' in z.namelist():
-        root = ET.fromstring(z.read('xl/sharedStrings.xml'))
-        for si in root.findall('.//a:si', ns):
-            pieces = []
-            for node in si.iter():
-                if node.tag.endswith('}t') and node.text:
-                    pieces.append(node.text)
-            shared.append(''.join(pieces))
-    values = []
-    for name in sorted([n for n in z.namelist() if n.startswith('xl/worksheets/sheet') and n.endswith('.xml')]):
-        root = ET.fromstring(z.read(name))
-        for c in root.findall('.//a:c', ns):
-            t = c.attrib.get('t')
-            v = c.find('a:v', ns)
-            if v is None or not v.text:
-                continue
-            if t == 's':
-                idx = int(v.text)
-                if 0 <= idx < len(shared):
-                    values.append(shared[idx])
-            else:
-                values.append(v.text)
-print(' '.join(values))
-`;
-  try {
-    return execFileSync('python3', ['-c', script], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-  } catch {
-    return '';
-  }
-}
-
-function textFromHtml(filePath) {
-  try {
-    const raw = execFileSync('python3', ['-c', `from pathlib import Path\nprint(Path(${JSON.stringify(filePath)}).read_text(encoding='utf-8', errors='ignore'))`], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
-    return raw
-      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/gi, ' ')
-      .replace(/&amp;/gi, '&')
-      .replace(/&lt;/gi, '<')
-      .replace(/&gt;/gi, '>')
-      .replace(/&quot;/gi, '"')
-      .replace(/&#39;/gi, "'")
-      .replace(/\s+/g, ' ')
-      .trim();
-  } catch {
-    return '';
-  }
-}
-
-function extractText(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext === '.pdf') return textFromPdf(filePath);
-  if (ext === '.docx') return textFromDocx(filePath);
-  if (ext === '.xlsx') return textFromXlsx(filePath);
-  if (ext === '.html' || ext === '.htm') return textFromHtml(filePath);
-  if (ext === '.txt' || ext === '.md') {
-    return fs.readFile(filePath, 'utf8').catch(() => '');
-  }
-  return '';
-}
-
 async function extractTextRecursive(dirPath) {
   const entries = await fs.readdir(dirPath, { withFileTypes: true });
   const files = [];
@@ -295,10 +195,14 @@ async function fetchAndExtract(candidate, config, apiKey) {
   const documents = [];
   for (const row of manifest) {
     if (!row.downloaded || !row.local_path) continue;
-    const extracted = String(await extractText(row.local_path)).trim();
+    const extraction = await extractDocumentText(row.local_path);
+    const extracted = extraction.text;
     // Same rule as the weekly job: only non-empty text counts as extracted evidence.
     row.extracted = Boolean(extracted);
     row.extracted_text_chars = normalize(extracted).length;
+    row.extraction_method = extraction.method;
+    row.extraction_status = extraction.status;
+    row.ocr_pages = extraction.ocrPages;
     if (!extracted) continue;
     // Re-classify with the text: agencies often name the RFP after the project.
     Object.assign(row, classifyDocumentRecord({ file_name: row.source_file_name || row.local_file_name, text: extracted }));

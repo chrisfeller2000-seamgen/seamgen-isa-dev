@@ -10,6 +10,13 @@ Read-only observations from the ISA VM on September 24, 2026:
 - The current import covers 44 selected files: agent instructions, skills, scripts, and tools. It excludes runtime state and customer data.
 - The current recurring job names and schedules are recorded in `docs/live-jobs.md`; the scheduler's live payloads and database are not copied.
 
+Document-reading programs on the VM, observed on October 9, 2026 (Ubuntu 24.04.5 LTS):
+
+- `pdftotext` and `python3` were already installed. The RFP scripts call both.
+- `ocrmypdf` 15.2.0 and `tesseract-ocr` with English language data were installed that day with `apt-get`. `workspace/scripts/document-text.mjs` calls `ocrmypdf` for scanned PDF pages. A manual run on a 14-page scanned RFQ returned readable text.
+- LibreOffice is not installed, so old-format `.doc`, `.xls`, and `.pptx` files are not read.
+- These are system packages, not workspace files. `npm run live:deploy` does not install them; a rebuilt VM needs them installed again.
+
 This is not a complete local OpenClaw installation. Before claiming end-to-end local parity, document the non-secret runtime configuration, installed plugins, job definitions, dependencies, test credentials, and safe side-effect controls. Do not copy the live `openclaw.json`, credential files, or session database into this repository.
 
 Local development update on September 24, 2026: an isolated macOS Gateway started with the same OpenClaw and Node versions, channels/cron/heartbeat off, and a separate workspace copy. A local agent chat completed using `openai/gpt-5.4-mini` through an OpenAI API-key reference. An offline fixture exercised the RFP document test mode for complete, empty, and portal-gated document sets. The live Gateway may use a different agent runtime or authentication route; no real production integrations or scheduled jobs have been reproduced locally.

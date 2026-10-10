@@ -5,6 +5,7 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createAssessmentContext } from './rfp-deadline.mjs';
+import { extractDocumentText } from './document-text.mjs';
 import { DOCUMENT_FETCH_THRESHOLD, unscoredRfp } from './rfp-scoring-policy.mjs';
 import { createOpenClawJudge, scoreRfp } from './rfp-scoring-judgment.mjs';
 import { buildResults, renderEmailHtml, renderMarkdown, reportEntry, telegramFacts, vibeFrom, writeTelegramMessage } from './rfp-report.mjs';
@@ -1226,92 +1227,6 @@ async function downloadDriveFile(fileId, outputPath) {
   return outputPath;
 }
 
-async function extractPdfText(filePath) {
-  const pdftotext = await run('bash', ['-lc', `command -v pdftotext >/dev/null && pdftotext "${filePath.replaceAll('"', '\\"')}" - || true`], { timeoutMs: 120000 });
-  if (pdftotext.stdout.trim()) return pdftotext.stdout;
-  return '';
-}
-
-async function extractDocxText(filePath) {
-  const script = `
-from zipfile import ZipFile
-from xml.etree import ElementTree as ET
-path = ${JSON.stringify(filePath)}
-with ZipFile(path) as z:
-    xml = z.read('word/document.xml')
-root = ET.fromstring(xml)
-texts = [node.text for node in root.iter() if node.tag.endswith('}t') and node.text]
-print(' '.join(texts))
-`;
-  const result = await run('python3', ['-c', script], { timeoutMs: 120000 });
-  return result.exitCode === 0 ? result.stdout : '';
-}
-
-async function extractHtmlText(filePath) {
-  const raw = await fs.readFile(filePath, 'utf8').catch(() => '');
-  if (!raw) return '';
-  return normalizeText(
-    raw
-      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/gi, ' ')
-      .replace(/&amp;/gi, '&')
-      .replace(/&lt;/gi, '<')
-      .replace(/&gt;/gi, '>')
-      .replace(/&quot;/gi, '"')
-      .replace(/&#39;/gi, "'"),
-  );
-}
-
-async function extractXlsxText(filePath) {
-  const script = `
-from zipfile import ZipFile
-from xml.etree import ElementTree as ET
-path = ${JSON.stringify(filePath)}
-ns = {'a': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
-with ZipFile(path) as z:
-    shared = []
-    if 'xl/sharedStrings.xml' in z.namelist():
-        root = ET.fromstring(z.read('xl/sharedStrings.xml'))
-        for si in root.findall('.//a:si', ns):
-            pieces = []
-            for node in si.iter():
-                if node.tag.endswith('}t') and node.text:
-                    pieces.append(node.text)
-            shared.append(''.join(pieces))
-    values = []
-    for name in sorted([n for n in z.namelist() if n.startswith('xl/worksheets/sheet') and n.endswith('.xml')]):
-        root = ET.fromstring(z.read(name))
-        for c in root.findall('.//a:c', ns):
-            t = c.attrib.get('t')
-            v = c.find('a:v', ns)
-            if v is None or not v.text:
-                continue
-            if t == 's':
-                idx = int(v.text)
-                if 0 <= idx < len(shared):
-                    values.append(shared[idx])
-            else:
-                values.append(v.text)
-print(' '.join(values))
-`;
-  const result = await run('python3', ['-c', script], { timeoutMs: 120000 });
-  return result.exitCode === 0 ? result.stdout : '';
-}
-
-async function extractFileText(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext === '.pdf') return await extractPdfText(filePath);
-  if (ext === '.docx') return await extractDocxText(filePath);
-  if (ext === '.html' || ext === '.htm') return await extractHtmlText(filePath);
-  if (ext === '.xlsx') return await extractXlsxText(filePath);
-  if (ext === '.txt' || ext === '.md') {
-    return await fs.readFile(filePath, 'utf8').catch(() => '');
-  }
-  return '';
-}
-
 async function loadQualificationEvidence(slug, fallbackText = '', options = {}) {
   if (!loadQualificationEvidence.cache) {
     loadQualificationEvidence.cache = new Map();
@@ -1336,7 +1251,7 @@ async function loadQualificationEvidence(slug, fallbackText = '', options = {}) 
 
   const parts = [];
   for (const filePath of usableFiles) {
-    const extracted = await extractFileText(filePath).catch(() => '');
+    const { text: extracted } = await extractDocumentText(filePath);
     if (!normalizeText(extracted)) continue;
     parts.push(`## ${path.relative(resourcesDir, filePath)}\n${extracted}`);
   }
@@ -1614,9 +1529,15 @@ async function extractManifestEvidence(manifest, resourcesDir) {
   let primaryDocument = null;
   for (const row of rows) {
     if (!row?.downloaded || !row.local_path) continue;
-    const text = String(await extractFileText(row.local_path).catch(() => '')).trim();
+    const extraction = await extractDocumentText(row.local_path);
+    const text = extraction.text;
     row.extracted = Boolean(normalizeText(text));
     row.extracted_text_chars = text.length;
+    // Kept on the manifest so a reader can tell OCR text, which can misread dates
+    // and amounts, from text taken straight from the file.
+    row.extraction_method = extraction.method;
+    row.extraction_status = extraction.status;
+    row.ocr_pages = extraction.ocrPages;
     row.document_status = row.extracted ? 'downloaded and extracted' : 'downloaded but unsupported';
     if (!row.extracted) continue;
     // Re-classify with the text: agencies often name the RFP after the project.
