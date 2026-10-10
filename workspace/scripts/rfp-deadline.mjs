@@ -118,7 +118,7 @@ function timingFromText(text) {
 }
 
 // Fixed standard-time offsets are kept as offsets: AST does not observe US DST.
-function deadlineTimestamp(date, time, timeZone) {
+export function deadlineTimestamp(date, time, timeZone) {
   if (!time || !timeZone) return null;
   if (/^[+-]\d{2}:\d{2}$/.test(timeZone) || timeZone === 'UTC') return new Date(`${date}T${time}:00${timeZone === 'UTC' ? 'Z' : timeZone}`).toISOString();
   const formatter = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });

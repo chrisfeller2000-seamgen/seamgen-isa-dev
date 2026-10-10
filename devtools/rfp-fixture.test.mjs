@@ -13,6 +13,8 @@ async function runFixture(workspaceDir, scenario = 'complete') {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [
       '--import', pathToFileURL(path.join(repoRoot, 'devtools', 'fixtures', 'highergov-fetch.mjs')).href,
+      // Scoring is an AI judgment now; the fixture supplies a fixed one so no model is called.
+      '--import', pathToFileURL(path.join(repoRoot, 'devtools', 'fixtures', 'rfp-judge.mjs')).href,
       path.join(repoRoot, 'workspace', 'scripts', 'weekly-rfp-pursue-decision.mjs'),
       '--test-mode', '--candidate-slug', testSlug,
     ], {

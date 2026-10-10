@@ -413,7 +413,9 @@ A score is only as good as what it was scored from, and the output must say whic
 
 - **`full-text`** — scored after reading the actual solicitation and its attachments. This is the real score.
 
-**Getting from one to the other:** run `skills/rfp-document-fetch-skill.md`, which pulls the agency's documents into the RFP's `resources/` folder and hands them back for a full-text re-score. Current practice is to fetch documents at **75+ (Strong Pursue)**.
+  **`Needs documents` in the secondary report** means the actual solicitation could not be read, so there is no full-text score. It is neither a pursue nor a no-bid. Repeat its stated reason and its provisional preliminary score; do not re-score it from the listing summary.
+
+**Getting from one to the other:** run `skills/rfp-document-fetch-skill.md`, which pulls the agency's documents into the RFP's `resources/` folder and hands them back for a full-text re-score. ISA fetches documents automatically at a preliminary score of **50+**; the decision bands are unchanged.
 
 **Expect the score to move.** Full text regularly surfaces things a summary omits — a mandatory on-site presence, a set-aside, a disqualifying certification, a much larger or smaller scope than implied. A re-score that changes the recommendation isn't an error; it's the point.
 
@@ -475,7 +477,7 @@ CEO connection wildcard: YES / NO — [if yes, describe]
 
 RECOMMENDATION
 --------------
-[Strong Pursue / Worth a look / No-bid / Conditional — Ask the Agency / Deadline needs review]
+[Strong Pursue / Worth a look / No-bid / Conditional — Ask the Agency / Deadline needs review / Needs documents]
 [If "Conditional — Ask the Agency": name the sole blocker (product/SaaS framing), the real analog that proves we could build it custom, and the Q&A deadline the question must beat.]
 
 Notes for email debrief:
