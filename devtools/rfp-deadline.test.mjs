@@ -104,6 +104,7 @@ test('common real-world deadline wordings are read as the proposal deadline', ()
     'Sealed Proposals will be received until 2:30pm on Monday, October 26, 2026, EST',
     'Sealed proposals must be received on or before October 26, 2026, 11:00',
     'Qualifications will be accepted at the Procurement Office or electronically no later than 2:00 P.M., Monday, October 26, 2026.',
+    'Submittal Deadline 3:00 PM Central Prevailing Time, Monday -\n(ref. Section 2.1) October 26, 2026',
   ]) {
     const result = assess(text);
     assert.deepEqual([result.status, result.due], ['verified', '2026-10-26'], text);
@@ -117,16 +118,23 @@ test('question, invoice, and reference cutoffs are not the proposal deadline', (
     'Question Response Deadline October 19, 2026, 2:00pm',
     'Invoices must be submitted no later than October 19, 2026.',
     'Deadline for references no later than 5:00 pm on October 19, 2026',
+    'Questions about this solicitation\nmust be emailed to the procurement officer at\ncontact@agency.example.test and submitted no later than 12:00 P.M. on October 19, 2026.',
   ]) assert.equal(assess(text, '').status, 'missing', text);
   const both = assess('Question Submission Deadline October 14, 2026, 2:00pm\nProposal Submission Deadline October 26, 2026, 2:00pm');
   assert.deepEqual([both.status, both.due], ['verified', '2026-10-26']);
+});
+
+test('one cutoff written with and without its time zone is not a conflict', () => {
+  const result = assess('Proposal Due Date and Time October 26, 2026, 5:00pm\nProposal Submission Deadline October 26, 2026, 5:00 p.m. PDT');
+  assert.deepEqual([result.status, result.time, result.timeZone], ['verified', '17:00', '-07:00']);
+  assert.equal(assess('Proposal deadline: October 26, 2026 at 3:00 pm\nProposal deadline: October 26, 2026 at 4:00 pm PT').status, 'conflicting');
 });
 
 test('an addendum extending "the deadline for submission of proposals" replaces the old date', () => {
   const documents = [document('RFA responses must be received by October 12, 2026, at 3:00 PM Eastern'),
     { name: 'addendum.txt', text: 'Solicitation Addendum Form (001)\nThe deadline for submission of proposals is hereby extended from 10/12/2026 03:00 PM to 10/26/2026 10:00 AM.' }];
   const result = assessDeadline({ metadataDueDate: '2026-10-26', documents, assessment });
-  assert.deepEqual([result.status, result.due, result.supersessions.length], ['verified', '2026-10-26', 1]);
+  assert.deepEqual([result.status, result.due, result.time, result.supersessions.length], ['verified', '2026-10-26', '10:00', 1]);
 });
 
 test('ambiguous numeric formats require metadata or an explicit source format', () => {

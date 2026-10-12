@@ -13,7 +13,8 @@ const OTHER_LABEL = /\b(?:approved|revised|revision|published|publication|issued
 // "No later than <date>" is a submission deadline only when the clause leading into it
 // is about submitting the proposal, not questions, invoices, or other paperwork.
 const CUTOFF_PHRASE = /\b(?:no|not)\s+later\s+than\b|\bon\s+or\s+before\b|\breceived\s+(?:until|before)\b/gi;
-const SUBMISSION_CONTEXT = new RegExp(`\\b(?:${SUBMITTED}|submit(?:ted)?|received|accepted)\\b`, 'i');
+// A noun, not just "submitted": "...emailed to <address> and submitted no later than" is a question cutoff.
+const SUBMISSION_CONTEXT = new RegExp(`\\b${SUBMITTED}\\b`, 'i');
 const OTHER_CONTEXT = /\b(?:questions?|inquir\w*|clarifications?|q\s*&\s*a|rfi|invoices?|billings?|payments?|reports?|protests?|appeals?|references?|insurance|certificates?)\b/i;
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const clean = value => String(value ?? '').replace(/\s+/g, ' ').trim();
@@ -172,7 +173,9 @@ function documentCandidates(document) {
     const before = labels.filter(label => label.end <= token.index).at(-1);
     const after = labels.find(label => label.index >= token.index + token[0].length);
     const prefix = before ? text.slice(before.end, token.index) : '';
-    const prefixWithoutWeekday = prefix.replace(/\b([ap])\.?\s*m\.?/gi, '$1m').replace(/\b(?:mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)\./gi, '');
+    // Abbreviation and section-number dots ("Wed.", "ref. Section 2.1") don't end a sentence.
+    const prefixWithoutWeekday = prefix.replace(/\b([ap])\.?\s*m\.?/gi, '$1m').replace(/\b(?:mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|ref|sec)\./gi, '')
+      .replace(/(\d)\.(?=\d)/g, '$1');
     // Blank lines between a table label and its date don't count as a break.
     const beforeNear = before && prefix.length <= 160 && (prefix.replace(/\n[ \t]*(?=\n)/g, '').match(/\n/g) || []).length <= 1 && !/[.!?;]/.test(prefixWithoutWeekday) && !/not (?:set|posted|available)|unknown|unavailable|to be determined|\btbd\b/i.test(prefix);
     const betweenDateAndLabel = after ? text.slice(token.index + token[0].length, after.index) : '';
@@ -182,7 +185,9 @@ function documentCandidates(document) {
     const label = useAfter ? after : beforeNear ? before : null;
     if (!label?.proposal) continue;
     const tailEnd = after ? after.index : Math.min(text.length, token.index + token[0].length + 120);
-    const timing = timingFromText((useAfter ? '' : prefix) + ' ' + text.slice(token.index + token[0].length, tailEnd));
+    // A time before an earlier date belongs to that date ("from 10/12 3:00 PM to 10/26 10:00 AM").
+    const timePrefix = useAfter || new RegExp(DATE_TOKEN, 'i').test(prefix) ? '' : prefix;
+    const timing = timingFromText(timePrefix + ' ' + text.slice(token.index + token[0].length, tailEnd));
     candidates.push({
       raw: token[0], dateFormat: format, ...timing,
       source: { type: 'official-document', file: document.name || 'unnamed-document', section: `line ${text.slice(0, token.index).split('\n').length}` },
@@ -247,11 +252,13 @@ export function assessDeadline({ metadataDueDate = '', documents = [], assessmen
       status = 'conflicting'; reason = 'Submission deadline sources disagree and no unambiguous amendment resolves them.';
     } else {
       const timed = current.filter(row => row.time);
-      const clocks = [...new Set(timed.map(row => `${row.time}|${row.timeZone || 'unknown'}`))];
-      if (clocks.length > 1) {
+      // The same cutoff written with and without its time zone is one deadline.
+      const times = new Set(timed.map(row => row.time));
+      const zones = new Set(timed.map(row => row.timeZone).filter(Boolean));
+      if (times.size > 1 || zones.size > 1) {
         status = 'conflicting'; reason = 'Submission cutoff times or timezones disagree.';
       } else {
-        selected = timed[0] || current[0];
+        selected = timed.find(row => row.timeZone) || timed[0] || current[0];
         status = 'verified'; reason = 'Official proposal submission deadline verified.';
       }
     }
