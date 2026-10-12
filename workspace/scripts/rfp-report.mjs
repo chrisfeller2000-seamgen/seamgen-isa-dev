@@ -41,7 +41,7 @@ const CHECK_REASONS = {
   documents: "couldn't get or read the RFP documents",
   disabled: 'document fetching is turned off',
   unscored: "the AI scoring didn't finish",
-  noDeadline: "the listing has no deadline, so it wasn't scored",
+  noDeadline: "the due date couldn't be confirmed from the RFP",
   agency: 'needs an answer from the agency before it can be scored',
 };
 const TIER_ORDER = { strong: 0, worth: 1, check: 2, screened: 3 };
@@ -163,10 +163,14 @@ function placement({ preliminary, final, documentStatus, hubspotDuplicate }) {
     return check(documentStatus === 'fetch-disabled' ? 'disabled' : 'documents');
   }
   if (final.recommendation === 'Needs documents') return check('documents');
+  // Never a pick until someone confirms the date (deadline spec).
+  if (final.recommendation === 'Deadline needs review') return check('noDeadline');
   if (hubspotDuplicate) return screened('hubspot');
   if (final.recommendation === 'Strong Pursue') return { tier: 'strong', reason: null, detail: '' };
-  const rank = rankOf(final, prelim).score;
-  return rank !== null && rank >= MIN_PICK_SCORE ? { tier: 'worth', reason: null, detail: '' } : screened('weak');
+  // A pick needs a score read from the documents; a listing score never makes one.
+  const score = finite(final.total) ?? finite(final.potential_total);
+  if (score === null) return check('unscored');
+  return score >= MIN_PICK_SCORE ? { tier: 'worth', reason: null, detail: '' } : screened('weak');
 }
 
 /**
@@ -206,7 +210,7 @@ export function reportEntry({ candidate, preliminary, final = null, documentStat
     notes: (result.flags || []).map(flag => firstSentence(flag.reason)).filter(Boolean).slice(0, 2),
     deadline: deadlineOf(result.timeline),
     budget,
-    longShot: place.tier === 'worth' && (rank.from === 'preliminary' || questions.length >= 2 || (budget.low !== null && budget.low < MINIMUM_DEAL)),
+    longShot: place.tier === 'worth' && (questions.length >= 2 || (budget.low !== null && budget.low < MINIMUM_DEAL)),
   };
 }
 
@@ -265,7 +269,6 @@ export function telegramFacts(results, { emailOwner = 'Marianne' } = {}) {
       strongPursue: entry.tier === 'strong',
       longShot: entry.longShot,
       longShotReasons: entry.longShot ? [
-        entry.rankFrom === 'preliminary' ? "the deadline isn't confirmed, so it only has its listing score" : null,
         entry.questions.length >= 2 ? 'it has two open questions' : null,
         entry.budget.low !== null && entry.budget.low < MINIMUM_DEAL ? 'the budget may be under our $100k minimum' : null,
       ].filter(Boolean) : [],
@@ -581,7 +584,7 @@ export function renderEmailHtml(results, { subject }) {
 <p style="margin:0 0 6px;color:#374151;">${escapeHtml(summaryLine(results))}</p>
 ${section('Strong pursue', tier('strong').map(cardHtml).join('\n') || none)}
 ${section('Worth a look', tier('worth').map(cardHtml).join('\n') || none)}
-${section("Couldn't check yet", check.length ? `<ul style="margin:0;padding-left:20px;font-size:14px;">${check.map(entry => lineHtml(entry, `Why: ${CHECK_REASONS[entry.reason]}. Due: ${dueLabel(entry)}. Listing score: ${entry.rankScore ?? 'none'}.`)).join('\n')}</ul>` : none)}
+${section("Couldn't check yet", check.length ? `<ul style="margin:0;padding-left:20px;font-size:14px;">${check.map(entry => lineHtml(entry, `Why: ${CHECK_REASONS[entry.reason]}. Due: ${dueLabel(entry)}. ${entry.rankFrom === 'potential' ? 'Score from the documents' : 'Listing score'}: ${entry.rankScore ?? 'none'}.`)).join('\n')}</ul>` : none)}
 ${section('Screened out', screened || none)}
 <p style="margin-top:24px;color:#6b7280;font-size:12px;">${escapeHtml(EMAIL_FOOTER)}</p>
 </div>

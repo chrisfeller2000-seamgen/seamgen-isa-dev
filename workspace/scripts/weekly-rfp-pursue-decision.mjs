@@ -576,7 +576,7 @@ async function loadPortalCandidates() {
   return candidateFiles;
 }
 
-async function readPortalCandidate(candidatePath) {
+export async function readPortalCandidate(candidatePath) {
   const raw = await fs.readFile(candidatePath, 'utf8');
   const { frontmatter, body } = parseFrontmatterMarkdown(raw);
   const slug = path.basename(path.dirname(candidatePath));
@@ -597,7 +597,7 @@ async function readPortalCandidate(candidatePath) {
   };
 }
 
-async function findLocalResourcesDir(slug) {
+export async function findLocalResourcesDir(slug) {
   const stageDirs = ['1-pre-submission', '2-intermediate-stage', '3-building', '4-submitted'];
   for (const stage of stageDirs) {
     const resourcesDir = path.join(WORKSPACE, 'RFPs', stage, slug, 'resources');
@@ -1523,7 +1523,7 @@ async function materializeCandidateDocuments({ candidate, config, resourcesDir, 
   };
 }
 
-async function extractManifestEvidence(manifest, resourcesDir) {
+export async function extractManifestEvidence(manifest, resourcesDir) {
   const rows = Array.isArray(manifest?.documents) ? manifest.documents : [];
   const documents = [];
   let primaryDocument = null;

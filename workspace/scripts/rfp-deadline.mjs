@@ -2,8 +2,20 @@
 const DAY_MS = 86_400_000;
 const MONTH = '(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\.?';
 const DATE_TOKEN = `(?<![\\w/-])(?:\\d{4}-\\d{2}-\\d{2}|\\d{1,2}/\\d{1,2}/\\d{2,4}|${MONTH}\\s+\\d{1,2}(?:st|nd|rd|th)?,?\\s+\\d{4}|\\d{1,2}\\s+${MONTH},?\\s+\\d{4})(?![\\w/-])`;
-const PROPOSAL_LABEL = /\b(?:(?:proposals?|bids?|offers?|responses?)\s+(?:(?:are\s+|is\s+)?due(?:\s+date)?|deadline|submission(?:\s+(?:date|deadline))?|(?:shall\s+|must\s+|will\s+)?be\s+(?:received|submitted)(?:\s+no\s+later\s+than|\s+by)?|(?:received|submitted)\s+(?:by|no\s+later\s+than))|submission\s+(?:date|deadline|due)|(?:due\s+date|deadline)\s+(?:for\s+)?(?:proposals?|bids?|offers?|responses?))\b/gi;
+// What agencies call the thing being submitted. Wording seen in the October 9 documents.
+const SUBMITTED = '(?:proposals?|bids?|offers?|responses?|submittals?|submissions?|qualifications|quotes?|quotations?)';
+const PROPOSAL_LABEL = new RegExp(`\\b(?:(?:sealed\\s+)?${SUBMITTED}\\s+(?:(?:are\\s+|is\\s+)?due(?:\\s+date)?|deadline|submission(?:\\s+(?:date|deadline))?`
+  + `|(?:shall\\s+|must\\s+|will\\s+)?be\\s+(?:electronically\\s+)?(?:received|submitted|accepted)(?:\\s+(?:no\\s+later\\s+than|by|until|before|on\\s+or\\s+before))?`
+  + `|(?:received|submitted)\\s+(?:by|no\\s+later\\s+than))|submi(?:ssion|ttal)\\s+(?:date|deadline|due)`
+  + `|(?:due\\s+date|deadline)\\s+(?:for\\s+(?:receipt\\s+of\\s+)?|to\\s+submit\\s+)?(?:the\\s+)?(?:rf[pq]\\s+)?${SUBMITTED}`
+  + `|submit\\s+(?:your\\s+|all\\s+|the\\s+)?${SUBMITTED})\\b`, 'gi');
 const OTHER_LABEL = /\b(?:approved|revised|revision|published|publication|issued|questions?|q\s*&\s*a|clarifications?|(?:bid|proposal)\s+opening|meeting|contract\s+(?:start|end|term)|availability)\b/gi;
+// "No later than <date>" is a submission deadline only when the clause leading into it
+// is about submitting the proposal, not questions, invoices, or other paperwork.
+const CUTOFF_PHRASE = /\b(?:no|not)\s+later\s+than\b|\bon\s+or\s+before\b|\breceived\s+(?:until|before)\b/gi;
+// A noun, not just "submitted": "...emailed to <address> and submitted no later than" is a question cutoff.
+const SUBMISSION_CONTEXT = new RegExp(`\\b${SUBMITTED}\\b`, 'i');
+const OTHER_CONTEXT = /\b(?:questions?|inquir\w*|clarifications?|q\s*&\s*a|rfi|invoices?|billings?|payments?|reports?|protests?|appeals?|references?|insurance|certificates?)\b/i;
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const clean = value => String(value ?? '').replace(/\s+/g, ' ').trim();
 
@@ -104,10 +116,10 @@ function timingFromText(text) {
     [/Mountain Daylight Time|\bMDT\b/i, '-06:00'],
     [/Pacific Standard Time|\bPST\b/i, '-08:00'],
     [/Pacific Daylight Time|\bPDT\b/i, '-07:00'],
-    [/Eastern Time|\bET\b/i, 'America/New_York'],
-    [/Central Time|\bCT\b/i, 'America/Chicago'],
-    [/Mountain Time|\bMT\b/i, 'America/Denver'],
-    [/Pacific Time|\bPT\b/i, 'America/Los_Angeles'],
+    [/Eastern (?:Prevailing )?Time|\bET\b/i, 'America/New_York'],
+    [/Central (?:Prevailing )?Time|\bCT\b/i, 'America/Chicago'],
+    [/Mountain (?:Prevailing )?Time|\bMT\b/i, 'America/Denver'],
+    [/Pacific (?:Prevailing )?Time|\bPT\b/i, 'America/Los_Angeles'],
     [/\bUTC\b|\bGMT\b/i, 'UTC'],
   ];
   return {
@@ -138,21 +150,39 @@ export function deadlineTimestamp(date, time, timeZone) {
   return matches.length === 1 ? new Date(matches[0]).toISOString() : null;
 }
 
+// The clause leading into a cutoff phrase: back to the sentence end, at most one line break.
+function cutoffIsSubmission(text, index) {
+  const lead = text.slice(Math.max(0, index - 240), index).replace(/\b([ap])\.\s?m\./gi, '$1m')
+    .split(/[!?;]|\.(?=\s)/).at(-1).split('\n').slice(-2).join(' ');
+  return SUBMISSION_CONTEXT.test(lead) && !OTHER_CONTEXT.test(lead);
+}
+
 function documentCandidates(document) {
   if (document.applicable === false || document.official === false) return [];
   const text = String(document.text || '').replace(/\r/g, '');
+  // "Question Submission Deadline" and "Question Response Deadline" are question dates.
+  const afterQuestion = index => /\b(?:questions?|q\s*&\s*a|inquir(?:y|ies)|clarifications?)\s*$/i.test(text.slice(Math.max(0, index - 30), index).split('\n').at(-1));
   const labels = [
-    ...text.matchAll(PROPOSAL_LABEL),
-    ...text.matchAll(OTHER_LABEL),
-  ].map(match => ({ index: match.index, end: match.index + match[0].length, proposal: new RegExp(PROPOSAL_LABEL.source, 'i').test(match[0]) })).sort((a, b) => a.index - b.index);
+    ...[...text.matchAll(PROPOSAL_LABEL)].map(match => ({ match, proposal: !afterQuestion(match.index) })),
+    ...[...text.matchAll(OTHER_LABEL)].map(match => ({ match, proposal: false })),
+    ...[...text.matchAll(CUTOFF_PHRASE)].map(match => ({ match, proposal: cutoffIsSubmission(text, match.index) })),
+  ].map(({ match, proposal }) => ({ index: match.index, end: match.index + match[0].length, proposal })).sort((a, b) => a.index - b.index);
   const format = document.dateFormat || (/\bMM\/DD\/YYYY\b|month\/day\/year/i.test(text) ? 'MDY' : /\bDD\/MM\/YYYY\b|day\/month\/year/i.test(text) ? 'DMY' : undefined);
   const candidates = [];
   for (const token of text.matchAll(new RegExp(DATE_TOKEN, 'gi'))) {
     const before = labels.filter(label => label.end <= token.index).at(-1);
     const after = labels.find(label => label.index >= token.index + token[0].length);
     const prefix = before ? text.slice(before.end, token.index) : '';
-    const prefixWithoutWeekday = prefix.replace(/\b([ap])\.?\s*m\.?/gi, '$1m').replace(/\b(?:mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)\./gi, '');
-    const beforeNear = before && prefix.length <= 160 && (prefix.match(/\n/g) || []).length <= 1 && !/[.!?;]/.test(prefixWithoutWeekday) && !/not (?:set|posted|available)|unknown|unavailable|to be determined|\btbd\b/i.test(prefix);
+    // Abbreviation and section-number dots ("Wed.", "ref. Section 2.1") don't end a sentence.
+    const prefixWithoutWeekday = prefix.replace(/\b([ap])\.?\s*m\.?/gi, '$1m').replace(/\b(?:mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|ref|sec)\./gi, '')
+      .replace(/(\d)\.(?=\d)/g, '$1');
+    // A label covers the first date after it, across up to two line breaks (blank lines
+    // don't count); a later date in a schedule table belongs to its own row, except the
+    // new date in "extended from <date> to <date>".
+    const afterEarlierDate = prefixWithoutWeekday.split(new RegExp(DATE_TOKEN, 'gi'));
+    const laterRow = afterEarlierDate.length > 1 && !/^[^.\n]{0,25}\bto\s*$/i.test(afterEarlierDate.at(-1));
+    const beforeNear = before && prefix.length <= 160 && (prefix.replace(/\n[ \t]*(?=\n)/g, '').match(/\n/g) || []).length <= 2
+      && !laterRow && !/[.!?;]/.test(prefixWithoutWeekday) && !/not (?:set|posted|available)|unknown|unavailable|to be determined|\btbd\b/i.test(prefix);
     const betweenDateAndLabel = after ? text.slice(token.index + token[0].length, after.index) : '';
     const afterNear = after && after.index - token.index < 100 && !/[\n.!?;]/.test(betweenDateAndLabel);
     // Date-before-label timetable rows may follow an unrelated row on the prior line.
@@ -160,7 +190,9 @@ function documentCandidates(document) {
     const label = useAfter ? after : beforeNear ? before : null;
     if (!label?.proposal) continue;
     const tailEnd = after ? after.index : Math.min(text.length, token.index + token[0].length + 120);
-    const timing = timingFromText((useAfter ? '' : prefix) + ' ' + text.slice(token.index + token[0].length, tailEnd));
+    // A time before an earlier date belongs to that date ("from 10/12 3:00 PM to 10/26 10:00 AM").
+    const timePrefix = useAfter || new RegExp(DATE_TOKEN, 'i').test(prefix) ? '' : prefix;
+    const timing = timingFromText(timePrefix + ' ' + text.slice(token.index + token[0].length, tailEnd));
     candidates.push({
       raw: token[0], dateFormat: format, ...timing,
       source: { type: 'official-document', file: document.name || 'unnamed-document', section: `line ${text.slice(0, token.index).split('\n').length}` },
@@ -175,8 +207,10 @@ function extensionsFromDocuments(documents, corroboratingDates) {
   for (const document of documents) {
     if (document.applicable === false || document.official === false) continue;
     const text = clean(document.text);
-    if (!/\b(?:addendum|amendment)\s+(?:no\.?\s*|number\s*|#\s*)?\d+\b/i.test(text)) continue;
-    const regex = new RegExp(`(?:proposal|bid|submission)\\s+(?:deadline|due\\s+date)[^.]{0,60}?(?:extended|changed|moved|revised)[^.]{0,30}?from\\s+(${DATE_TOKEN})\\s+to\\s+(${DATE_TOKEN})`, 'gi');
+    if (!/\b(?:addendum|amendment)\b[^\n]{0,15}?\d+/i.test(text)) continue;
+    // Also "the deadline for submission of proposals is extended from 10/12/2026 03:00 PM to ...".
+    const clock = '(?:\\s+(?:at\\s+)?\\d{1,2}(?::\\d{2})?\\s*[ap]\\.?m\\.?)?';
+    const regex = new RegExp(`(?:(?:proposal|bid|submission)\\s+(?:deadline|due\\s+date)|deadline\\s+for\\s+(?:the\\s+)?submission\\s+of\\s+(?:proposals?|bids?|responses?))[^.]{0,60}?(?:extended|changed|moved|revised)[^.]{0,30}?from\\s+(${DATE_TOKEN})${clock}\\s+to\\s+(${DATE_TOKEN})`, 'gi');
     for (const match of text.matchAll(regex)) {
       const from = parseDeadlineDate(match[1], { dateFormat: document.dateFormat, corroboratingDates });
       const to = parseDeadlineDate(match[2], { dateFormat: document.dateFormat, corroboratingDates });
@@ -223,11 +257,13 @@ export function assessDeadline({ metadataDueDate = '', documents = [], assessmen
       status = 'conflicting'; reason = 'Submission deadline sources disagree and no unambiguous amendment resolves them.';
     } else {
       const timed = current.filter(row => row.time);
-      const clocks = [...new Set(timed.map(row => `${row.time}|${row.timeZone || 'unknown'}`))];
-      if (clocks.length > 1) {
+      // The same cutoff written with and without its time zone is one deadline.
+      const times = new Set(timed.map(row => row.time));
+      const zones = new Set(timed.map(row => row.timeZone).filter(Boolean));
+      if (times.size > 1 || zones.size > 1) {
         status = 'conflicting'; reason = 'Submission cutoff times or timezones disagree.';
       } else {
-        selected = timed[0] || current[0];
+        selected = timed.find(row => row.timeZone) || timed[0] || current[0];
         status = 'verified'; reason = 'Official proposal submission deadline verified.';
       }
     }
