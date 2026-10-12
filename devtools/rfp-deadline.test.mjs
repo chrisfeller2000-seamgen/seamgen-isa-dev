@@ -91,6 +91,44 @@ test('written dates, deadline tables, and multiline submission labels are suppor
   }
 });
 
+// Shapes taken from the October 9 RFPs, where 7 of 8 deadlines went unread.
+test('common real-world deadline wordings are read as the proposal deadline', () => {
+  for (const text of [
+    'Submit Proposals Vendor October 26, 2026 NO LATER THAN 2:00 PM ET',
+    'Responses must be submitted through the Bid Office E-Procurement Platform\nno later than 3:30 P.M. on Monday, October 26, 2026 to the link below:',
+    'Proposal Due Date and Time October 26th, 2026 by 5:00 PM EST',
+    'Proposal Due Date and Time\n\nOctober 26, 2026 at 3:00 PM',
+    'Proposals must be submitted through the portal at https://procurement.example.test/portal/city, no later than 5:00 pm on Monday, October 26, 2026.',
+    'Deadline for RFP Submissions October 26, 2026',
+    'Deadline to Submit Proposals: 10/26/2026, 2:00PM PST',
+    'Sealed Proposals will be received until 2:30pm on Monday, October 26, 2026, EST',
+    'Sealed proposals must be received on or before October 26, 2026, 11:00',
+    'Qualifications will be accepted at the Procurement Office or electronically no later than 2:00 P.M., Monday, October 26, 2026.',
+  ]) {
+    const result = assess(text);
+    assert.deepEqual([result.status, result.due], ['verified', '2026-10-26'], text);
+  }
+});
+
+test('question, invoice, and reference cutoffs are not the proposal deadline', () => {
+  for (const text of [
+    'Questions regarding this RFP must be submitted in writing no later than 4:30 p.m., Monday, October 19, 2026.',
+    'Question Submission Deadline October 19, 2026, 2:00pm',
+    'Question Response Deadline October 19, 2026, 2:00pm',
+    'Invoices must be submitted no later than October 19, 2026.',
+    'Deadline for references no later than 5:00 pm on October 19, 2026',
+  ]) assert.equal(assess(text, '').status, 'missing', text);
+  const both = assess('Question Submission Deadline October 14, 2026, 2:00pm\nProposal Submission Deadline October 26, 2026, 2:00pm');
+  assert.deepEqual([both.status, both.due], ['verified', '2026-10-26']);
+});
+
+test('an addendum extending "the deadline for submission of proposals" replaces the old date', () => {
+  const documents = [document('RFA responses must be received by October 12, 2026, at 3:00 PM Eastern'),
+    { name: 'addendum.txt', text: 'Solicitation Addendum Form (001)\nThe deadline for submission of proposals is hereby extended from 10/12/2026 03:00 PM to 10/26/2026 10:00 AM.' }];
+  const result = assessDeadline({ metadataDueDate: '2026-10-26', documents, assessment });
+  assert.deepEqual([result.status, result.due, result.supersessions.length], ['verified', '2026-10-26', 1]);
+});
+
 test('ambiguous numeric formats require metadata or an explicit source format', () => {
   assert.equal(assess('Proposal due date: 10/05/2026', '').status, 'invalid');
   assert.equal(assess('Proposal due date: 10/05/2026', '2026-10-05').due, '2026-10-05');

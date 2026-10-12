@@ -81,6 +81,9 @@ test('the weekly adapter returns the shared scorer result from one bounded judge
     assert.match(prompt, /is a known failure: set meetsMandatoryQualifications false/);
     assert.doesNotMatch(prompt, /If required company proof is unavailable, leave eligibility unknown/);
     assert.match(systemPrompt, /An unconfirmed deadline still gets all eight categories/);
+    // Jake's Gate 2: an existing product without a material custom share is a fail, not an open question.
+    assert.match(systemPrompt, /Gate 2 resolves to pass, fail, or the conditional route/);
+    assert.match(systemPrompt, /fails Gate 2 unless the custom portion is clearly material \(about 40%\+ of the effort\)/);
     const suppliedPacket = JSON.parse(prompt);
     // Enumerated fields stay plain lists; a description inside one gets copied as the value.
     assert.equal(suppliedPacket.outputContract.value.kind, 'stated|inferred|uncertain');
