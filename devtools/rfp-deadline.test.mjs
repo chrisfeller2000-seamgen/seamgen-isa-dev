@@ -130,6 +130,7 @@ test('one cutoff written with and without its time zone is not a conflict', () =
   const result = assess('Proposal Due Date and Time October 26, 2026, 5:00pm\nProposal Submission Deadline October 26, 2026, 5:00 p.m. PDT');
   assert.deepEqual([result.status, result.time, result.timeZone], ['verified', '17:00', '-07:00']);
   assert.equal(assess('Proposal deadline: October 26, 2026 at 3:00 pm\nProposal deadline: October 26, 2026 at 4:00 pm PT').status, 'conflicting');
+  assert.equal(assess('Submittal Deadline: 3:00 PM Central Prevailing Time, October 26, 2026').timeZone, 'America/Chicago');
 });
 
 test('an addendum extending "the deadline for submission of proposals" replaces the old date', () => {

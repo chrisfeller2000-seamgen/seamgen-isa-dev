@@ -116,10 +116,10 @@ function timingFromText(text) {
     [/Mountain Daylight Time|\bMDT\b/i, '-06:00'],
     [/Pacific Standard Time|\bPST\b/i, '-08:00'],
     [/Pacific Daylight Time|\bPDT\b/i, '-07:00'],
-    [/Eastern Time|\bET\b/i, 'America/New_York'],
-    [/Central Time|\bCT\b/i, 'America/Chicago'],
-    [/Mountain Time|\bMT\b/i, 'America/Denver'],
-    [/Pacific Time|\bPT\b/i, 'America/Los_Angeles'],
+    [/Eastern (?:Prevailing )?Time|\bET\b/i, 'America/New_York'],
+    [/Central (?:Prevailing )?Time|\bCT\b/i, 'America/Chicago'],
+    [/Mountain (?:Prevailing )?Time|\bMT\b/i, 'America/Denver'],
+    [/Pacific (?:Prevailing )?Time|\bPT\b/i, 'America/Los_Angeles'],
     [/\bUTC\b|\bGMT\b/i, 'UTC'],
   ];
   return {
