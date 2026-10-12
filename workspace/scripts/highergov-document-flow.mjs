@@ -32,7 +32,7 @@ function safeExtension(fileName = '', contentType = '') {
 }
 
 function classifyDocumentRecord(record = {}) {
-  const name = normalizeText(record.file_name || record.name || record.title || record.description || '').toLowerCase();
+  const name = normalizeText(record.file_name || record.name || record.title || record.description || '').toLowerCase().replace(/[_.-]+/g, ' ');
   const type = normalizeText(record.document_type || record.type || '').toLowerCase();
   const haystack = `${name} ${type}`;
   let role = 'other';
@@ -54,24 +54,95 @@ function classifyDocumentRecord(record = {}) {
     required = true;
     priority = Math.max(priority, 60);
   }
-  if (/\b(rfp|request for proposal|request for proposals|solicitation|bid invitation|invitation to bid|request for quotation|final)\b/.test(haystack)) {
+  if (role === 'other' && /\b(rfp|request for proposal|request for proposals|solicitation|bid invitation|invitation to bid|request for quotation)\b/.test(haystack)) {
     role = 'solicitation';
     required = true;
     priority = Math.max(priority, 100);
+  }
+  // Agencies often name the RFP after the project; once text is extracted, an
+  // otherwise unclassified file can be recognized as the solicitation by content.
+  if (role === 'other' && looksLikeSolicitationText(record.text)) {
+    role = 'solicitation';
+    required = true;
+    priority = 100;
+  }
+  // An RFP-prefixed rating form or bid-board export is not the RFP itself.
+  if (/rating form|committee rating|bid.board export|bidboard export/.test(haystack)
+      || /(?:bid.board export|download (?:the )?(?:actual |separate )?rfp|separate rfp (?:pdf|document))/i.test(record.text || '')) {
+    role = /rating|evaluation/.test(haystack) ? 'evaluation' : 'other';
+    required = role === 'evaluation';
+    priority = role === 'evaluation' ? 60 : 0;
   }
   if (/mandatory/.test(haystack) && role === 'other') {
     role = 'mandatory_attachment';
     required = true;
     priority = 50;
   }
+  // Bidder forms and contract templates are not scoring requirements. If one cannot be
+  // read it is reported, but it does not block an otherwise readable solicitation.
+  if (['requirements', 'mandatory_attachment', 'other'].includes(role)
+      && /\b(agreement|contract|forms?|price|pricing|cost proposal|signature|certifications?|affidavit|insurance|checklist)\b/.test(haystack)
+      && !/\b(scope|statement of work|sow|requirements?|specs?|specifications?)\b/.test(haystack)) {
+    role = 'form';
+    required = false;
+    priority = 20;
+  }
 
   return { role, required, priority };
+}
+
+// Extracted text counts as a solicitation only when it names itself one, states how or
+// when to submit, and describes the work. A short notice that lacks any of these stays
+// unrecognized; reading its meaning needs a content review.
+const SOLICITATION_TEXT = /request\s+for\s+(?:proposals?|quotations?|qualifications?)|invitation\s+(?:to|for)\s+(?:bids?|tenders?)|solicitation\s+(?:no\b|number|#)|\b(?:RFP|RFQ|IFB|ITB)\b/i;
+const SUBMISSION_TEXT = /\b(?:proposals?|quotes?|quotations?|offers?|responses?|bids?|submissions?|submittals?)\s+(?:must|shall|will|are)\s+be\s+(?:received|submitted|delivered|due)|\b(?:proposals?|quotes?|offers?|responses?|bids?)\s+(?:are\s+)?due\b|\bdue\s+date\b|\bclosing\s+date\b|\bsubmission\s+deadline\b|\bdeadline\s+for\s+(?:submissions?|proposals?|responses?|offers?|quotes?)\b/i;
+const SCOPE_TEXT = /scope\s+of\s+(?:work|services)|statement\s+of\s+work|minimum\s+(?:requirements|qualifications)|evaluation\s+criteria|technical\s+requirements|functional\s+requirements/i;
+
+function looksLikeSolicitationText(text = '') {
+  const value = String(text || '');
+  return SOLICITATION_TEXT.test(value) && SUBMISSION_TEXT.test(value) && SCOPE_TEXT.test(value);
 }
 
 async function ensureCandidateResourcesDir(slug, { stage = '1-pre-submission' } = {}) {
   const resourcesDir = path.join(WORKSPACE, 'RFPs', stage, slug, 'resources');
   await fs.mkdir(resourcesDir, { recursive: true });
   return resourcesDir;
+}
+
+const RETRIABLE_STATUSES = [429, 500, 502, 503, 504];
+
+// GET a HigherGov API URL and parse its JSON, retrying HTTP 429/5xx and network failures.
+// HigherGov's nginx answers 502 when its app server is slow, which saved-search queries can be.
+async function fetchHigherGovJson(url, { label, fetchImpl = fetch, attempts = 3, retryDelayMs = 1500 } = {}) {
+  for (let attempt = 1; ; attempt += 1) {
+    let error;
+    try {
+      const response = await fetchImpl(url, { method: 'GET' });
+      const text = await response.text();
+      if (response.ok) {
+        try {
+          return JSON.parse(text);
+        } catch {
+          throw new Error(`HigherGov ${label} returned invalid JSON.`);
+        }
+      }
+      error = new Error(`HigherGov ${label} failed (HTTP ${response.status})`);
+      error.status = response.status;
+    } catch (fetchError) {
+      // fetch rejects with a TypeError on DNS, TLS, and connection failures.
+      if (!(fetchError instanceof TypeError)) throw fetchError;
+      error = new Error(`HigherGov ${label} failed (network: ${fetchError.cause?.code || fetchError.message})`);
+    }
+    const retriable = !error.status || RETRIABLE_STATUSES.includes(error.status);
+    if (!retriable || attempt >= attempts) throw error;
+    await new Promise((resolve) => setTimeout(resolve, retryDelayMs * attempt));
+  }
+}
+
+function recordMatchesKeys(record, { versionKey, oppKey }) {
+  const recordVersionKey = normalizeText(record?.version_key || '');
+  const recordOppKey = normalizeText(record?.opp_key || '');
+  return Boolean((versionKey && recordVersionKey === versionKey) || (oppKey && recordOppKey === oppKey));
 }
 
 async function lookupOpportunityRecord({
@@ -83,13 +154,33 @@ async function lookupOpportunityRecord({
   oppKey = '',
   pageSize = 25,
   maxPages = 50,
+  fetchImpl = fetch,
+  retryDelayMs,
 }) {
   const targetVersionKey = normalizeText(versionKey);
   const targetOppKey = normalizeText(oppKey);
   if (!apiKey) throw new Error('HIGHERGOV_API_KEY is required.');
-  if (!searchId) throw new Error('searchId is required.');
-  if (!capturedDate) throw new Error('capturedDate is required.');
+  if (!targetVersionKey && !targetOppKey) throw new Error('versionKey or oppKey is required.');
+  const targets = { versionKey: targetVersionKey, oppKey: targetOppKey };
+  const fetchOptions = { label: 'opportunity lookup', fetchImpl, retryDelayMs };
 
+  // Direct key lookups answer in well under a second. Only a record whose key really
+  // matches is accepted, so a filter the API ignored falls through to the scan below.
+  for (const [param, value] of [['version_key', targetVersionKey], ['opp_key', targetOppKey]]) {
+    if (!value) continue;
+    const url = new URL('https://www.highergov.com/api-external/opportunity/');
+    url.searchParams.set('api_key', apiKey);
+    url.searchParams.set(param, value);
+    url.searchParams.set('page_size', '10');
+    const data = await fetchHigherGovJson(url, fetchOptions);
+    const results = Array.isArray(data.results) ? data.results : [];
+    const match = results.find((record) => recordMatchesKeys(record, targets));
+    if (match) return { record: match, method: param, pageNumber: null, pages: null };
+  }
+
+  // Fallback: page through the saved search for the captured day. Slow (20-90 s a page
+  // for the SAM half), so it only runs when the direct lookups found nothing.
+  if (!searchId || !capturedDate) return { record: null, method: null, pageNumber: null, pages: null };
   for (let pageNumber = 1; pageNumber <= maxPages; pageNumber += 1) {
     const url = new URL('https://www.highergov.com/api-external/opportunity/');
     url.searchParams.set('api_key', apiKey);
@@ -99,24 +190,11 @@ async function lookupOpportunityRecord({
     url.searchParams.set('page_size', String(pageSize));
     url.searchParams.set('page_number', String(pageNumber));
 
-    const response = await fetch(url, { method: 'GET' });
-    const text = await response.text();
-    if (!response.ok) {
-      const error = new Error(`HigherGov opportunity lookup failed (HTTP ${response.status})`);
-      error.status = response.status;
-      error.body = text;
-      throw error;
-    }
-
-    const data = JSON.parse(text);
+    const data = await fetchHigherGovJson(url, fetchOptions);
     const results = Array.isArray(data.results) ? data.results : [];
-    const match = results.find((record) => {
-      const recordVersionKey = normalizeText(record.version_key || '');
-      const recordOppKey = normalizeText(record.opp_key || '');
-      return (targetVersionKey && recordVersionKey === targetVersionKey) || (targetOppKey && recordOppKey === targetOppKey);
-    });
+    const match = results.find((record) => recordMatchesKeys(record, targets));
     if (match) {
-      return { record: match, pageNumber, pages: Number.parseInt(data?.meta?.pagination?.pages || '0', 10) || pageNumber };
+      return { record: match, method: 'search', pageNumber, pages: Number.parseInt(data?.meta?.pagination?.pages || '0', 10) || pageNumber };
     }
 
     const pages = Number.parseInt(data?.meta?.pagination?.pages || '0', 10) || 0;
@@ -124,28 +202,44 @@ async function lookupOpportunityRecord({
     if (!results.length) break;
   }
 
-  return { record: null, pageNumber: null, pages: null };
+  return { record: null, method: null, pageNumber: null, pages: null };
 }
 
-async function listDocumentRecords({ apiKey, documentPath }) {
+function documentListUrl(documentPath, apiKey, pageNumber) {
+  let url;
+  try {
+    url = new URL(documentPath, 'https://www.highergov.com');
+  } catch {
+    throw new Error('HigherGov document_path is not a valid URL.');
+  }
+  if (url.protocol !== 'https:' || url.hostname !== 'www.highergov.com' || url.port ||
+      url.username || url.password || url.pathname !== '/api-external/document/' ||
+      !url.searchParams.get('related_key')) {
+    throw new Error('HigherGov document_path is not an approved document endpoint.');
+  }
+  // HigherGov supplies a complete URL, not a related_key value. Refresh its key in memory.
+  url.searchParams.set('api_key', apiKey);
+  url.searchParams.set('page_size', '50');
+  url.searchParams.set('page_number', String(pageNumber));
+  return url;
+}
+
+async function listDocumentRecords({ apiKey, documentPath, fetchImpl = fetch, retryDelayMs }) {
   if (!apiKey) throw new Error('HIGHERGOV_API_KEY is required.');
   if (!documentPath) throw new Error('documentPath is required.');
-  const url = new URL('https://www.highergov.com/api-external/document/');
-  url.searchParams.set('api_key', apiKey);
-  url.searchParams.set('related_key', documentPath);
-  url.searchParams.set('page_size', '50');
-  url.searchParams.set('page_number', '1');
-
-  const response = await fetch(url, { method: 'GET' });
-  const text = await response.text();
-  if (!response.ok) {
-    const error = new Error(`HigherGov document lookup failed (HTTP ${response.status})`);
-    error.status = response.status;
-    error.body = text;
-    throw error;
+  const records = [];
+  for (let pageNumber = 1; pageNumber <= 100; pageNumber += 1) {
+    const url = documentListUrl(documentPath, apiKey, pageNumber);
+    const data = await fetchHigherGovJson(url, { label: 'document lookup', fetchImpl, retryDelayMs });
+    if (!Array.isArray(data.results)) {
+      throw new Error('HigherGov document lookup response has no results array.');
+    }
+    records.push(...data.results);
+    const pages = Number.parseInt(data?.meta?.pagination?.pages, 10);
+    if (!Number.isFinite(pages) || pageNumber >= pages) return records;
+    if (pages > 100) throw new Error('HigherGov document lookup exceeds the 100-page safety limit.');
   }
-  const data = JSON.parse(text);
-  return Array.isArray(data.results) ? data.results : [];
+  return records;
 }
 
 function detectSignature(buffer) {
@@ -242,7 +336,7 @@ function countBy(rows, key) {
   return tally;
 }
 
-function evaluateDocumentCompleteness({ manifest = [], extractedTextByPath = new Map() } = {}) {
+function evaluateDocumentCompleteness({ manifest = [] } = {}) {
   const rows = Array.isArray(manifest) ? manifest : [];
   const primary = rows.find((row) => row.role === 'solicitation' && row.downloaded && row.extracted);
   const missingRequired = rows.filter((row) => row.required && (!row.downloaded || !row.extracted || ['portal-gated', 'failed', 'downloaded but unsupported'].includes(row.document_status)));
@@ -251,8 +345,11 @@ function evaluateDocumentCompleteness({ manifest = [], extractedTextByPath = new
   const hasFailure = rows.some((row) => row.document_status === 'failed');
   const unsupported = rows.some((row) => row.document_status === 'downloaded but unsupported');
 
-  if (!rows.length || (!hasAnyDocs && hasPortalBlock)) {
-    return { complete: false, status: 'access-blocked', reasons: ['No downloadable document records were available.'] };
+  if (!rows.length) {
+    return { complete: false, status: 'document-list-empty', reasons: ['No document records were returned.'] };
+  }
+  if (!hasAnyDocs && hasPortalBlock) {
+    return { complete: false, status: 'access-blocked', reasons: ['The returned documents were portal-gated.'] };
   }
   if (hasFailure && !hasAnyDocs) {
     return { complete: false, status: 'failed', reasons: ['Document download failed before any usable file was saved.'] };
@@ -318,6 +415,7 @@ export {
   evaluateDocumentCompleteness,
   hashFile,
   listDocumentRecords,
+  looksLikeSolicitationText,
   lookupOpportunityRecord,
   saveDocumentRecord,
   sanitizeRemoteFilename,

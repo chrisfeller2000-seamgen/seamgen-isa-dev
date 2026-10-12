@@ -1,3 +1,15 @@
+import { installRecordedJudge, recordedJudgment, referenceJudgment } from './rfp-recorded-judgments.mjs';
+await installRecordedJudge();
+if (process.env.ISA_RFP_FIXTURE_SCENARIO === 'below-threshold') {
+  globalThis[Symbol.for('isa.rfp.testJudge')] = async ({ input, prompt }) => {
+    const judgment = recordedJudgment(input);
+    judgment.categories.caseStudy = { band: 'none', points: 1, reason: 'Recorded no bridge', evidence: judgment.gates.gate2.evidence };
+    judgment.categories.tech = { band: 'unfamiliar', points: 1, reason: 'Recorded unfamiliar stack', evidence: judgment.gates.gate2.evidence };
+    judgment.categories.ai = { band: 'none', points: 0, reason: 'Recorded no AI', evidence: judgment.gates.gate2.evidence };
+    return JSON.stringify(referenceJudgment(judgment, JSON.parse(prompt).sources));
+  };
+}
+
 const solicitation = `Request for Proposal: Synthetic Case Management Portal
 The agency seeks a custom-built, accessible case management portal with a secure data migration and API integration.
 The vendor shall provide implementation services, user research, workflow design, testing, documentation, and support.
@@ -10,6 +22,7 @@ Evaluation will consider technical approach, implementation plan, team experienc
 `;
 
 globalThis.fetch = async (input) => {
+  if (process.env.ISA_RFP_FIXTURE_SCENARIO === 'below-threshold') throw new Error('A below-75 preliminary score must not fetch anything.');
   const url = new URL(String(input));
   if (url.hostname === 'www.highergov.com' && url.pathname === '/api-external/opportunity/') {
     if (url.searchParams.get('api_key') !== 'fixture-key') throw new Error('Unexpected test API key.');
@@ -17,7 +30,8 @@ globalThis.fetch = async (input) => {
       results: [{
         version_key: 'fixture-version-1',
         opp_key: 'fixture-opportunity-1',
-        document_path: 'fixture-document-path',
+        // HigherGov returns document_path as a complete document-endpoint URL.
+        document_path: 'https://www.highergov.com/api-external/document/?api_key=fixture-key&related_key=fixture-document-path',
         path: 'https://example.test/synthetic-rfp',
         source_path: 'https://example.test/agency-posting',
       }],

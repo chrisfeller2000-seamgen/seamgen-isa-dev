@@ -3,7 +3,13 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import { createAssessmentContext } from './rfp-deadline.mjs';
+import { DOCUMENT_FETCH_THRESHOLD, unscoredRfp } from './rfp-scoring-policy.mjs';
+import { createOpenClawJudge, scoreRfp } from './rfp-scoring-judgment.mjs';
+import { buildResults, renderEmailHtml, renderMarkdown, reportEntry, telegramFacts, vibeFrom, writeTelegramMessage } from './rfp-report.mjs';
 import {
+  classifyDocumentRecord,
   ensureCandidateResourcesDir,
   evaluateDocumentCompleteness,
   listDocumentRecords,
@@ -26,10 +32,16 @@ const REPORT_FROM = 'isa@seamgen.com';
 const REPORT_TO = process.env.REPORT_TO || 'mariannefaro@seamgen.com';
 const TELEGRAM_TARGET = process.env.TELEGRAM_TARGET || '-1003890997073';
 const NO_TELEGRAM = ['1', 'true', 'yes'].includes(String(process.env.NO_TELEGRAM || '').toLowerCase());
+// RFP_DELIVERY=preview runs the job and writes every report file, including the Telegram
+// text, but sends no email or Telegram message and creates no Drive folders.
+const DELIVERY_PREVIEW = String(process.env.RFP_DELIVERY || '').toLowerCase() === 'preview';
+// Tests install a recorded writer here instead of calling ISA's model.
+const writerSymbol = Symbol.for('isa.rfp.testWriter');
 const DOCUMENT_FETCH_ENABLED = ['1', 'true', 'yes', 'on'].includes(String(process.env.RFP_DOCUMENT_FETCH_ENABLED || '').toLowerCase());
 const FULL_QUALIFY_REQUIRE_DOCS = !['0', 'false', 'no'].includes(String(process.env.RFP_FULL_QUALIFY_REQUIRE_DOCS || 'true').toLowerCase());
 const FULL_QUALIFY_MIN_DAYS = Number.parseInt(process.env.RFP_FULL_QUALIFY_MIN_DAYS || '10', 10) || 10;
 const FULL_QUALIFY_MIN_VALUE = Number.parseInt(process.env.RFP_FULL_QUALIFY_MIN_VALUE || '100000', 10) || 100000;
+// Document-backed pursue bar. Documents are fetched earlier, at DOCUMENT_FETCH_THRESHOLD.
 const FULL_QUALIFY_THRESHOLD = Number.parseInt(process.env.RFP_FULL_QUALIFY_THRESHOLD || '75', 10) || 75;
 const TEST_MODE = ['1', 'true', 'yes', 'on'].includes(String(process.env.RFP_WEEKLY_TEST_MODE || '').toLowerCase()) || process.argv.slice(2).includes('--test-mode');
 const HUBSPOT_CREDS = '/home/azureuser/.openclaw/credentials/hubspot-mcp.json';
@@ -53,23 +65,6 @@ function isoDate(value) {
   const date = value ? new Date(value) : new Date();
   if (Number.isNaN(date.getTime())) return '';
   return date.toISOString().slice(0, 10);
-}
-
-function summarizeCount(count, label) {
-  return `${count} ${label}${count === 1 ? '' : 's'}`;
-}
-
-function buildTelegramSummary(runDate, intake, qualifiedCount, manualReviewCount = 0) {
-  const scanned = intake?.fetched || 0;
-  const days = (intake?.daysFetched || []).length || 0;
-  const passed = intake?.pass || 0;
-  const filteredOut = Math.max(scanned - passed, 0);
-  return [
-    `Weekly RFP job ${runDate}: ${summarizeCount(scanned, 'record')} scanned across ${summarizeCount(days, 'day')}; ${summarizeCount(passed, 'candidate')} passed intake; ${summarizeCount(filteredOut, 'record')} filtered out.`,
-    `${summarizeCount(qualifiedCount, 'RFP')} qualified for the digest.`,
-    `${summarizeCount(manualReviewCount, 'candidate')} sent to manual review.`,
-    `Mail sent to ${REPORT_TO}.`,
-  ].join(' ');
 }
 
 async function withTimeout(promise, timeoutMs, label = 'operation') {
@@ -104,15 +99,6 @@ function getTestCandidateSlug() {
 
 function getTestCandidateVersionKey() {
   return normalizeText(process.env.RFP_TEST_VERSION_KEY || getCliOption('--candidate-version-key'));
-}
-
-function escapeHtml(text = '') {
-  return String(text)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
 }
 
 function cleanName(value = '') {
@@ -216,59 +202,6 @@ function parseIsoDate(value = '') {
   return match ? match[0] : '';
 }
 
-function scoreBand(score) {
-  if (score >= 95) return 'Exceptional fit';
-  if (score >= 90) return 'Very strong fit';
-  if (score >= 80) return 'Strong fit';
-  return 'Qualified fit';
-}
-
-function reasonToWhyFit(reason) {
-  const map = {
-    'Accessibility / WCAG': 'accessibility/WCAG support',
-    'Web / CMS / mobile delivery': 'web, CMS, intranet, or mobile delivery',
-    'Integration / modern stack': 'integration and modern stack capability',
-    'AI / automation / data platform': 'AI, automation, or data platform capability',
-    'Support / maintenance / hosting': 'hosting, support, or maintenance capability',
-    'Public-sector buyer': 'a public-sector procurement context',
-    'Delivery structure': 'a phased delivery structure',
-  };
-  return map[reason] || reason.toLowerCase();
-}
-
-function clipText(value = '', limit = 180) {
-  const text = normalizeText(value);
-  if (!text) return '';
-  if (text.length <= limit) return text;
-  return `${text.slice(0, limit).trimEnd()}…`;
-}
-
-function buildWhyItFitsNarrative({ title = '', issuer = '', summary = '', reasons = [], landscapeSummary = '', capabilitySummary = '' } = {}) {
-  const parts = [...new Set(reasons)].map((reason) => reasonToWhyFit(reason)).filter(Boolean);
-  const coreAsk = clipText(summary, 140);
-  const fitBits = [];
-  if (parts.length) {
-    fitBits.push(`Seamgen matches the ask with ${parts.slice(0, 2).join(' and ')}`);
-  }
-  if (coreAsk) {
-    fitBits.push(`the RFP specifically asks for ${coreAsk}`);
-  }
-  const landscapeText = clipText(landscapeSummary || '', 90);
-  const capabilityText = clipText(capabilitySummary || '', 90);
-  if (landscapeText) {
-    fitBits.push(landscapeText.replace(/^Solution landscape points to\s+/i, 'the landscape points to '));
-  }
-  if (capabilityText) {
-    fitBits.push(capabilityText.replace(/^Capability verification confirms\s+/i, 'our delivery fit shows '));
-  }
-  const lead = issuer
-    ? `For ${title}${issuer ? ` — ${issuer}` : ''},`
-    : `For ${title},`;
-  if (!fitBits.length) return `${lead} Seamgen looks like a solid custom-build fit.`;
-  if (fitBits.length === 1) return `${lead} ${fitBits[0]}.`;
-  return `${lead} ${fitBits[0]}; ${fitBits.slice(1).join('; ')}.`;
-}
-
 function serializeFrontmatterValue(value) {
   if (value === null || value === undefined || value === '') return 'unknown';
   if (Array.isArray(value)) {
@@ -299,9 +232,27 @@ async function updateCandidateMarkdownAtomic(candidatePath, updater) {
   await fs.rename(tempPath, candidatePath);
 }
 
-async function persistCandidateState(candidatePath, updates) {
+export async function persistCandidateState(candidatePath, updates) {
   await updateCandidateMarkdownAtomic(candidatePath, async (frontmatter) => {
     Object.assign(frontmatter, updates);
+  });
+}
+
+export function shouldFetchDocuments(result, threshold = DOCUMENT_FETCH_THRESHOLD) {
+  return Number.isFinite(result.total) && result.total >= threshold && result.qualification_status !== 'failed-gate'
+    && !['Watch item', 'Not an open bid', 'Conditional — Ask the Agency'].includes(result.recommendation);
+}
+
+export async function persistValidatedScore(candidatePath, { preliminaryScore, result, manifestPath, runDate }) {
+  await persistCandidateState(candidatePath, {
+    preliminary_score: preliminaryScore, final_score: result.total, score: result.total,
+    scoring_confidence: result.scoring_confidence, qualification_status: result.qualification_status,
+    document_status: result.document_status || 'partial-documents',
+    document_manifest_path: manifestPath, status: result.total === null ? 'provisional' : 'scored',
+    scored_date: runDate, scoring_categories: result.categories, scoring_recommendation: result.recommendation,
+    scoring_reasons: result.reasons, scoring_flags: result.flags, scoring_conditional: result.conditional || null,
+    scoring_judgments: result.judgments || null, scoring_error: result.scoring_error || null,
+    scoring_provenance: result.provenance || null,
   });
 }
 
@@ -315,59 +266,17 @@ function buildMetadataText(candidate) {
   ].filter(Boolean).join('\n\n');
 }
 
-function extractDeadlinesFromMetadata(candidate, metadataText, runDate) {
-  const frontmatter = candidate?.frontmatter || {};
-  const deadlines = extractDeadlines(metadataText, runDate).slice(0, 4);
-  if (!deadlines.length && frontmatter.due_date && normalizeText(frontmatter.due_date).toLowerCase() !== 'unknown') {
-    deadlines.push({ label: 'Proposal due', date: normalizeText(frontmatter.due_date) });
-  }
-  return deadlines;
-}
-
-function scoreCandidateFromText({ candidate, text, runDate }) {
-  const title = cleanName(candidate?.title || candidate?.slug || '');
-  const issuer = cleanName(candidate?.issuer || '');
-  const deadlines = extractDeadlinesFromMetadata(candidate, text, runDate);
-  const base = analyzeFit(text, title, deadlines, runDate);
-  const gateCheck = evaluateQualificationGates(text, title, issuer, deadlines, candidate?.frontmatter?.val_est_low || '', runDate);
-  const landscape = assessSolutionLandscape(text, title, issuer, deadlines);
-  const capability = verifyCapabilities(text, title, base.reasons);
-  let score = base.score + landscape.score + capability.score;
-  const augmentedBlockers = [...base.blockers];
-  if (landscape.hardMismatch) {
-    augmentedBlockers.push({ category: 'Solution landscape', detail: 'The RFP appears to expect a product or delivery model that does not fit a custom-build pursuit.' });
-    score -= 15;
-  }
-  if (capability.hardMismatch) {
-    augmentedBlockers.push({ category: 'Capability verification', detail: 'The brief suggests a hard mismatch with Seamgen\'s custom delivery model.' });
-    score -= 15;
-  }
+export async function scoreCandidateFromText({ candidate, runDate, phase = 'full-text', documents = [], completeness, companySources, policies, landscapeSources, judge }) {
+  const assessment = createAssessmentContext({ runDate, reportingTimeZone: process.env.RFP_ASSESSMENT_TIME_ZONE || 'UTC' });
+  const result = await scoreRfp({ candidate, phase, documents, completeness, assessment, companySources, policies, landscapeSources }, { judge, workspace: WORKSPACE });
+  // Adapt the validated result to the fields the existing weekly report builders read.
+  const failedGate = result.gateReasons?.find((item) => item.pass === false)
+    || (Object.values(result.gate).includes(false) ? { gate: 'Scoring', reason: result.reasons.join('; ') } : null);
   return {
-    score: Math.max(0, Math.min(100, Math.round(score))),
-    reasons: base.reasons,
-    blockers: augmentedBlockers,
-    gateCheck,
-    landscape,
-    capability,
-    deadlines,
+    ...result,
+    score: result.total,
+    gateCheck: { results: result.gateReasons || [], failed: failedGate },
   };
-}
-
-function buildQualificationNarrative(score, reasons = []) {
-  const band = scoreBand(score);
-  const reasonText = [...new Set(reasons)].length ? `Signals: ${[...new Set(reasons)].join(', ')}.` : 'Signals are general but still supportive.';
-  return `${band}. ${reasonText}`;
-}
-
-function deadlineLabelFromText(text = '') {
-  const lower = normalizeText(text).toLowerCase();
-  if (/nda/.test(lower)) return 'NDA deadline';
-  if (/questions?|clarification|inquiry/.test(lower)) return 'Questions due';
-  if (/proposal submission|submit proposals|submittal|response due|submitted by|due date|proposal due/.test(lower)) return 'Proposal due';
-  if (/bid opening|opening date/.test(lower)) return 'Bid opening';
-  if (/offer shall be valid|valid for/.test(lower)) return 'Offer validity';
-  if (/deadline/.test(lower)) return 'Deadline';
-  return 'Deadline';
 }
 
 function run(cmd, args, options = {}) {
@@ -972,7 +881,7 @@ async function getHigherGovDayRecords(config, day) {
   };
 }
 
-function getHigherGovPrefilter(record, config) {
+export function getHigherGovPrefilter(record, config) {
   const profile = config.seamgenProfile || {};
   const flags = [];
 
@@ -1477,120 +1386,6 @@ function extractIssuer(text = '', title = '') {
   return '';
 }
 
-function extractDeadlines(text = '', runDate = '') {
-  const lines = String(text || '')
-    .replace(/\r/g, '\n')
-    .split('\n')
-    .map((line) => normalizeText(line))
-    .filter(Boolean);
-  const wanted = [];
-  const deadlinePatterns = /deadline|due date|proposal submission|questions due|submission date|questions deadline|bid opening|proposal opening|submitted by|written questions|offer due|response due|clarification deadline/i;
-  const datePatterns = [
-    /\b\d{4}-\d{2}-\d{2}\b/g,
-    /\b\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}\b/g,
-    /\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+\d{1,2},?\s+\d{4}\b/gi,
-    /\b\d{1,2}\s+(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?,?\s+\d{4}\b/gi,
-  ];
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (!deadlinePatterns.test(line)) continue;
-    const window = [line, lines[index + 1] || '', lines[index + 2] || ''].filter(Boolean).join(' ');
-    const dates = [];
-    for (const pattern of datePatterns) {
-      for (const match of window.matchAll(pattern)) {
-        const parsed = formatIsoDate(match[0]);
-        if (parsed) dates.push(parsed);
-      }
-    }
-    if (dates.length) {
-      for (const date of dates) {
-        const label = deadlineLabelFromText(window);
-        if (runDate && date <= runDate) continue;
-        if (!wanted.some((item) => item.label === label && item.date === date)) {
-          wanted.push({ label, date });
-        }
-        if (wanted.length >= 5) break;
-      }
-    }
-    if (wanted.length >= 5) break;
-  }
-  return wanted;
-}
-
-function evaluateQualificationGates(text = '', title = '', issuer = '', deadlines = [], amountValue = '', runDate = '') {
-  const evidence = normalizeText(text);
-  const results = [];
-  const add = (gate, pass, reason) => {
-    results.push({ gate, pass, reason });
-    return pass;
-  };
-
-  const earliestDeadline = Array.isArray(deadlines) && deadlines.length
-    ? [...deadlines].map((deadline) => deadline.date).filter(Boolean).sort()[0]
-    : '';
-  const dayDiff = earliestDeadline && runDate ? daysBetween(earliestDeadline, runDate) : null;
-  if (!earliestDeadline) {
-    add('Gate 1', false, 'No future due date could be verified in the RFP docs.');
-  } else if (dayDiff < FULL_QUALIFY_MIN_DAYS) {
-    add('Gate 1', false, `The earliest verified due date is only ${dayDiff} day(s) away.`);
-  } else {
-    add('Gate 1', true, `The earliest verified due date is ${dayDiff} day(s) away.`);
-  }
-
-  const customSignals = /\b(custom build|custom-built|moderni[sz]ation|redesign|rebuild|replatform|migration|integration|implement(?:ation)? services|development services)\b/i.test(evidence);
-  const cotsSignals = /\b(cots|off[- ]the[- ]shelf|saas|software as a service|license(?:d)? solution|reseller|install and configure|configure this product|commercial product only|turnkey|no[- ]code|self[- ]service|existing platform)\b/i.test(evidence);
-  if (cotsSignals && !customSignals) {
-    add('Gate 2', false, 'The docs read as product procurement rather than a custom-build pursuit.');
-  } else {
-    add('Gate 2', true, customSignals ? 'The docs indicate custom work or modernization.' : 'No hard product-procurement tell found in the docs.');
-  }
-
-  const physicalSignals = /\b(hardware-only|physical goods|equipment procurement|construction|install(?:ation)? of equipment|devices?|servers?|laptops?|routers?|switches?)\b/i.test(evidence);
-  if (physicalSignals) {
-    add('Gate 3', false, 'The docs point to hardware/equipment/construction rather than software/services.');
-  } else {
-    add('Gate 3', true, 'No hardware-only or construction tell found in the docs.');
-  }
-
-  const submitSignals = /\b(must be registered|must register|vendor registration|portal registration|portal account|submit(?:ted)? via (?:the )?portal|bid portal|procurement portal|submittal portal|electronic submission|email submission)\b/i.test(evidence);
-  const submitBarriers = /\b(closed|restricted|must already be approved|pre[- ]qualified|invite(?:d)? only)\b/i.test(evidence);
-  if (submitSignals && submitBarriers) {
-    add('Gate 4', false, 'The docs mention a submission path with an explicit access/registration barrier.');
-  } else {
-    add('Gate 4', true, 'No submission blocker is visible in the docs.');
-  }
-
-  const amountText = normalizeText(amountValue || extractContractValue(evidence));
-  const amountMatch = amountText.match(/(\$?\s*\d[\d,]*(?:\.\d+)?)(\s*[kKmM])?/);
-  let amountNumeric = 0;
-  if (amountMatch) {
-    const raw = parseFloat(amountMatch[1].replace(/[^0-9.]/g, ''));
-    const suffix = (amountMatch[2] || '').trim().toLowerCase();
-    amountNumeric = raw;
-    if (suffix === 'k') amountNumeric *= 1000;
-    if (suffix === 'm') amountNumeric *= 1000000;
-  }
-  if (amountNumeric > 0 && amountNumeric < FULL_QUALIFY_MIN_VALUE) {
-    add('Gate 5', false, `The documented value appears below the $${(FULL_QUALIFY_MIN_VALUE / 1000).toFixed(0)}K floor (${amountText}).`);
-  } else {
-    add('Gate 5', true, amountNumeric > 0 ? `The documented value is at or above the $${(FULL_QUALIFY_MIN_VALUE / 1000).toFixed(0)}K floor (${amountText}).` : 'No hard sub-floor value is documented.');
-  }
-
-  const setAsideSignals = /\b(8a|8\(a\)|hubzone|wosb|edwosb|veteran[- ]owned|sdvosb|local vendor|minority[- ]owned)\b/i.test(evidence);
-  const qualificationSignals = /\b(esri certified|specific license|specific certification|must provide proof of|minimum qualifications|3\+ governmental|3 or more governmental|governmental references|existing installs?|live demonstrations|must already exist|installed base)\b/i.test(evidence);
-  if (setAsideSignals || qualificationSignals) {
-    add('Gate 6', false, 'The docs contain qualification/set-aside tells that appear to exclude Seamgen.');
-  } else {
-    add('Gate 6', true, 'No disqualifying qualification or set-aside tell is visible in the docs.');
-  }
-
-  return {
-    results,
-    failed: results.find((gate) => !gate.pass) || null,
-  };
-}
-
 function extractSummary(text = '') {
   const paragraphs = String(text || '')
     .replace(/\r/g, '\n')
@@ -1648,179 +1443,6 @@ function daysBetween(left = '', right = '') {
   return Math.round((leftDate - rightDate) / 86400000);
 }
 
-function analyzeFit(text = '', title = '', deadlines = [], runDate = '') {
-  const lower = `${title}\n${text}`.toLowerCase();
-  let score = 0;
-  const reasons = [];
-  const blockers = [];
-  const seenBlockers = new Set();
-  const addBlocker = (category, detail, penalty = 0) => {
-    const key = `${category}|${detail}`;
-    if (seenBlockers.has(key)) return;
-    seenBlockers.add(key);
-    blockers.push({ category, detail });
-    score -= penalty;
-  };
-
-  const fitRules = [
-    [/accessibility|wcag|section 508|ada/i, 20, 'Accessibility / WCAG'],
-    [/website|web redesign|intranet|portal|cms|content management|mobile|app|responsive/i, 18, 'Web / CMS / mobile delivery'],
-    [/api|azure|react|\.net|sso|integration|cloud/i, 15, 'Integration / modern stack'],
-    [/ai|artificial intelligence|automation|workflow|data platform|analytics/i, 15, 'AI / automation / data platform'],
-    [/maintenance|support|hosting|operations|managed services/i, 10, 'Support / maintenance / hosting'],
-    [/public sector|government|district|college|department|agency|state|city|metroparks/i, 8, 'Public-sector buyer'],
-    [/fixed price|milestone|phased|implementation/i, 8, 'Delivery structure'],
-  ];
-
-  for (const [pattern, points, label] of fitRules) {
-    if (pattern.test(lower)) {
-      score += points;
-      reasons.push(label);
-    }
-  }
-
-  if (/\b(no[- ]code|self[- ]service|turnkey|cots|off[- ]the[- ]shelf|ready[- ]made product|existing platform)\b/i.test(lower)) {
-    addBlocker('Product-fit', 'Asks for a ready-made or no-code platform.', 35);
-  }
-
-  if (/\bsaas\b/i.test(lower) && !/\bcustom\b/i.test(lower)) {
-    addBlocker('Scope-fit', 'Reads like a SaaS-first ask without a clear custom-build angle.', 10);
-  }
-
-  if (/\b(sealed bid|mandatory site visit|vendor registration|two[- ]envelope|addenda required|prequalification|qualified bidder|bid bond)\b/i.test(lower)) {
-    addBlocker('Procurement risk', 'Rigid procurement mechanics suggest a heavy bid process.', 5);
-  }
-
-  if (/\b(soc\s?2|iso\s?27001|hipaa|fedramp|cjis|pci\s?dss|security questionnaire|insurance certificate|data residency|background check)\b/i.test(lower)) {
-    addBlocker('Compliance risk', 'Security or compliance requirements are material in the brief.', 5);
-  }
-
-  if (/\b(fixed price|turnkey|all[- ]inclusive|guaranteed delivery|hard deadline|liquidated damages|penalty)\b/i.test(lower)) {
-    addBlocker('Delivery risk', 'The brief suggests fixed-price or turnkey delivery with limited discovery room.', 5);
-  }
-
-  if (/\b(budget\s*(?:tbd|unknown|not stated|not disclosed)|to be determined|no budget|budget\s*[:\-]\s*tbd)\b/i.test(lower)) {
-    addBlocker('Budget risk', 'The budget is missing or explicitly unclear.', 3);
-  }
-
-  if (Array.isArray(deadlines) && deadlines.length && runDate) {
-    const earliest = [...deadlines].map((deadline) => deadline.date).filter(Boolean).sort()[0];
-    const days = earliest ? daysBetween(earliest, runDate) : null;
-    if (Number.isFinite(days) && days <= 7) {
-      addBlocker('Timeline risk', `Proposal is due in ${days} day${days === 1 ? '' : 's'}.`, 5);
-    }
-  }
-
-  if (/\bproposal\b|\brfp\b|\bsolicitation\b/i.test(lower)) {
-    score += 5;
-  }
-
-  if (/\bbudget\b|\bestimate\b|\bamount\b|\bpriced\b/i.test(lower)) {
-    score += 5;
-  }
-
-  if (score < 0) score = 0;
-  return { score, reasons: [...new Set(reasons)], blockers: [...new Set(blockers)] };
-}
-
-function assessSolutionLandscape(text = '', title = '', issuer = '', deadlines = []) {
-  const lower = `${title}\n${issuer}\n${text}`.toLowerCase();
-  const signals = [];
-  let score = 0;
-  let hardMismatch = false;
-
-  if (/website|portal|intranet|cms|content management|digital experience|user experience|responsive/.test(lower)) {
-    signals.push('web / portal solution');
-    score += 8;
-  }
-  if (/integration|api|data migration|single sign[- ]on|sso|cloud|azure|microsoft 365|salesforce/.test(lower)) {
-    signals.push('integration-heavy landscape');
-    score += 8;
-  }
-  if (/accessibility|wcag|section 508|ada/.test(lower)) {
-    signals.push('accessibility requirement');
-    score += 6;
-  }
-  if (/moderniz|replace|upgrade|migration|legacy/.test(lower)) {
-    signals.push('modernization / replacement context');
-    score += 4;
-  }
-  if (/public sector|government|agency|city|county|district|college|university|school/.test(lower)) {
-    signals.push('public-sector procurement landscape');
-    score += 3;
-  }
-  if (/\b(no[- ]code|self[- ]service|turnkey|cots|off[- ]the[- ]shelf|ready[- ]made product|existing platform)\b/i.test(lower)) {
-    hardMismatch = true;
-    signals.push('product-fit mismatch');
-    score -= 20;
-  }
-
-  const earliest = Array.isArray(deadlines) && deadlines.length ? [...deadlines].map((deadline) => deadline.date).filter(Boolean).sort()[0] : '';
-  if (earliest) {
-    signals.push(`timeline anchored to ${earliest}`);
-  }
-
-  const summary = signals.length
-    ? `Solution landscape points to ${signals.slice(0, 3).join(', ')}.`
-    : 'Solution landscape is broad; no strong directional signal from the text.';
-
-  return { summary, score, hardMismatch, signals };
-}
-
-function verifyCapabilities(text = '', title = '', reasons = []) {
-  const lower = `${title}\n${text}`.toLowerCase();
-  const signals = [];
-  let score = 0;
-  let hardMismatch = false;
-
-  if (/accessibility|wcag|section 508|ada/.test(lower)) {
-    signals.push('accessibility delivery');
-    score += 8;
-  }
-  if (/integration|api|sso|cloud|azure|\.net|react|workflow|automation|analytics|data platform/.test(lower)) {
-    signals.push('implementation and integration work');
-    score += 8;
-  }
-  if (/website|portal|intranet|cms|digital experience|responsive|content management/.test(lower)) {
-    signals.push('web delivery');
-    score += 6;
-  }
-  if (/support|maintenance|hosting|managed services/.test(lower)) {
-    signals.push('delivery and support');
-    score += 3;
-  }
-  if (/\b(no[- ]code|self[- ]service|turnkey|cots|off[- ]the[- ]shelf|ready[- ]made product|existing platform)\b/i.test(lower)) {
-    hardMismatch = true;
-    signals.push('capability mismatch with custom build model');
-    score -= 25;
-  }
-  if (/saas\b/i.test(lower) && !/custom/.test(lower)) {
-    score -= 5;
-    signals.push('SaaS-first language without custom build context');
-  }
-
-  if (!signals.length && reasons.length) {
-    signals.push(`backed by ${[...new Set(reasons)].slice(0, 3).join(', ')}`);
-    score += 2;
-  }
-
-  const summary = signals.length
-    ? `Capability verification confirms ${signals.slice(0, 3).join(', ')}.`
-    : 'Capability verification does not expose a clear mismatch.';
-
-  return { summary, score, hardMismatch, signals };
-}
-
-function formatBlocker(blocker = {}) {
-  if (!blocker || typeof blocker !== 'object') return '';
-  const category = normalizeText(blocker.category || '');
-  const detail = normalizeText(blocker.detail || '');
-  if (!category && !detail) return '';
-  if (!category) return detail;
-  if (!detail) return category;
-  return `${category}: ${detail}`;
-}
-
 function extractContractValue(text = '') {
   const lines = String(text || '')
     .replace(/\r/g, '\n')
@@ -1847,127 +1469,29 @@ function extractContractValue(text = '') {
   return 'not stated';
 }
 
-function buildSection(item) {
-  const deadlineRows = item.deadlines.length
-    ? item.deadlines.map((line) => `${escapeHtml(line.label)}: ${escapeHtml(line.date)}`).join('<br>')
-    : 'No future deadline found in the extracted material.';
-
-  const blockerRows = item.blockers.length
-    ? item.blockers.map((blocker) => escapeHtml(formatBlocker(blocker))).join('<br>')
-    : 'No major blocker detected from the extracted material.';
-
-  return `
-    <article style="border:1px solid #dbeafe;border-left:6px solid #2563eb;border-radius:18px;padding:18px 20px;margin:0 0 18px;background:#ffffff;box-shadow:0 1px 2px rgba(15,23,42,0.04);">
-      <h3 style="margin:0 0 12px;font-size:20px;line-height:1.25;color:#111827;">${escapeHtml(item.displayTitle)}</h3>
-      <div style="font-size:14px;color:#374151;">
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Documentation link:</strong> <a href="${escapeHtml(item.driveUrl)}">Open documentation</a>
-        </div>
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Portal source:</strong> <a href="${escapeHtml(item.portalUrl || item.driveUrl)}">Open HigherGov listing</a>
-        </div>
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Contract value:</strong> ${escapeHtml(item.amount)}
-        </div>
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Qualification:</strong> ${escapeHtml(item.scoreNarrative)}
-        </div>
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Key dates:</strong><br>${deadlineRows}
-        </div>
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>What the RFP is asking for:</strong> ${escapeHtml(item.summary || 'Not enough text extracted to summarize clearly.')}
-        </div>
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Why Seamgen fits:</strong> ${escapeHtml(item.whyFits || 'Fit came from general procurement signals.')}
-        </div>
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Potential blockers:</strong><br>${blockerRows}
-        </div>
-      </div>
-    </article>
-  `;
-}
-
-function buildReviewSection(item) {
-  const details = [
-    item.document_status ? `Document status: ${item.document_status}` : '',
-    item.qualification_status ? `Qualification status: ${item.qualification_status}` : '',
-    item.reason ? `Reason: ${item.reason}` : '',
-  ].filter(Boolean).join('<br>');
-  return `
-    <article style="border:1px solid #fee2e2;border-left:6px solid #dc2626;border-radius:18px;padding:18px 20px;margin:0 0 18px;background:#fff7f7;box-shadow:0 1px 2px rgba(15,23,42,0.04);">
-      <h3 style="margin:0 0 12px;font-size:20px;line-height:1.25;color:#111827;">${escapeHtml(item.displayTitle)}</h3>
-      <div style="font-size:14px;color:#374151;">
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Preliminary score:</strong> ${escapeHtml(item.preliminaryScoreDisplay)}
-        </div>
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Status:</strong> ${escapeHtml(item.qualification_status || 'provisional')}
-        </div>
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Why it paused:</strong> ${escapeHtml(item.reason || 'Manual review required.')}
-        </div>
-        <div style="padding:10px 0;border-top:1px solid #e5e7eb;">
-          <strong>Document state:</strong> ${escapeHtml(item.document_status || 'metadata-only')}
-        </div>
-      </div>
-    </article>
-  `;
-}
-
-function buildEmailHtml(runDate, qualifiedItems, manualItems, intake) {
-  const week = weekNumber(new Date(runDate));
-  const itemCount = qualifiedItems.length;
-  const manualCount = manualItems.length;
-  const intakeSummary = intake
-    ? `${summarizeCount(intake.fetched || 0, 'record')} scanned across ${summarizeCount((intake.daysFetched || []).length, 'day')}; ${summarizeCount(intake.pass || 0, 'candidate')} passed, ${summarizeCount(Math.max((intake.fetched || 0) - (intake.pass || 0), 0), 'filtered out')}.`
-    : 'HigherGov intake completed before qualification.';
-  return `
-    <html>
-      <body style="font-family:Arial,Helvetica,sans-serif;line-height:1.5;color:#111827;background:#f9fafb;padding:24px;">
-        <div style="max-width:980px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;padding:24px;">
-          <h2 style="margin:0 0 10px;font-size:24px;">New qualified RFP's for pursue decision - week ${escapeHtml(week)}</h2>
-          <p style="margin:0 0 8px;color:#374151;">${escapeHtml(intakeSummary)}</p>
-          <p style="margin:0 0 16px;color:#374151;">${escapeHtml(summarizeCount(itemCount, 'qualified RFP'))} found in the current portal intake. Only items at or above the 75 threshold, and without an existing HubSpot RFP record, are included.</p>
-          ${itemCount ? qualifiedItems.map(buildSection).join('') : '<p style="margin:0;color:#374151;">No qualified new RFPs were found in this run.</p>'}
-          <h3 style="margin:24px 0 12px;font-size:20px;color:#111827;">Manual review</h3>
-          <p style="margin:0 0 16px;color:#374151;">${escapeHtml(summarizeCount(manualCount, 'candidate'))} require follow-up or document review.</p>
-          ${manualCount ? manualItems.map(buildReviewSection).join('') : '<p style="margin:0;color:#374151;">No candidates were held for manual review.</p>'}
-          <p style="margin-top:24px;color:#6b7280;font-size:12px;">This email is generated by ISA, the AI assistant of Seamgen. ISA has been fed and trained with relevant knowledge, and the content and expressions are supervised. For personal contact, you can always call or email me.</p>
-        </div>
-      </body>
-    </html>
-  `;
-}
-
 async function scoreMetadataCandidate(candidate, runDate) {
   const metadataText = buildMetadataText(candidate);
-  const candidateText = metadataText || normalizeText(candidate?.frontmatter?.title || candidate?.slug || '');
-  const preview = scoreCandidateFromText({
-    candidate,
-    text: candidateText,
-    runDate,
-  });
+  const known = value => Boolean(normalizeText(value)) && !/^(unknown|n\/a|tbd)$/i.test(normalizeText(value));
   const enoughMetadata = normalizeText(metadataText).length >= 120
     || normalizeText(candidate?.frontmatter?.ai_summary || '').length >= 80
     || normalizeText(candidate?.frontmatter?.description_text || '').length >= 80
-    || normalizeText(candidate?.frontmatter?.due_date || '').toLowerCase() !== 'unknown'
-    || normalizeText(candidate?.frontmatter?.val_est_low || '').toLowerCase() !== 'unknown';
+    || known(candidate?.frontmatter?.due_date)
+    || known(candidate?.frontmatter?.val_est_low);
 
   if (!enoughMetadata) {
     return {
       status: 'insufficient-metadata',
       score: null,
       text: metadataText,
-      preview,
+      preview: unscoredRfp({ candidate, phase: 'preliminary', assessment: createAssessmentContext({ runDate }) }, 'Insufficient metadata.'),
       evidenceSource: 'metadata-only',
     };
   }
 
+  const preview = await scoreCandidateFromText({ candidate, phase: 'preliminary', runDate });
   return {
     status: 'preliminary-below-threshold',
-    score: Math.max(0, Math.round(preview.score)),
+    score: Number.isFinite(preview.score) ? preview.score : null,
     text: metadataText,
     preview,
     evidenceSource: 'metadata-only',
@@ -1986,7 +1510,15 @@ async function materializeCandidateDocuments({ candidate, config, resourcesDir, 
     capturedDate,
     versionKey,
     oppKey,
-  });
+  }).catch((error) => ({ __error: error }));
+  if (lookup.__error) {
+    return {
+      status: 'failed',
+      manifest: null,
+      resourcesDir,
+      reason: lookup.__error?.message || 'HigherGov opportunity lookup failed.',
+    };
+  }
   if (!lookup.record) {
     return {
       status: 'failed',
@@ -2020,7 +1552,7 @@ async function materializeCandidateDocuments({ candidate, config, resourcesDir, 
   }
   if (!Array.isArray(documentRecords) || !documentRecords.length) {
     return {
-      status: 'access-blocked',
+      status: 'document-list-empty',
       manifest: null,
       resourcesDir,
       reason: 'HigherGov returned no document records for the live document_path.',
@@ -2063,7 +1595,6 @@ async function materializeCandidateDocuments({ candidate, config, resourcesDir, 
     captured_date: capturedDate,
     highergov_page: normalizeText(liveRecord.path || frontmatter.source_url || ''),
     source_path: normalizeText(liveRecord.source_path || frontmatter.solicitation_url || ''),
-    document_path: normalizeText(documentPath || ''),
     fetched_utc: new Date().toISOString(),
     documents,
   };
@@ -2078,50 +1609,26 @@ async function materializeCandidateDocuments({ candidate, config, resourcesDir, 
 }
 
 async function extractManifestEvidence(manifest, resourcesDir) {
-  const documents = Array.isArray(manifest?.documents) ? manifest.documents : [];
-  let extractedDocs = 0;
+  const rows = Array.isArray(manifest?.documents) ? manifest.documents : [];
+  const documents = [];
   let primaryDocument = null;
-  let extractedText = '';
-  for (const row of documents) {
+  for (const row of rows) {
     if (!row?.downloaded || !row.local_path) continue;
-    const text = await extractFileText(row.local_path).catch(() => '');
-    if (normalizeText(text)) {
-      row.extracted = true;
-      row.extracted_text_chars = normalizeText(text).length;
-      row.document_status = row.document_status === 'downloaded but unsupported' ? row.document_status : 'downloaded and extracted';
-      extractedDocs += 1;
-      if (!primaryDocument && row.role === 'solicitation') {
-        primaryDocument = row;
-      }
-      extractedText += `## ${row.local_file_name || row.source_file_name}\n${text.trim()}\n\n`;
-    } else if (row.document_status !== 'failed') {
-      row.extracted = false;
-      if (row.document_status === 'downloaded') {
-        row.document_status = 'downloaded but unsupported';
-      }
-    }
+    const text = String(await extractFileText(row.local_path).catch(() => '')).trim();
+    row.extracted = Boolean(normalizeText(text));
+    row.extracted_text_chars = text.length;
+    row.document_status = row.extracted ? 'downloaded and extracted' : 'downloaded but unsupported';
+    if (!row.extracted) continue;
+    // Re-classify with the text: agencies often name the RFP after the project.
+    Object.assign(row, classifyDocumentRecord({ file_name: row.source_file_name || row.local_file_name, text }));
+    documents.push({ file: row.local_file_name || row.source_file_name, text });
+    if (!primaryDocument && row.role === 'solicitation') primaryDocument = row;
   }
-
-  const completeness = evaluateDocumentCompleteness({
-    manifest: documents,
-    extractedTextByPath: new Map(documents.filter((row) => row.extracted && row.local_path).map((row) => [row.local_path, row.extracted_text_chars])),
-  });
-  const manifestSummary = {
-    ...manifest,
-    resources_dir: resourcesDir,
-    extracted_docs: extractedDocs,
-    primary_document: primaryDocument ? {
-      local_file_name: primaryDocument.local_file_name,
-      local_path: primaryDocument.local_path,
-      role: primaryDocument.role,
-      extracted_text_chars: primaryDocument.extracted_text_chars || 0,
-    } : null,
-    completeness,
-    documents,
-  };
+  const completeness = evaluateDocumentCompleteness({ manifest: rows });
   return {
-    manifest: manifestSummary,
-    evidenceText: normalizeText(extractedText),
+    manifest: { ...manifest, resources_dir: resourcesDir, extracted_docs: documents.length, primary_document: primaryDocument, completeness, documents: rows },
+    evidenceText: documents.map((doc) => `## ${doc.file}\n${doc.text}`).join('\n\n'),
+    documents,
     completeness,
   };
 }
@@ -2141,6 +1648,10 @@ async function runIsolatedDocumentFlowTest() {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), `rfp-test-${candidate.slug}-`));
   const resourcesDir = path.join(tempDir, 'resources');
   await fs.mkdir(resourcesDir, { recursive: true });
+  if (!shouldFetchDocuments(preliminary.preview)) {
+    return { candidateSlug: candidate.slug, runDate, tempDir, preliminary,
+      documentFlow: { status: 'skipped-preliminary', reason: `No eligible validated preliminary score at or above ${DOCUMENT_FETCH_THRESHOLD}.` }, final: null };
+  }
   const documentFlow = await materializeCandidateDocuments({
     candidate,
     config,
@@ -2163,7 +1674,7 @@ async function runIsolatedDocumentFlowTest() {
   const extracted = await extractManifestEvidence(documentFlow.manifest, resourcesDir);
   const finalText = extracted.completeness.complete ? extracted.evidenceText : '';
   const final = finalText
-    ? scoreCandidateFromText({ candidate, text: finalText, runDate })
+    ? await scoreCandidateFromText({ candidate, runDate, documents: extracted.documents, completeness: extracted.completeness })
     : null;
   return {
     candidateSlug: candidate.slug,
@@ -2191,8 +1702,7 @@ async function main() {
   const candidatePaths = await loadPortalCandidates().catch(() => []);
   process.stderr.write(`[weekly-rfp] candidates on disk: ${candidatePaths.length}\n`);
 
-  const qualified = [];
-  const manualReview = [];
+  const entries = [];
   let hubspotDealIndex = null;
   const getHubspotIndex = async () => {
     if (hubspotDealIndex) return hubspotDealIndex;
@@ -2211,13 +1721,11 @@ async function main() {
     const candidatePath = candidatePaths[i];
     const candidate = await readPortalCandidate(candidatePath).catch(() => null);
     if (!candidate) continue;
-    const { slug, title: frontTitle, issuer: frontIssuer, sourceUrl, portalUrl, frontmatter, body } = candidate;
+    const { slug, title: frontTitle, issuer: frontIssuer } = candidate;
     const title = cleanName(frontTitle || slug);
     const issuer = cleanName(frontIssuer || '');
-    const metadataText = buildMetadataText(candidate);
     const preliminary = await scoreMetadataCandidate(candidate, runDate);
     const preliminaryScore = preliminary.score;
-    const summary = extractSummary(metadataText) || normalizeText(frontmatter.ai_summary || '').slice(0, 260) || normalizeText(frontmatter.description_text || '').slice(0, 260) || '';
     const rfpKey = buildRfpKey(title, issuer);
     if (rfpKey && seenRfpKeys.has(rfpKey)) {
       continue;
@@ -2232,10 +1740,8 @@ async function main() {
     const displayTitle = issuer && !normalizeSearchText(title).includes(normalizeSearchText(issuer))
       ? `${title} — ${issuer}`
       : title;
-    const deadlines = extractDeadlinesFromMetadata(candidate, metadataText, runDate);
-    const amountValue = (frontmatter.val_est_low && normalizeText(frontmatter.val_est_low).toLowerCase() !== 'unknown'
-      ? normalizeText(frontmatter.val_est_low)
-      : 'not stated');
+    // Every RFP ends up as exactly one report entry; rfp-report.mjs decides its tier.
+    const addEntry = (fields = {}) => entries.push(reportEntry({ candidate: { ...candidate, title, issuer }, preliminary, ...fields }));
 
     if (preliminary.status === 'insufficient-metadata') {
       await persistCandidateState(candidatePath, {
@@ -2247,13 +1753,7 @@ async function main() {
         document_status: 'metadata-only',
         status: 'provisional',
       });
-      manualReview.push({
-        displayTitle,
-        preliminaryScoreDisplay: 'insufficient metadata',
-        qualification_status: 'insufficient-metadata',
-        document_status: 'metadata-only',
-        reason: 'Not enough metadata to score reliably.',
-      });
+      addEntry();
       continue;
     }
 
@@ -2262,30 +1762,24 @@ async function main() {
       final_score: null,
       score: null,
       scoring_confidence: 'metadata-only',
-      qualification_status: preliminaryScore >= FULL_QUALIFY_THRESHOLD ? 'provisional' : 'preliminary-below-threshold',
+      qualification_status: preliminary.preview.qualification_status === 'failed-gate' ? 'failed-gate' : preliminaryScore === null ? 'provisional' : preliminaryScore >= DOCUMENT_FETCH_THRESHOLD ? 'provisional' : 'preliminary-below-threshold',
+      preliminary_categories: preliminary.preview.categories,
+      preliminary_judgments: preliminary.preview.judgments || null,
+      preliminary_reasons: preliminary.preview.reasons,
+      preliminary_error: preliminary.preview.scoring_error || null,
+      preliminary_recommendation: preliminary.preview.recommendation,
+      preliminary_provenance: preliminary.preview.provenance || null,
       document_status: 'metadata-only',
       status: 'provisional',
     });
 
-    if (preliminaryScore < FULL_QUALIFY_THRESHOLD) {
-      manualReview.push({
-        displayTitle,
-        preliminaryScoreDisplay: String(preliminaryScore),
-        qualification_status: 'preliminary-below-threshold',
-        document_status: 'metadata-only',
-        reason: `Preliminary score ${preliminaryScore} is below the document-fetch threshold of ${FULL_QUALIFY_THRESHOLD}.`,
-      });
+    if (!shouldFetchDocuments(preliminary.preview)) {
+      addEntry();
       continue;
     }
 
     if (!DOCUMENT_FETCH_ENABLED) {
-      manualReview.push({
-        displayTitle,
-        preliminaryScoreDisplay: String(preliminaryScore),
-        qualification_status: 'provisional',
-        document_status: 'metadata-only',
-        reason: 'Document fetching is disabled by feature flag, so this candidate stays provisional.',
-      });
+      addEntry({ documentStatus: 'fetch-disabled' });
       continue;
     }
 
@@ -2307,13 +1801,7 @@ async function main() {
         document_status: fetchResult.status,
         status: 'provisional',
       });
-      manualReview.push({
-        displayTitle,
-        preliminaryScoreDisplay: String(preliminaryScore),
-        qualification_status: 'provisional',
-        document_status: fetchResult.status,
-        reason: fetchResult.reason || 'Document fetch did not produce retrievable files.',
-      });
+      addEntry({ documentStatus: fetchResult.status });
       continue;
     }
 
@@ -2332,194 +1820,115 @@ async function main() {
         preliminary_score: preliminaryScore,
         final_score: null,
         score: null,
-        scoring_confidence: documentStatus === 'access-blocked' ? 'metadata-only' : 'partial-documents',
+        scoring_confidence: ['access-blocked', 'document-list-empty'].includes(documentStatus) ? 'metadata-only' : 'partial-documents',
         qualification_status: 'provisional',
         document_status: documentStatus,
         document_manifest_path: path.join(resourcesDir, '_document-manifest.json'),
         status: 'provisional',
       });
-      manualReview.push({
-        displayTitle,
-        preliminaryScoreDisplay: String(preliminaryScore),
-        qualification_status: 'provisional',
-        document_status: documentStatus,
-        reason: completeness.reasons.join('; ') || 'Document completeness could not be proven.',
-      });
+      addEntry({ documentStatus });
       continue;
     }
 
-    const qualificationText = extracted.evidenceText || metadataText;
-    const scoringBundle = scoreCandidateFromText({ candidate, text: qualificationText, runDate });
-    const finalScore = Math.max(0, Math.round(scoringBundle.score));
-    const gateCheck = scoringBundle.gateCheck;
-    const whyFits = buildWhyItFitsNarrative({
-      title,
-      issuer,
-      summary: extractSummary(qualificationText) || summary,
-      reasons: scoringBundle.reasons,
-      landscapeSummary: scoringBundle.landscape.summary,
-      capabilitySummary: scoringBundle.capability.summary,
-    });
-    const blockers = [...scoringBundle.blockers];
-    const amountText = extractContractValue(qualificationText)
-      || (frontmatter.val_est_low && normalizeText(frontmatter.val_est_low).toLowerCase() !== 'unknown'
-        ? normalizeText(frontmatter.val_est_low)
-        : '');
-
-    if (gateCheck.failed) {
-      await persistCandidateState(candidatePath, {
-        preliminary_score: preliminaryScore,
-        final_score: null,
-        score: null,
-        scoring_confidence: 'full-text',
-        qualification_status: 'failed-gate',
-        document_status: 'full-text',
-        document_manifest_path: path.join(resourcesDir, '_document-manifest.json'),
-        status: 'provisional',
-      });
-      manualReview.push({
-        displayTitle,
-        preliminaryScoreDisplay: String(preliminaryScore),
-        qualification_status: 'failed-gate',
-        document_status: 'full-text',
-        reason: `Strict gate failed: ${gateCheck.failed.gate} - ${gateCheck.failed.reason}`,
-      });
+    const scoringBundle = await scoreCandidateFromText({ candidate, runDate, documents: extracted.documents, completeness });
+    await persistValidatedScore(candidatePath, { preliminaryScore, result: scoringBundle,
+      manifestPath: path.join(resourcesDir, '_document-manifest.json'), runDate });
+    const qualifies = scoringBundle.qualification_status === 'qualified' && Number.isFinite(scoringBundle.total)
+      && scoringBundle.total >= FULL_QUALIFY_THRESHOLD;
+    if (!qualifies) {
+      addEntry({ final: scoringBundle, documentStatus: 'full-text' });
       continue;
     }
 
-    await persistCandidateState(candidatePath, {
-      preliminary_score: preliminaryScore,
-      final_score: finalScore,
-      score: finalScore,
-      scoring_confidence: 'full-text',
-      qualification_status: finalScore >= FULL_QUALIFY_THRESHOLD ? 'qualified' : 'rejected',
-      document_status: 'full-text',
-      document_manifest_path: path.join(resourcesDir, '_document-manifest.json'),
-      status: 'scored',
-      scored_date: runDate,
-    });
-
-    if (finalScore < FULL_QUALIFY_THRESHOLD) {
-      manualReview.push({
-        displayTitle,
-        preliminaryScoreDisplay: String(preliminaryScore),
-        qualification_status: 'rejected',
-        document_status: 'full-text',
-        reason: `Final score ${finalScore} is below the pursue threshold.`,
-      });
-      continue;
-    }
-
+    const summary = extractSummary(buildMetadataText(candidate)) || normalizeText(candidate.frontmatter.ai_summary || '').slice(0, 260)
+      || normalizeText(candidate.frontmatter.description_text || '').slice(0, 260) || '';
     const hubspotDuplicate = await hasHubSpotDuplicate(title, issuer, summary, await getHubspotIndex()).catch(() => false);
     if (hubspotDuplicate) {
       await persistCandidateState(candidatePath, {
         qualification_status: 'rejected',
       });
-      manualReview.push({
-        displayTitle,
-        preliminaryScoreDisplay: String(preliminaryScore),
-        qualification_status: 'rejected',
-        document_status: 'full-text',
-        reason: 'A HubSpot RFP record already exists for this opportunity.',
-      });
+      addEntry({ final: scoringBundle, documentStatus: 'full-text', hubspotDuplicate: true });
       continue;
     }
 
     process.stderr.write(`[weekly-rfp] qualify ${candidatePaths.length ? `${i + 1}/${candidatePaths.length}` : i + 1}: ${displayTitle}\n`);
-    const driveFolder = await withTimeout(
-      ensureRfpDriveFolder(issuer, title, slug),
-      60000,
-      `Drive folder creation for ${displayTitle}`,
-    ).catch((error) => ({
-      created: false,
-      folderId: '',
-      folderUrl: '',
-      reason: error?.message || 'Could not resolve destination folder.',
-    }));
-    if (!driveFolder.folderId) {
-      process.stderr.write(`[weekly-rfp] drive folder skipped for ${displayTitle}: ${driveFolder.reason || 'unknown reason'}\n`);
+    let documentsLink = '';
+    if (DELIVERY_PREVIEW) {
+      process.stderr.write(`[weekly-rfp] preview mode: Drive folder skipped for ${displayTitle}\n`);
     } else {
-      process.stderr.write(`[weekly-rfp] drive folder ready for ${displayTitle}\n`);
-    }
-    const mirrorStatus = driveFolder.folderId
-      ? await withTimeout(
-        mirrorLocalResourcesToDrive(driveFolder.folderId, slug),
+      const driveFolder = await withTimeout(
+        ensureRfpDriveFolder(issuer, title, slug),
         60000,
-        `Drive mirroring for ${displayTitle}`,
+        `Drive folder creation for ${displayTitle}`,
       ).catch((error) => ({
-        mirrored: 0,
-        reason: error?.message || 'Drive mirroring failed.',
-      }))
-      : { mirrored: 0, reason: 'Drive folder missing.' };
-    process.stderr.write(`[weekly-rfp] drive mirror for ${displayTitle}: ${mirrorStatus.mirrored || 0} file(s)\n`);
-
-    qualified.push({
-      id: slug,
-      title,
-      issuer,
-      displayTitle,
-      driveUrl: driveFolder.folderUrl || portalUrl || sourceUrl,
-      portalUrl: portalUrl || sourceUrl,
-      amount: amountText || amountValue,
-      deadlines,
-      summary: extractSummary(qualificationText) || summary,
-      scoreNarrative: buildQualificationNarrative(finalScore, scoringBundle.reasons),
-      whyFits,
-      blockers,
-      landscapeSummary: scoringBundle.landscape.summary,
-      capabilitySummary: scoringBundle.capability.summary,
-      mirrorStatus,
-    });
+        created: false,
+        folderId: '',
+        folderUrl: '',
+        reason: error?.message || 'Could not resolve destination folder.',
+      }));
+      if (!driveFolder.folderId) {
+        process.stderr.write(`[weekly-rfp] drive folder skipped for ${displayTitle}: ${driveFolder.reason || 'unknown reason'}\n`);
+      } else {
+        process.stderr.write(`[weekly-rfp] drive folder ready for ${displayTitle}\n`);
+        const mirrorStatus = await withTimeout(
+          mirrorLocalResourcesToDrive(driveFolder.folderId, slug),
+          60000,
+          `Drive mirroring for ${displayTitle}`,
+        ).catch((error) => ({
+          mirrored: 0,
+          reason: error?.message || 'Drive mirroring failed.',
+        }));
+        process.stderr.write(`[weekly-rfp] drive mirror for ${displayTitle}: ${mirrorStatus.mirrored || 0} file(s)\n`);
+      }
+      documentsLink = driveFolder.folderUrl || '';
+    }
+    addEntry({ final: scoringBundle, documentStatus: 'full-text', documentsLink });
   }
-  process.stderr.write(`[weekly-rfp] qualification complete: ${qualified.length} qualified, ${manualReview.length} manual review\n`);
 
-  const reportMarkdown = [
-    `# New qualified RFP's for pursue decision - week ${weekNumber(new Date(runDate))}`,
-    '',
-    `- Run date: ${runDate}`,
-    `- Qualified RFPs: ${qualified.length}`,
-    `- Manual review: ${manualReview.length}`,
-    '',
-    ...qualified.flatMap((item) => [
-      `## ${item.displayTitle}`,
-      item.issuer ? `- Requesting party: ${item.issuer}` : null,
-      `- Documentation link: [Open documentation](${item.driveUrl})`,
-      item.portalUrl ? `- Portal source: [Open HigherGov listing](${item.portalUrl})` : null,
-      `- Contract value: ${item.amount}`,
-      `- Qualification: ${item.scoreNarrative}`,
-      `- Key dates: ${item.deadlines.length ? item.deadlines.map((deadline) => `${deadline.label}: ${deadline.date}`).join(' | ') : 'no future deadline found'}`,
-      `- What the RFP is asking for: ${item.summary || 'not enough text extracted to summarize clearly.'}`,
-      `- Why Seamgen fits: ${item.whyFits}`,
-      `- Potential blockers: ${item.blockers.length ? item.blockers.map((blocker) => formatBlocker(blocker)).filter(Boolean).join('; ') : 'none detected'}`,
-      '',
-    ].filter(Boolean)),
-    '## Manual review',
-    '',
-    ...manualReview.flatMap((item) => [
-      `### ${item.displayTitle}`,
-      `- Preliminary score: ${item.preliminaryScoreDisplay}`,
-      `- Qualification status: ${item.qualification_status}`,
-      `- Document status: ${item.document_status}`,
-      `- Why it paused: ${item.reason}`,
-      '',
-    ].filter(Boolean)),
-    '---',
-    'This email is generated by ISA, the AI assistant of Seamgen. ISA has been fed and trained with relevant knowledge, and the content and expressions are supervised. For personal contact, you can always call or email me.',
-  ].join('\n');
+  const week = weekNumber(new Date(runDate));
+  const subject = `New qualified RFP's for pursue decision - week ${week}`;
+  const results = buildResults({ runDate, week, entries, intake });
+  const { strong, worth, check, screened } = results.counts;
+  process.stderr.write(`[weekly-rfp] qualification complete: ${strong} strong pursue, ${worth} worth a look, ${check} to check, ${screened} screened out\n`);
 
-  const reportHtml = buildEmailHtml(runDate, qualified, manualReview, intake);
-  process.stderr.write(`[weekly-rfp] rendering report and sending mail\n`);
+  // ISA words the Telegram message from these facts; the draft is checked against them and
+  // the code-built version is sent if it doesn't match or the writer fails.
+  const facts = telegramFacts(results);
+  const complete = globalThis[writerSymbol] || await createOpenClawJudge().catch(() => null);
+  const vibe = vibeFrom(await fs.readFile(path.join(WORKSPACE, 'IDENTITY.md'), 'utf8').catch(() => ''));
+  const message = await writeTelegramMessage(facts, complete, { vibe });
+  process.stderr.write(`[weekly-rfp] Telegram message: ${message.source}${message.reason ? ` (${message.reason})` : ''}\n`);
+
+  process.stderr.write(`[weekly-rfp] rendering report${DELIVERY_PREVIEW ? ' (preview mode: nothing is sent)' : ' and sending mail'}\n`);
+  const reportHtml = renderEmailHtml(results, { subject });
+  const reportMarkdown = renderMarkdown(results, { subject });
+  const resultsJson = `${JSON.stringify({ ...results, telegram: message }, null, 2)}\n`;
   await fs.mkdir(REPORT_DIR, { recursive: true });
-  const reportMarkdownPath = path.join(REPORT_DIR, `${runDate}.md`);
-  const reportMarkdownLatestPath = path.join(REPORT_DIR, 'latest.md');
-  const reportHtmlPath = path.join(REPORT_DIR, `${runDate}.html`);
-  const reportHtmlLatestPath = path.join(REPORT_DIR, 'latest.html');
-  await fs.writeFile(reportMarkdownPath, reportMarkdown, 'utf8');
-  await fs.writeFile(reportMarkdownLatestPath, reportMarkdown, 'utf8');
-  await fs.writeFile(reportHtmlPath, reportHtml, 'utf8');
-  await fs.writeFile(reportHtmlLatestPath, reportHtml, 'utf8');
+  const reportFiles = {
+    [`${runDate}.json`]: resultsJson, 'latest.json': resultsJson,
+    [`${runDate}.md`]: reportMarkdown, 'latest.md': reportMarkdown,
+    [`${runDate}.html`]: reportHtml, 'latest.html': reportHtml,
+  };
+  if (DELIVERY_PREVIEW) reportFiles[`${runDate}-telegram.md`] = `${message.text}\n`;
+  for (const [name, content] of Object.entries(reportFiles)) await fs.writeFile(path.join(REPORT_DIR, name), content, 'utf8');
 
-  const sendResult = await runJson('gog', [
+  const delivery = await deliverWeeklyReport({ subject, htmlPath: path.join(REPORT_DIR, `${runDate}.html`), telegramText: message.text });
+  process.stdout.write(`${JSON.stringify({
+    runDate,
+    qualifiedRfps: strong,
+    counts: results.counts,
+    reportDir: REPORT_DIR,
+    telegramSource: message.source,
+    telegramReason: message.reason || undefined,
+    ...delivery,
+  }, null, 2)}\n`);
+}
+
+// Sends the email, then the Telegram message. Preview mode sends nothing; the report
+// files are already written. `run` is a parameter so tests can prove that.
+export async function deliverWeeklyReport({ subject, htmlPath, telegramText, preview = DELIVERY_PREVIEW, noTelegram = NO_TELEGRAM, run = runJson }) {
+  if (preview) return { emailStatus: 'preview', telegramStatus: 'preview' };
+  const sendResult = await run('gog', [
     '-a',
     'isa@seamgen.com',
     'gmail',
@@ -2529,54 +1938,30 @@ async function main() {
     '--to',
     REPORT_TO,
     '--subject',
-    `New qualified RFP's for pursue decision - week ${weekNumber(new Date(runDate))}`,
+    subject,
     '--body-html-file',
-    reportHtmlPath,
+    htmlPath,
     '--no-input',
   ], { timeoutMs: 120000 });
-
-  let telegramStatus = 'skipped';
-  let telegramError = '';
-  if (!NO_TELEGRAM) {
-    const telegramMessage = buildTelegramSummary(runDate, intake, qualified.length, manualReview.length);
-    const telegramResult = await runJson('openclaw', [
-      'message',
-      'send',
-      '--channel',
-      'telegram',
-      '--target',
-      TELEGRAM_TARGET,
-      '--message',
-      telegramMessage,
-    ], { timeoutMs: 45000 }).then(() => ({ exitCode: 0 })).catch((error) => ({
-      exitCode: typeof error?.exitCode === 'number' ? error.exitCode : 1,
-      stdout: error?.stdout || '',
-      stderr: error?.stderr || error?.message || 'unknown Telegram error',
-    }));
-    telegramStatus = telegramResult.exitCode === 0 ? 'sent' : `failed (${telegramResult.exitCode})`;
-    telegramError = telegramResult.exitCode === 0 ? '' : normalizeText(telegramResult.stderr || telegramResult.stdout || 'unknown Telegram error');
-  }
-
-  process.stdout.write(
-    `${JSON.stringify(
-      {
-        runDate,
-        qualifiedRfps: qualified.length,
-        manualReviewRfps: manualReview.length,
-        reportDir: REPORT_DIR,
-        emailStatus: 'sent',
-        telegramStatus,
-        telegramTarget: NO_TELEGRAM ? '' : TELEGRAM_TARGET,
-        telegramError: telegramError || undefined,
-        gmailResponse: sendResult.slice(0, 200),
-      },
-      null,
-      2,
-    )}\n`,
-  );
+  const email = { emailStatus: 'sent', gmailResponse: String(sendResult || '').slice(0, 200) };
+  if (noTelegram) return { ...email, telegramStatus: 'skipped' };
+  const telegram = await run('openclaw', [
+    'message',
+    'send',
+    '--channel',
+    'telegram',
+    '--target',
+    TELEGRAM_TARGET,
+    '--message',
+    telegramText,
+  ], { timeoutMs: 45000 }).then(() => ({ telegramStatus: 'sent' })).catch((error) => ({
+    telegramStatus: `failed (${typeof error?.exitCode === 'number' ? error.exitCode : 1})`,
+    telegramError: normalizeText(error?.stderr || error?.stdout || error?.message || 'unknown Telegram error'),
+  }));
+  return { ...email, telegramTarget: TELEGRAM_TARGET, ...telegram };
 }
 
-main().catch((error) => {
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => {
   process.stderr.write(
     `${JSON.stringify(
       {

@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -12,7 +12,7 @@ const testSlug = 'synthetic-case-management-portal';
 async function runFixture(workspaceDir, scenario = 'complete') {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [
-      '--import', path.join(repoRoot, 'devtools', 'fixtures', 'highergov-fetch.mjs'),
+      '--import', pathToFileURL(path.join(repoRoot, 'devtools', 'fixtures', 'highergov-fetch.mjs')).href,
       path.join(repoRoot, 'workspace', 'scripts', 'weekly-rfp-pursue-decision.mjs'),
       '--test-mode', '--candidate-slug', testSlug,
     ], {
@@ -72,7 +72,7 @@ Synthetic fixture for an RFP processing test. No customer or production data is 
 
     const empty = await runFixture(testRoot, 'empty');
     tempDirs.push(empty.tempDir);
-    assert.equal(empty.documentFlow.status, 'access-blocked');
+    assert.equal(empty.documentFlow.status, 'document-list-empty');
     assert.equal(empty.final, null);
 
     const gated = await runFixture(testRoot, 'portal-gated');
@@ -80,6 +80,12 @@ Synthetic fixture for an RFP processing test. No customer or production data is 
     assert.equal(gated.documentFlow.status, 'downloaded');
     assert.equal(gated.extracted.completeness.status, 'partial-documents');
     assert.equal(gated.final, null);
+
+    const below = await runFixture(testRoot, 'below-threshold');
+    tempDirs.push(below.tempDir);
+    assert.ok(below.preliminary.score < 75);
+    assert.equal(below.documentFlow.status, 'skipped-preliminary');
+    assert.equal(below.final, null);
   } finally {
     await fs.rm(testRoot, { recursive: true, force: true });
     for (const tempDir of tempDirs) {

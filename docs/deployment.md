@@ -10,6 +10,8 @@ There is no GitHub-to-VM automatic deployment in this repository. The live Azure
 4. Only after an explicit production deployment request, use a clean committed checkout and `npm run live:deploy -- --apply`. The command stages and syntax-checks changed files, backs up originals in the VM workspace, uploads approved files, and verifies hashes.
 5. Test the affected live workflow and record the deployed commit, observed behavior, and backup path. A file upload does **not** restart OpenClaw or scheduled jobs. Plan restarts and multi-file cutovers separately.
 
+For a limited release, add `--files=path,path` to both preview and apply. Paths are exact files relative to `workspace/`, not directories. For example: `npm run live:deploy -- --files=scripts/rfp-deadline.mjs,scripts/secondary-fulltext-score.mjs,skills/rfp-scoring-skill.md`. Review the excluded differences too: this can preserve newer unrelated VM code without uploading older local copies. The full accepted VM snapshot must still be unchanged before deployment; file selection does not bypass drift checks. After upload, the expected snapshot combines the baseline with only the selected changes. Unrelated concurrent VM edits prevent baseline advancement.
+
 ## Rollback and limits
 
 The upload tool records a backup path in ignored `.isa-local/deployments.jsonl`, but restoration is not an automatic release command. Confirm the exact deployed files and backup before a controlled rollback. Do not infer a successful RFP, CRM update, or email delivery from a syntax check. The live cron payloads and scheduler database are not versioned in this repo; changes to them need their own review and verification. See [architecture](architecture.md), [security](security.md), and the [root README](../README.md).

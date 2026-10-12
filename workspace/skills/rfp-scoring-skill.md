@@ -62,7 +62,13 @@ Kill gates are pass/fail questions. **If any single gate fails, the RFP is a no-
 **Pass:** ≥ 10 days from today to due date.
 **Fail:** < 10 days.
 
-**Capture both dates:** While evaluating timeline, record the **proposal due date** (always present) and the **questions/Q&A due date** if the RFP posts one. Many RFPs have no formal Q&A window — in that case questions are Seamgen-initiated with no deadline. Both feed the output block and the downstream pursue email, so note which case applies.
+**Needs review:** The submission deadline is missing, invalid, ambiguous, or conflicting. Do not assume this gate passes, assign a final score, or recommend pursuing on that basis. An independently verified failure of another gate may still justify no-bid.
+
+**Use the submission deadline, not any date in the document.** Approval/revision dates, publication dates, contract dates, and questions deadlines are not proposal deadlines. Do not interpret a two-digit year by automatically adding `20`. Verify the official submission wording and any applicable deadline amendment; record the source file/section. Conflicts with the listing date need review unless a clear amendment resolves them.
+
+**Use the assessment date.** Recompute remaining calendar days for this assessment, not from the issue date, capture date, an old report, or a hardcoded date. If using the secondary report, repeat its deadline status, day count, and source; a null score or `Deadline needs review` is not a Strong Pursue. Preserve the stated cutoff time/timezone and label any reporting-timezone fallback.
+
+**Capture both dates:** While evaluating timeline, record the **proposal due date**, or explicitly say it is unverified, and the **questions/Q&A due date** if the RFP posts one. Many RFPs have no formal Q&A window — in that case questions are Seamgen-initiated with no deadline. Both feed the output block and the downstream pursue email, so note which case applies.
 
 ### Gate 2: Custom build (not COTS procurement)
 
@@ -407,7 +413,9 @@ A score is only as good as what it was scored from, and the output must say whic
 
 - **`full-text`** — scored after reading the actual solicitation and its attachments. This is the real score.
 
-**Getting from one to the other:** run `skills/rfp-document-fetch-skill.md`, which pulls the agency's documents into the RFP's `resources/` folder and hands them back for a full-text re-score. Current practice is to fetch documents at **75+ (Strong Pursue)**.
+  **`Needs documents` in the secondary report** means the actual solicitation could not be read, so there is no full-text score. It is neither a pursue nor a no-bid. Repeat its stated reason and its provisional preliminary score; do not re-score it from the listing summary.
+
+**Getting from one to the other:** run `skills/rfp-document-fetch-skill.md`, which pulls the agency's documents into the RFP's `resources/` folder and hands them back for a full-text re-score. ISA fetches documents automatically at a preliminary score of **50+**; the decision bands are unchanged.
 
 **Expect the score to move.** Full text regularly surfaces things a summary omits — a mandatory on-site presence, a set-aside, a disqualifying certification, a much larger or smaller scope than implied. A re-score that changes the recommendation isn't an error; it's the point.
 
@@ -430,13 +438,14 @@ Agency point of contact: [name, title, email — the designated RFP contact; "no
 Source: [which portal or how it came in]
 Date scored: [today's date]
 Scoring confidence: full-text / metadata-only  [see "Scoring confidence" below — required]
-Proposal due date: [date + time + time zone]
-Days until due: [number]
+Proposal due date: [verified date + stated time/time zone, or unknown/unverified]
+Deadline status/source: [verified / metadata-only / missing / invalid / conflicting; source file and section]
+Days until due: [calendar days at assessment date, or unknown; label any timezone fallback]
 Questions due date: [date + time + time zone, IF the RFP posts a formal Q&A deadline / "None posted — questions would be Seamgen-initiated" IF the document confirms there is no Q&A window / "unknown" IF scoring metadata-only, where the field simply isn't available]
 
 KILL GATES
 ----------
-Gate 1 (Timeline): PASS / FAIL — [one-line reason]
+Gate 1 (Timeline): PASS / FAIL / NEEDS REVIEW — [one-line reason]
 Gate 2 (Custom build): PASS / FAIL — [one-line reason]
   Gate 2a (Company-type fit): PASS / FAIL / CONDITIONAL — [is the agency hiring a services firm or buying from a product vendor? name the hard tells — existing-installs requirement, mandatory demos of existing workflows — and the named teaming partner if that's the pass route]
 Gate 3 (Not physical goods): PASS / FAIL — [one-line reason]
@@ -468,7 +477,7 @@ CEO connection wildcard: YES / NO — [if yes, describe]
 
 RECOMMENDATION
 --------------
-[Strong Pursue / Worth a look / No-bid / Conditional — Ask the Agency]
+[Strong Pursue / Worth a look / No-bid / Conditional — Ask the Agency / Deadline needs review / Needs documents]
 [If "Conditional — Ask the Agency": name the sole blocker (product/SaaS framing), the real analog that proves we could build it custom, and the Q&A deadline the question must beat.]
 
 Notes for email debrief:

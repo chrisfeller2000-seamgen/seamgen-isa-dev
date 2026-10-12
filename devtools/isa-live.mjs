@@ -104,6 +104,40 @@ function differences(before, after) {
   });
 }
 
+// Scope selects exact files, never a directory or an unchecked path. VM drift is
+// still checked against the entire accepted snapshot before any upload.
+function selectDeployment(before, local, args) {
+  const scopeArgs = args.filter(arg => arg.startsWith('--files='));
+  if (args.some(arg => arg !== '--apply' && !arg.startsWith('--files=')) || scopeArgs.length > 1) {
+    throw new Error('Deploy accepts only --apply and one --files=path,path option.');
+  }
+  const allChanges = differences(before, local);
+  if (!scopeArgs.length) return { changes: allChanges, excluded: [], scope: null };
+  const scope = scopeArgs[0].slice('--files='.length).split(',');
+  if (new Set(scope).size !== scope.length) throw new Error('Duplicate deployment file.');
+  for (const file of scope) {
+    assertSafeRelative(file);
+    if (!isIncluded(file) || (!before.has(file) && !local.has(file))) {
+      throw new Error(`Deployment scope must name an existing approved file: ${file}`);
+    }
+  }
+  const selected = new Set(scope);
+  return {
+    changes: allChanges.filter(change => selected.has(change.file)),
+    excluded: allChanges.filter(change => !selected.has(change.file)),
+    scope,
+  };
+}
+
+function expectedDeploymentSnapshot(baseline, local, changes) {
+  const expected = new Map(baseline);
+  for (const { file } of changes) {
+    if (!local.has(file)) throw new Error('Deployment cannot delete files.');
+    expected.set(file, local.get(file));
+  }
+  return expected;
+}
+
 function printDifferences(label, changes) {
   console.log(`${label}: ${changes.length ? `${changes.length} file(s)` : 'no changes'}`);
   for (const change of changes) console.log(`  ${change.kind.padEnd(8)} ${change.file}`);
@@ -237,7 +271,8 @@ async function deploy() {
     throw new Error('Review and reconcile the VM changes before deploying.');
   }
   const local = await listFiles(workspace);
-  const changes = differences(baseline, local);
+  const { changes, excluded, scope } = selectDeployment(baseline, local, [...flags]);
+  if (scope) printDifferences('Local differences excluded from this upload', excluded);
   if (changes.some(change => change.kind === 'deleted')) {
     printDifferences('Deletion requires a separate review', changes);
     throw new Error('This first deploy tool does not delete live files.');
@@ -246,7 +281,7 @@ async function deploy() {
   if (!changes.length) return;
   await checkLocalSource(changes);
   if (!flags.has('--apply')) {
-    console.log('Preview only. To upload this reviewed commit, run npm run live:deploy -- --apply.');
+    console.log(`Preview only. To upload this reviewed commit, run npm run live:deploy -- --apply${scope ? ` --files=${scope.join(',')}` : ''}.`);
     return;
   }
   const status = await run('git', ['status', '--porcelain', '--untracked-files=normal']);
@@ -304,9 +339,9 @@ async function deploy() {
     throw error;
   }
   const after = await fetchLive();
-  const postDeployDrift = differences(local, after);
+  const postDeployDrift = differences(expectedDeploymentSnapshot(baseline, local, changes), after);
   if (!postDeployDrift.length) await acceptCandidate();
-  else printDifferences('Post-upload VM differs from repo; baseline not advanced', postDeployDrift);
+  else printDifferences('Post-upload VM differs from expected snapshot; baseline not advanced', postDeployDrift);
   await fs.appendFile(path.join(stateRoot, 'deployments.jsonl'), `${JSON.stringify({ releaseId, revision, files: changes.map(x => x.file), backupRoot, time: new Date().toISOString() })}\n`);
   console.log(`Uploaded commit ${revision}. Original files are backed up at ${backupRoot}.`);
   console.log('Check the affected ISA workflow before considering the release complete. This tool does not restart services or scheduled jobs.');
@@ -325,4 +360,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   }
 }
 
-export { assertSafeRelative, differences, isIncluded };
+export { assertSafeRelative, differences, isIncluded, selectDeployment, expectedDeploymentSnapshot };

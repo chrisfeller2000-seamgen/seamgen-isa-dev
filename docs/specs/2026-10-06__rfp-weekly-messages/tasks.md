@@ -1,0 +1,37 @@
+# ISA task checklist: weekly RFP update
+
+- [x] Branch `feat/rfp-weekly-messages` from `test/rfp-rubric-alignment` at `e5511df`, which is the October 6 release. The worktree was clean.
+- [x] Evidence gathered read-only on the VM (October 6): the job log, report files, the team group's history, and OpenClaw job settings.
+- [x] Chris chose the tone, the writer approach, and four message improvements (October 6); see the spec's Decisions.
+- [x] Chris approved the message template (October 6); see the spec's section 3.
+- [x] Chris approved the spec and the build (October 6).
+- [x] `rfp-report.mjs`:
+  - [x] entries;
+  - [x] Telegram facts;
+  - [x] writer and draft checks;
+  - [x] fallback, email and Markdown renderers;
+  - [x] synthetic-fixture tests.
+- [x] Weekly script:
+  - [x] structured entries;
+  - [x] results file;
+  - [x] writer call;
+  - [x] preview mode;
+  - [x] delete the keyword-era builders and the adapter's placeholder fields.
+- [x] Policy `potential_total` and the `deadlineTimestamp` export, with tests showing decisions are unchanged.
+- [x] Cron wrapper failure notice, with a test.
+- [x] `workspace/AGENTS.md` RFP section, including replies to Friday questions.
+- [x] After the plain-words instruction (`d399fa9`), a third draft was posted as an updated preview (Telegram message 857, October 6). It is 2,212 characters before the label; the 1,500 target was not met.
+- [x] Bold titles and "HigherGov listing" links render in Telegram (Chris's screenshot of message 856, October 6). Telegram also adds a preview card for the first link; that is OpenClaw's channel-wide link-preview setting, left unchanged.
+- [x] Docs: RFP domain pages, live jobs, and the specs index.
+- [x] `npm test`, `npm run check`, diff review and secret scan.
+- [ ] Previews:
+  - [x] local facts and fallback from the six October 5 results (ignored `.isa-local/report-preview/`);
+  - [x] ISA's draft posted in the sales group, labeled as a preview (Telegram message 856, October 6). The first draft passed the checks but read stiffly: long official titles, an ISO date, an invented documents line. The writer instructions were tightened, and the second draft was posted. Two model calls, about 15–25 seconds each.
+  - [ ] Chris reviews both.
+- [ ] Release:
+  - [ ] heads-up to Sam and Hugo (Chris);
+  - [x] deploy preview, then apply (`dev-deploy-2026-10-06T21-24-10-595Z-a4d2658`);
+  - [x] disable the noon job (Chris approved; disabled October 6);
+  - [x] record the release (see the spec's Release section).
+- [ ] After Friday: check the message (ISA's draft or fallback, and why), the email, the results file, the job log, and that there was no second run.
+- [ ] Push the branch and open a pull request so Sam and Hugo can review.
