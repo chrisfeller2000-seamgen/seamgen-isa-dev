@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const READABLE_EXTENSIONS = ['.pdf', '.docx', '.xlsx', '.html', '.htm', '.txt', '.md'];
+export const READABLE_EXTENSIONS = ['.pdf', '.docx', '.xlsx', '.xlsm', '.html', '.htm', '.txt', '.md'];
 
 // A page with fewer characters than this is treated as a scan. Typed pages, even
 // near-empty ones such as "This page intentionally left blank", are above it.
@@ -156,7 +156,9 @@ export async function extractDocumentText(filePath, { run = runTool } = {}) {
   if (!READABLE_EXTENSIONS.includes(ext)) return result({ status: 'unsupported-type', reason: 'This file type cannot be read.' });
   if (ext === '.pdf') return pdfText(filePath, run);
   if (ext === '.docx') return pythonText(DOCX_SCRIPT, filePath, 'docx', run);
-  if (ext === '.xlsx') return pythonText(XLSX_SCRIPT, filePath, 'xlsx', run);
+  // .xlsm (macro-enabled) stores cells the same way as .xlsx; only cell values are read,
+  // macros never run. Agencies use it for required forms such as requirements matrices.
+  if (ext === '.xlsx' || ext === '.xlsm') return pythonText(XLSX_SCRIPT, filePath, 'xlsx', run);
   let raw;
   try {
     raw = await fs.readFile(filePath, 'utf8');

@@ -17,7 +17,7 @@ node scripts/document-text.mjs "<path to the file>"
 
 The text is printed. A final status line says how it was read, for example `extracted | ocr | 14 pages by OCR`.
 
-It reads PDF, Word (`.docx`), Excel (`.xlsx`), HTML, and plain text files. A scanned PDF is read by OCR (Optical Character Recognition), which recognises the letters in the page images.
+It reads PDF, Word (`.docx`), Excel (`.xlsx`, and macro-enabled `.xlsm`, whose macros are never run), HTML, and plain text files. A scanned PDF is read by OCR (Optical Character Recognition), which recognises the letters in the page images.
 
 ## When to use it
 

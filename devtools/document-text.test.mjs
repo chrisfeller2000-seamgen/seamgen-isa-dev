@@ -121,4 +121,7 @@ test('Word and Excel files report a missing python3 instead of an empty document
   const sheet = await extractDocumentText('pricing.xlsx', { run: ok });
   assert.equal(sheet.method, 'xlsx');
   assert.equal(sheet.text, 'Pricing sheet 1200');
+  const matrix = await extractDocumentText('Functional Specifications Matrix.xlsm', { run: ok });
+  assert.equal(matrix.status, 'extracted');
+  assert.equal(matrix.method, 'xlsx');
 });
