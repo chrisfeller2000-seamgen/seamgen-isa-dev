@@ -19,6 +19,16 @@ Run `npm test` and `npm run check`. There is no separate alignment command.
 
 A valid excerpt ID proves the cited text exists, not that the model read it correctly.
 
+## Gate 6 after the October 9 comparison
+
+On October 9, Jessica ran Jake's system on ISA's 8 "worth a look" RFPs, and it no-bid all of them. On the three read in full, ISA had found the same reference and experience requirements but left them as open questions instead of failing Gate 6.
+
+Since October 12:
+- A mandatory minimum that the case library and Jake's standing facts clearly can't meet fails Gate 6. Examples are 3+ government references, or years of a product Seamgen has never delivered. Eligibility stays unknown only when the requirement is unclear, or when passing would rest on a credential that needs a current record.
+- One required government reference is covered by Jake's standing fact (Florida DEP, `GOVERNMENT_REFERENCES` in the policy). A second still needs the RFP to accept nonprofit or federal work.
+
+Whether the model now matches Jake's calls is measured by the sample comparison in Jira ISA-3, not by these tests.
+
 ## What remains unproven
 
 These tests do not involve a real model, HigherGov, the scheduler, report delivery, or CRM/Drive writes. Real-model checks are recorded separately in the [scoring alignment spec](../../specs/2026-09-30__jake-scoring-alignment-minimal/implementation.md). Practical alignment with Jake's workflow, current company qualifications, and batch latency still need a bounded, approved model run.

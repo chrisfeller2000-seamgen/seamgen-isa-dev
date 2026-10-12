@@ -271,17 +271,18 @@ Built from the existing scoring outcomes; no scoring rule changes.
 | Tier | Includes | In the Telegram message |
 | --- | --- | --- |
 | Strong Pursue | Full-text Strong Pursue and not already in HubSpot | Picked first |
-| Worth a look | Full-text Worth a look, Needs review, Deadline needs review, or Conditional — Ask the Agency, with a rank score of 50+ | Picked by rank score |
-| Couldn't check yet | Preliminary 50+ whose documents could not be fetched or read; scoring that didn't finish; a listing with no deadline; or one that needs an agency answer first | Counted |
+| Worth a look | Full-text Worth a look, Needs review, or Conditional — Ask the Agency, with a document score of 50+ | Picked by rank score |
+| Couldn't check yet | Preliminary 50+ whose documents could not be fetched or read; scoring that didn't finish; a due date the RFP doesn't confirm (Deadline needs review); or one that needs an agency answer first | Counted |
 | Screened out | Every No-bid, preliminary below 50, Not an open bid, Watch item, too little listing detail, already in HubSpot | Counted by reason; may be the skipped RFP |
 
 **Rank score:**
 - the full-text total when there is one;
 - otherwise the potential total, which is the sum of the AI's category points when they were scored;
-- otherwise the preliminary score. This happens for Deadline needs review, which stops before category scoring.
+- otherwise the preliminary score, which only orders "Couldn't check yet" entries.
+
+A pick needs a score read from the documents. Until October 12, a Deadline needs review RFP could be picked on its listing score; on October 9 that made 7 of the 8 "worth a look" picks (Jira ISA-3).
 
 **Long shot.** A pick is flagged as a long shot when any of these is true, and ISA may only use the words "long shot" for a flagged pick:
-- its rank score is the preliminary score;
 - it has two or more open questions;
 - the low end of its budget is under $100,000.
 

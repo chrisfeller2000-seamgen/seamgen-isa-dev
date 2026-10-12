@@ -126,6 +126,9 @@ export function unscoredRfp(input, reason = 'AI scoring is unavailable.', recomm
 }
 
 const GATE_NAMES = ['gate1', 'gate2', 'gate3', 'gate4', 'gate5', 'gate6'];
+// Gate 6a standing company fact (rfp-scoring-skill.md): Seamgen has one clean
+// government reference, Florida DEP. It is not re-proven per RFP.
+const GOVERNMENT_REFERENCES = 1;
 const BID_STATUS = { open: null, closed: 'Not an open bid', watch: 'Watch item' };
 
 function sourceMap(input) {
@@ -195,7 +198,9 @@ function applySubrules(gate, judgment, sources, timeline) {
   if (eligibility.publicReferences >= 3 && (!eligibility.partner || eligibility.partner.governmentReferences < eligibility.publicReferences)) gate.gate6 = false;
   if (eligibility.publicReferences > 0 && eligibility.publicReferences < 3 && !eligibility.partner) {
     cite(eligibility.companyEvidence, sources, { kind: ['company', 'case-study'] });
-    if (!Number.isInteger(eligibility.availableGovernmentReferences) || eligibility.availableGovernmentReferences < eligibility.publicReferences) {
+    // Jake's standing fact covers one; a second needs the model to confirm the RFP accepts it.
+    const available = eligibility.availableGovernmentReferences ?? GOVERNMENT_REFERENCES;
+    if (!Number.isInteger(available) || available < eligibility.publicReferences) {
       gate.gate6 = eligibility.availableGovernmentReferences === null ? null : false;
     }
   }
@@ -413,7 +418,10 @@ export function finalizeRfpScore(input, judgment) {
   if (GATE_NAMES.some(name => gate[name] === false)) return { ...base, recommendation: 'No-bid', qualification_status: 'failed-gate' };
   const notOpen = closedOrWatch(judgment, sources);
   if (notOpen) return { ...base, recommendation: notOpen };
-  if (timeline.pass === null) return { ...base, recommendation: 'Deadline needs review' };
+  // An unconfirmed deadline never passes Gate 1 or earns timeline points, but the rest
+  // of the RFP is still scored below, so the team sees what it would score once the
+  // date is confirmed. Older answers may have omitted categories on this route.
+  if (timeline.pass === null && !judgment.categories) return { ...base, recommendation: 'Deadline needs review' };
   // An incomplete evidence package cannot support weighted scoring. Check this
   // route before demanding categories the model rightly left unscored. A caller
   // can only make completeness stricter than the supplied documents show.
@@ -433,6 +441,7 @@ export function finalizeRfpScore(input, judgment) {
   // conditional result has no total; the weekly update shows this as the score if the
   // team confirms the open question. It never changes a decision.
   const scored = { ...base, cp, categories: scoredCategories, potential_total: categoryTotal(scoredCategories), flags: reviewFlags(judgment.flags, sources) };
+  if (timeline.pass === null) return { ...scored, recommendation: 'Deadline needs review' };
   if (judgment.conditional) {
     const runDate = input.assessment?.runDate || timeline.assessmentDate;
     return conditionalOutcome(scored, judgment.conditional, { sources, runDate, phase, deal: judgment.value, value });

@@ -77,6 +77,10 @@ test('the weekly adapter returns the shared scorer result from one bounded judge
     assert.match(systemPrompt, /not an expanded or combined alias/);
     assert.match(systemPrompt, /still return the eight provisional category judgments/);
     assert.match(systemPrompt, /At preliminary depth only the listing is supplied/);
+    // Jake's Gate 6: a minimum Seamgen clearly can't meet fails; it isn't left as an open question.
+    assert.match(prompt, /is a known failure: set meetsMandatoryQualifications false/);
+    assert.doesNotMatch(prompt, /If required company proof is unavailable, leave eligibility unknown/);
+    assert.match(systemPrompt, /An unconfirmed deadline still gets all eight categories/);
     const suppliedPacket = JSON.parse(prompt);
     // Enumerated fields stay plain lists; a description inside one gets copied as the value.
     assert.equal(suppliedPacket.outputContract.value.kind, 'stated|inferred|uncertain');
@@ -245,6 +249,30 @@ test('reference counts distinguish generic work, strict two references, and veri
     j.subrules.eligibility.companyEvidence = companyCitation;
   }).gate.gate6, false);
   assert.throws(() => finalize(packet('verified-reference-partner'), j => { j.subrules.eligibility.partner.name = 'Invented Partner'; }), /not named/);
+});
+
+test("one government reference is covered by Jake's standing fact; a second still needs the RFP's wording", () => {
+  const gate6 = (required, available) => finalize(packet(), j => {
+    j.subrules.eligibility.publicReferences = required;
+    j.subrules.eligibility.availableGovernmentReferences = available;
+    j.subrules.eligibility.companyEvidence = companyCitation;
+  }).gate.gate6;
+  assert.equal(gate6(1, null), true);
+  assert.equal(gate6(2, null), null);
+  assert.equal(gate6(2, 2), true);
+  assert.equal(gate6(2, 1), false);
+});
+
+test('an unconfirmed deadline never passes, but the rest of the RFP is still scored', () => {
+  const input = packet();
+  input.documents[0].text = input.documents[0].text.replace(/Proposal deadline: [^\n]*\n/, '');
+  const result = finalize(input);
+  assert.deepEqual([result.recommendation, result.gate.gate1, result.total, result.categories.timeline],
+    ['Deadline needs review', null, null, 0]);
+  assert.equal(result.potential_total, Object.values(result.categories).reduce((a, b) => a + b, 0));
+  // An answer that left the categories out still gets the same outcome.
+  const older = finalize(input, j => { delete j.categories; });
+  assert.deepEqual([older.recommendation, older.categories, older.potential_total], ['Deadline needs review', null, undefined]);
 });
 
 test('credentials need a named holder, dated proof, and an actual credential record', () => {

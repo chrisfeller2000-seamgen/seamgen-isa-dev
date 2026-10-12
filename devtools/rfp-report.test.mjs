@@ -47,8 +47,8 @@ function weekEntries() {
       final: result({ recommendation: 'Needs review', potential: 75,
         gates: { gate6: { pass: null, reason: 'Eligibility needs verification: the solicitation requires utility-management experience at comparable scale.' } } }) }),
     reportEntry({ candidate: candidate('giving', { title: 'Online giving platform', issuer: 'State Public TV' }), preliminary: preliminary(62),
-      final: result({ recommendation: 'Deadline needs review', potential: null, timeline: listingOnly, value: listingValue(75000, 250000), caseStudy: null,
-        gates: { gate1: { pass: null }, gate4: { pass: null, reason: 'Submission requires a portal account.' },
+      final: result({ recommendation: 'Needs review', potential: 62, value: listingValue(75000, 250000), caseStudy: null,
+        gates: { gate4: { pass: null, reason: 'Submission requires a portal account.' },
           gate6: { pass: null, reason: 'The RFP requires a completed SOC 2 Type 2 audit and three recent related projects.' } } }) }),
     reportEntry({ candidate: candidate('erp', { title: 'ERP system', issuer: 'City of Sample' }), preliminary: preliminary(60),
       final: result({ recommendation: 'No-bid', value: listingValue(2500000, 9000000),
@@ -70,7 +70,17 @@ test('each RFP lands in one tier, from the scorer outcome and the document state
   assert.equal(byslug.strong.tier, 'strong');
   assert.deepEqual([byslug.utility.tier, byslug.utility.rankFrom, byslug.utility.scoreIfYes], ['worth', 'potential', 75]);
   assert.deepEqual(byslug.utility.questions, ['The solicitation requires utility-management experience at comparable scale.']);
-  assert.deepEqual([byslug.giving.tier, byslug.giving.rankFrom, byslug.giving.longShot], ['worth', 'preliminary', true]);
+  assert.deepEqual([byslug.giving.tier, byslug.giving.rankFrom, byslug.giving.longShot], ['worth', 'potential', true]);
+  // October 9: RFPs with an unconfirmed deadline were picked on their listing score.
+  // They wait for the date, whatever they score; the document score is shown when there is one.
+  const nodate = reportEntry({ candidate: candidate('nodate'), preliminary: preliminary(68),
+    final: result({ recommendation: 'Deadline needs review', potential: 66, timeline: listingOnly, gates: { gate1: { pass: null } } }) });
+  assert.deepEqual([nodate.tier, nodate.reason, nodate.rankFrom, nodate.rankScore], ['check', 'noDeadline', 'potential', 66]);
+  const older = reportEntry({ candidate: candidate('older'), preliminary: preliminary(68),
+    final: result({ recommendation: 'Deadline needs review', potential: null, timeline: listingOnly, gates: { gate1: { pass: null } } }) });
+  assert.deepEqual([older.tier, older.reason, older.rankFrom], ['check', 'noDeadline', 'preliminary']);
+  const noScore = reportEntry({ candidate: candidate('noscore'), preliminary: preliminary(70), final: result({ recommendation: 'Needs review', potential: null }) });
+  assert.deepEqual([noScore.tier, noScore.reason], ['check', 'unscored']);
   assert.deepEqual([byslug.erp.tier, byslug.erp.reason, byslug.erp.reasonDetail], ['screened', 'gate2', 'The city is buying the rights to an existing ERP product.']);
   assert.deepEqual([byslug.weak.tier, byslug.weak.reason], ['screened', 'weak']);
   assert.deepEqual([byslug.nodocs.tier, byslug.nodocs.reason], ['check', 'documents']);
@@ -88,9 +98,13 @@ test('each RFP lands in one tier, from the scorer outcome and the document state
 });
 
 test('deadlines are shown in Pacific time with days left, and listing-only dates say so', () => {
-  const [strong, , giving] = weekEntries();
+  const [strong] = weekEntries();
   assert.equal(strong.deadline.text, 'Nov 2 at 2pm PT (27 days)');
-  assert.deepEqual([giving.deadline.confirmed, giving.deadline.text], [false, 'the listing says Oct 28']);
+  const nodate = reportEntry({ candidate: candidate('nodate'), preliminary: preliminary(68),
+    final: result({ recommendation: 'Deadline needs review', potential: 66, timeline: listingOnly, gates: { gate1: { pass: null } } }) });
+  assert.deepEqual([nodate.deadline.confirmed, nodate.deadline.text], [false, 'the listing says Oct 28']);
+  const html = renderEmailHtml(buildResults({ runDate: '2026-10-06', week: '41', entries: [nodate] }), { subject });
+  assert.match(html, /the due date couldn&#39;t be confirmed from the RFP\. Due: Not confirmed \(the listing says Oct 28\)\. Score from the documents: 66\./);
   assert.equal(strong.budget.text, "about $250k–900k (HigherGov's guess)");
   assert.equal(reportEntry({ candidate: candidate('x'), preliminary: preliminary(70),
     final: result({ recommendation: 'Strong Pursue', total: 80, value: { status: 'stated', estimate: 400000 } }) }).budget.text, '$400k (from the RFP)');
@@ -125,7 +139,7 @@ test('the fallback message follows the approved template and passes the draft ch
   assert.match(text, /It scores 82, a strong pursue\.\nDue Nov 2 at 2pm PT \(27 days\)\. Budget about \$250k–900k \(HigherGov's guess\)\.\n\[HigherGov listing\]\(https:\/\/www\.highergov\.com\/sl\/contract-opportunity\/strong\)/);
   assert.match(text, /Question for the team: can we meet this\? The solicitation requires utility-management experience at comparable scale\. If yes, it scores 75, a strong pursue\./);
   assert.match(text, /3\. Long shot: \*\*Online giving platform, State Public TV\*\*/);
-  assert.match(text, /I couldn't confirm the deadline \(the listing says Oct 28\)\./);
+  assert.match(text, /Questions for the team: can we meet these\? The RFP requires a completed SOC 2 Type 2 audit and three recent related projects\. Submission requires a portal account\. If yes, it scores 62\./);
   assert.match(text, /Biggest one I skipped: ERP system, City of Sample, about \$2\.5M–9M \(HigherGov's guess\)\. The city is buying the rights to an existing ERP product\. It's only worth it with a partner\./);
   assert.match(text, /1 looked promising, but I couldn't get its documents to check the requirements\. It's in Marianne's email\./);
   assert.match(text, /The other 5 weren't a fit: 2 are hardware or equipment, 1 is buying an existing product, 1 is a weak fit, and 1 for other reasons\. Full list is in Marianne's email\.$/);
@@ -155,7 +169,7 @@ test('the draft checks reject changed facts, wrong links, and anything the team 
     'bullets': good.replace('Why us:', '- Why us:'),
     'emoji': `${good} 📈`,
     'too long': `${good}\n${'Extra words. '.repeat(250)}`,
-    'raw date': good.replace('the listing says Oct 28', 'the listing date is 2026-10-28'),
+    'raw date': good.replace('Due Nov 2 at 2pm PT', 'Due 2026-11-02'),
     'unflagged long shot': good.replace('**Permit portal strong', 'Long shot: **Permit portal strong').replace('3. Long shot: ', '3. '),
   };
   for (const [name, draft] of Object.entries(rejected)) {
