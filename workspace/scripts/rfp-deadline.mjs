@@ -176,8 +176,13 @@ function documentCandidates(document) {
     // Abbreviation and section-number dots ("Wed.", "ref. Section 2.1") don't end a sentence.
     const prefixWithoutWeekday = prefix.replace(/\b([ap])\.?\s*m\.?/gi, '$1m').replace(/\b(?:mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|ref|sec)\./gi, '')
       .replace(/(\d)\.(?=\d)/g, '$1');
-    // Blank lines between a table label and its date don't count as a break.
-    const beforeNear = before && prefix.length <= 160 && (prefix.replace(/\n[ \t]*(?=\n)/g, '').match(/\n/g) || []).length <= 1 && !/[.!?;]/.test(prefixWithoutWeekday) && !/not (?:set|posted|available)|unknown|unavailable|to be determined|\btbd\b/i.test(prefix);
+    // A label covers the first date after it, across up to two line breaks (blank lines
+    // don't count); a later date in a schedule table belongs to its own row, except the
+    // new date in "extended from <date> to <date>".
+    const afterEarlierDate = prefixWithoutWeekday.split(new RegExp(DATE_TOKEN, 'gi'));
+    const laterRow = afterEarlierDate.length > 1 && !/^[^.\n]{0,25}\bto\s*$/i.test(afterEarlierDate.at(-1));
+    const beforeNear = before && prefix.length <= 160 && (prefix.replace(/\n[ \t]*(?=\n)/g, '').match(/\n/g) || []).length <= 2
+      && !laterRow && !/[.!?;]/.test(prefixWithoutWeekday) && !/not (?:set|posted|available)|unknown|unavailable|to be determined|\btbd\b/i.test(prefix);
     const betweenDateAndLabel = after ? text.slice(token.index + token[0].length, after.index) : '';
     const afterNear = after && after.index - token.index < 100 && !/[\n.!?;]/.test(betweenDateAndLabel);
     // Date-before-label timetable rows may follow an unrelated row on the prior line.

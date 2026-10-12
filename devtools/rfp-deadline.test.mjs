@@ -105,6 +105,8 @@ test('common real-world deadline wordings are read as the proposal deadline', ()
     'Sealed proposals must be received on or before October 26, 2026, 11:00',
     'Qualifications will be accepted at the Procurement Office or electronically no later than 2:00 P.M., Monday, October 26, 2026.',
     'Submittal Deadline 3:00 PM Central Prevailing Time, Monday -\n(ref. Section 2.1) October 26, 2026',
+    'Submittal Deadline:\n\n3:00 PM – Central Prevailing Time –\nMonday – October 26, 2026',
+    'Deadline to Submit Proposals: 10/26/2026, 2:00PM PST\nEstimated Short-Listing Notification for Interviews : 11/16/2026',
   ]) {
     const result = assess(text);
     assert.deepEqual([result.status, result.due], ['verified', '2026-10-26'], text);
