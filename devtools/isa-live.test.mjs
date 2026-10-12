@@ -1,3 +1,4 @@
+import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { assertSafeRelative, differences, isIncluded } from './isa-live.mjs';
@@ -14,6 +15,16 @@ test('unsafe and secret-like paths are rejected', () => {
     assert.throws(() => assertSafeRelative(value));
   }
   assert.equal(assertSafeRelative('tools/HigherGov.Common.ps1'), 'tools/HigherGov.Common.ps1');
+});
+
+// Deploy uploads every approved file under workspace/, and scripts/, skills/ and tools/
+// are approved as whole folders, so a note saved there would reach the VM. Markdown
+// under workspace/ must be what ISA reads; this repo's docs belong outside it.
+test('workspace Markdown is only what ISA reads', async () => {
+  const files = await fs.readdir(new URL('../workspace/', import.meta.url), { recursive: true });
+  const readByIsa = file => file.startsWith('skills/') || file === 'tools/README.md' || (!file.includes('/') && isIncluded(file));
+  const strays = files.map(file => file.replaceAll('\\', '/')).filter(file => file.endsWith('.md') && !readByIsa(file));
+  assert.deepEqual(strays, []);
 });
 
 test('added, modified, and deleted files are reported', () => {
