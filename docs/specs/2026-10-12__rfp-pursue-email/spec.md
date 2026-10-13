@@ -25,13 +25,16 @@ One small addition to the scorer supplies the part Jake's format needs and ISA d
 - The Telegram message is a short summary of the email ISA sent.
 - Drop the weekly summary email. No no-bid emails.
 - Build now. Switch it on only after the ISA-3 scoring is live and checked against Jake's July Strong Pursues.
+- Strong Pursue only, like Jake. Sign it "ISA".
+- Send it to Peter, Marianne (mariannefaro@seamgen.com) and Sales (sales@seamgen.com).
+- No meeting brief. It was Jake's own working document, and nobody needs it now.
 
 ## Desired behavior
 
 ### Which RFPs go in the email
 
 - **Included:** the RFPs that already get a Drive folder today. They're scored from the documents at 75+ (Strong Pursue) and aren't already a HubSpot deal. Best score first.
-- **Not included:** Worth a look (50–74). Jake only emailed one after talking it over with Peter (open question).
+- **Not included:** Worth a look (50–74). Jake only emailed one after talking it over with Peter.
 
 ### The email
 
@@ -49,10 +52,10 @@ One small addition to the scorer supplies the part Jake's format needs and ISA d
      - "Why it fits us:" 1–2 sentences that name a real past project
      - "Blockers:" up to 3 one-liners, worst first, or "None identified."
   3. A "Note for Peter/Marianne:" line, only when an RFP has a sensitive-industry flag.
-  4. Sign-off: "Cheers," then "ISA" (open question).
+  4. Sign-off: "Cheers," then "ISA".
 - **Link:** the Drive folder. If there isn't one, the agency's own posting, then HigherGov. Never invented.
 - **Current solution:** taken from the scorer. When the documents don't name one, write Jake's line: "RFP is silent on any incumbent — to be confirmed in Q&A."
-- **Left out, as Jake did:** deadlines and questions for the agency. Those belonged in his meeting brief.
+- **Left out, as Jake did:** deadlines and questions for the agency. They went in his meeting brief, which we're not keeping.
 - **Look:** plain, like a person's email. Simple HTML for paragraphs, the list and links only; no colors, tables, or footer.
 
 ### Who writes what
@@ -123,7 +126,7 @@ One small addition to the scorer supplies the part Jake's format needs and ISA d
 ## Out of scope
 
 - Creating HubSpot deals for pursued RFPs. The mail sync's deal path stays off for these emails; that's a follow-up.
-- Jake's meeting brief, and no-bid emails.
+- No-bid emails and Jake's meeting brief (Chris, October 12).
 - The database (ISA-5), splitting the weekly script, and the Monday jobs.
 - Schedule or OpenClaw configuration changes.
 
@@ -132,15 +135,12 @@ One small addition to the scorer supplies the part Jake's format needs and ISA d
 - **Nobody reviews the email before it reaches Peter.** Its accuracy rests on the ISA-3 scoring and the checks; the Telegram summary gives the team a same-day look.
 - **The new scorer field could move scores slightly.** The July Strong Pursue re-check covers it.
 - **ISA's sentences may fail the checks often.** The code version goes out, the reason is recorded, and we tune the prompt.
-- **Recipients:** Peter's address is needed, and Sales needs confirming. The subject keeps the mail sync's deal path off. Ask Sam and Hugo what the newer "Mailsync" OpenClaw jobs do with ISA's mail.
+- **Recipients:** the email now goes to sales@, which the mail sync reads. The subject keeps the mail sync's deal path off. Ask Sam and Hugo what the newer "Mailsync" OpenClaw jobs do with ISA's mail.
 - **Rollback:** restore the previous files from the deploy backup, and the old email and message return.
 
 ## Open questions
 
-- Peter's email address, and whether Sales means sales@seamgen.com.
-- Include Worth a look RFPs? (Default: no.)
-- Sign the email as "ISA"?
-- Add Jake's meeting brief later as a follow-up?
+- Peter's email address, for `RFP_EMAIL_TO`.
 
 ## References
 

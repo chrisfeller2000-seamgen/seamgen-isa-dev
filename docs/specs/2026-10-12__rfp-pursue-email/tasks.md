@@ -2,7 +2,8 @@
 
 - [x] Branch `feat/rfp-pursue-email` from `main` at `9289874`, which includes the ISA-3 scoring fixes. The worktree was clean.
 - [x] Chris's decisions recorded (October 12): Jake's format, sent automatically, Telegram summary, no weekly summary email, no no-bid emails.
-- [ ] Chris approves this spec and answers the open questions (Peter's address, Sales, Worth a look, sign-off).
+- [x] Open questions answered (October 12): Strong Pursue only, signed "ISA", sales@seamgen.com, no meeting brief.
+- [ ] Peter's email address for `RFP_EMAIL_TO`.
 - [ ] Scorer: `buyer` field and citation check, with a policy test showing points and decisions are unchanged.
 - [ ] `rfp-report.mjs`:
   - [ ] entry fields (`buyer`, `blockers`, `sensitive`);
