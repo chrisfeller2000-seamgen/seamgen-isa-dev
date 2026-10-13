@@ -129,6 +129,18 @@ const GATE_PLAIN = {
   gate6: 'We may not meet one of its eligibility requirements.',
 };
 
+// The sentence of a gate reason that says what's still missing. Reasons often open with
+// what checks out ("Relevant AI delivery is supported, …") and only then say what isn't.
+const OPEN_ISSUE = /\b(?:unverified|not (?:yet )?(?:verified|established|confirmed|met)|missing|unclear|unknown|lacks?|no named|shortfall)\b/i;
+const NEEDS = /\b(?:needs?|needed|requires?|required|only)\b/i;
+
+function openIssue(reason, max = 160) {
+  const text = clean(reason).replace(RUBRIC_PREFIX, '');
+  const sentences = text.match(/[^.!?]+[.!?]+(?=\s|$)|[^.!?]+$/g) || [text];
+  const pick = sentences.find(sentence => OPEN_ISSUE.test(sentence)) || sentences.find(sentence => NEEDS.test(sentence)) || sentences[0];
+  return plainReason(pick, max);
+}
+
 function plainReason(reason, max = 260) {
   return firstSentence(clean(reason).replace(RUBRIC_PREFIX, '').replace(GATE_MENTION, ' ').trim()
     .replace(/^\w/, letter => letter.toUpperCase()), max);
@@ -186,8 +198,14 @@ function buyerOf(final) {
 // haven't worked in. Each keeps the RFP text behind it for ISA's wording.
 function blockersOf(final) {
   const judgment = final?.judgments || {};
-  const lines = openGates(final).map(key => ({ text: firstSentence(gateReason(final, key), 160), quote: quoteOf(judgment.gates?.[key]?.evidence) }));
-  const submission = judgment.subrules?.submission;
+  const open = openGates(final);
+  const lines = open.map(key => {
+    const reason = final.gateReasons?.find(item => item.gate === `Gate ${key.slice(4)}`)?.reason;
+    const text = !reason ? gateReason(final, key) : STOCK_GATE_REASON.test(reason) ? GATE_PLAIN[key] || '' : openIssue(reason);
+    return { text: firstSentence(text, 160), quote: quoteOf(judgment.gates?.[key]?.evidence) };
+  });
+  // An open Gate 4 is already the submission blocker.
+  const submission = open.includes('gate4') ? null : judgment.subrules?.submission;
   if (submission?.status === 'unknown') lines.push({ text: "How to submit isn't confirmed yet.", quote: quoteOf(submission.evidence) });
   else if (submission?.basis === 'feasible-registration') lines.push({ text: "Submitting needs a registration on the agency's portal.", quote: quoteOf(submission.evidence) });
   if (['Leaning wired', 'Wired'].includes(judgment.competitive?.verdict)) {
@@ -324,7 +342,8 @@ export function pursueFacts(results) {
       title: entry.title,
       rfpNumber: entry.number || '',
       agency: entry.agency,
-      score: entry.score,
+      // A Strong Pursue always has a total; the preview's --include-worth picks use their potential.
+      score: entry.score ?? entry.rankScore,
       link: pickLink(entry),
       currentSolution: entry.buyer?.currentSolution ?? null,
       silent: Boolean(entry.buyer?.silent && !entry.buyer?.currentSolution),
@@ -350,6 +369,7 @@ const FORBIDDEN = [
   [/\b(?:metadata-only|full-text|failed-gate|preliminary-below-threshold|access-blocked|partial-documents|insufficient-metadata)\b/i, 'an internal code'],
   [/\p{Extended_Pictographic}/u, 'an emoji'],
   [/\b\d{4}-\d{2}-\d{2}\b/, 'a raw date'],
+  [/\b(?:null|undefined|NaN)\b/, 'a missing value'],
 ];
 
 // Numbers the facts contain, including ones spelled out there.
@@ -606,6 +626,7 @@ export function checkTelegramDraft(draft, facts) {
   if (missing !== undefined) return fail(`The draft left out a number from the facts (${missing}).`);
   if (!/\bsent\b/i.test(text)) return fail("The draft didn't say the email was sent.");
   if (/\bno link\b|\bnot provided\b/i.test(text)) return fail('The draft talked about missing information.');
+  if (facts.picks.every(pick => pick.blocker) && /\bnone stood out\b|\bno blockers\b/i.test(text)) return fail('The draft dropped a blocker.');
   return { ok: true, reason: null };
 }
 

@@ -148,6 +148,16 @@ test('blockers come worst first, in plain words, at most three', () => {
   const open = reportEntry({ candidate: candidate('open'), preliminary: preliminary(70), final: result({ recommendation: 'Strong Pursue', total: 80,
     gates: { gate6: { pass: null, reason: 'Gate 6 is unresolved or not met under its documented subrule; see the recorded evidence.' } } }) });
   assert.deepEqual(open.blockers.map(blocker => blocker.text), ['We may not meet one of its eligibility requirements.']);
+  // October 12 VM preview: reasons open with what checks out, and Gate 4 and the submission
+  // check both described the same portal. The blocker is the sentence saying what's missing.
+  const mixed = reportEntry({ candidate: candidate('mixed'), preliminary: preliminary(70), final: result({ recommendation: 'Strong Pursue', total: 80,
+    judgment: { subrules: { submission: { status: 'unknown' } } },
+    gates: {
+      gate6: { pass: null, reason: 'Relevant AI delivery is supported, and the reference form asks for generic references. Current insurance and financial-capacity evidence is also needed before confirming eligibility.' },
+      gate4: { pass: null, reason: 'Public Purchase submission is required. Our account access and registration timing are not established by the supplied evidence.' },
+    } }) });
+  assert.deepEqual(mixed.blockers.map(blocker => blocker.text), ['Current insurance and financial-capacity evidence is also needed before confirming eligibility.',
+    'Our account access and registration timing are not established by the supplied evidence.']);
   // Worth a look RFPs get blockers too, for the Markdown record; screened-out ones don't.
   assert.deepEqual(weekEntries()[1].blockers.map(blocker => blocker.text), ['The solicitation requires utility-management experience at comparable scale.']);
   assert.deepEqual(weekEntries()[3].blockers, []);
@@ -267,8 +277,12 @@ test("the Telegram draft checks reject changed facts, wrong links, and anything 
     'too long': `${good}\n${'Extra words. '.repeat(80)}`,
     'not saying it was sent': good.replace("Sent this week's", "Here's this week's"),
     'talking about a missing link': `${good} No link provided.`,
+    'a missing value': good.replace('(82)', '(null)'),
   };
   for (const [name, draft] of Object.entries(rejected)) assert.equal(checkTelegramDraft(draft, facts).ok, false, name);
+  // October 12 VM preview: ISA said no blockers stood out for a pick that had one.
+  const withBlocker = { ...facts, picks: facts.picks.map(pick => ({ ...pick, blocker: 'Submission is only through BidNet.' })) };
+  assert.equal(checkTelegramDraft(good, withBlocker).reason, 'The draft dropped a blocker.');
 
   const casual = good.replace("Sent this week's pursue email: 1 RFP.", "Just sent this week's pursue email to the team, 1 RFP in it.");
   assert.deepEqual(await writeTelegramMessage(facts, async () => ({ text: casual })), { text: casual, source: 'isa', reason: null });
