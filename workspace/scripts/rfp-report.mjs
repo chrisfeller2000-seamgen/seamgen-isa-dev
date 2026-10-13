@@ -314,7 +314,11 @@ function pickLink(entry) {
 export function pursueFacts(results) {
   const picks = results.entries.filter(entry => entry.tier === 'strong');
   return {
-    total: results.total,
+    // How many RFPs this email covers, and how many ISA looked at in total. The October 12
+    // preview mixed these up ("9 RFPs are worth pursuing" for one pick), so the opening
+    // line is checked against `count`.
+    count: picks.length,
+    lookedAt: results.total,
     picks: picks.map((entry, index) => ({
       number: index + 1,
       title: entry.title,
@@ -363,6 +367,9 @@ export function checkPursueSentences(sentences, facts) {
   if (sentences.rfps.length !== facts.picks.length) return fail('The sentences did not cover each RFP exactly once.');
   const intro = clean(sentences.intro);
   if (!intro || sentenceCount(intro) > 1 || intro.length > 200) return fail('The opening line was missing or too long.');
+  const introNumbers = numbersIn(intro);
+  for (const [word, value] of Object.entries(NUMBER_WORDS)) if (new RegExp(`\\b${word}\\b`, 'i').test(intro)) introNumbers.add(value);
+  if (!introNumbers.has(facts.count) || introNumbers.size > 1) return fail("The opening line didn't give the number of RFPs in the email.");
   const allowed = allowedNumbers(facts);
   facts.picks.forEach(pick => allowed.add(pick.number));
   const written = [intro];
@@ -495,12 +502,12 @@ function pursueWriterPrompt(vibe) {
     `Your voice: ${vibe}. Write the way a sharp colleague writes to leadership: plain words, short sentences, confident and specific. Say "we" and "us" for Seamgen. No hype, no filler, no emoji.`,
     'Use only the facts you are given. Never add claims about Seamgen or the buyer, and copy every number exactly.',
     'Reply with one JSON object only: {"intro": string, "rfps": [{"number": number, "name": string, "hook": string, "situation": string, "fit": string, "blockers": [string]}]}, one entry per pick, in the given order and numbering.',
-    "intro: one line saying how many RFPs are worth pursuing from this week's HigherGov search, scored on the full RFP documents.",
-    'name: the plain short name people would use, under 60 characters (for example "Yonkers senior services app"). hook: a short phrase on why it stands out, under 80 characters (for example "strongest fit of the three").',
+    "intro: one line saying how many RFPs this email covers (count, not lookedAt) are worth pursuing, from this week's HigherGov search, scored on the full RFP documents. Use no other number in it.",
+    'name: the plain short name people would use, with the place (for example "Yonkers senior services app"), under 60 characters. hook: a few words on why it stands out for us, under 80 characters (for example "strongest fit of the three", "custom AI, scored on past AI work").',
     `situation: at most 2 sentences. First what they use today (currentSolution), then what they want built and why (objective). When currentSolution is null and silent is true, the first sentence must be exactly: "${SILENT_LINE}" When silent is false, never call the RFP silent.`,
     'fit: 1 or 2 sentences from fit, naming the past project it mentions, in everyday words; when advantage is given, add it as a short clause or second sentence (for example "Cost is only 5 of 100 evaluation points."). An empty string when both are null.',
     'blockers: each given blocker as one plain line, in the same order and the same number of lines; [] when there are none. Use its quote to be specific, naming the actual portal, certification or requirement (for example "Submission only through BidNet, where we aren\'t registered."), but never add anything the quote and text do not say.',
-    'No links, Markdown, raw dates such as 2026-10-16, or rubric words such as "gate".',
+    'No links, Markdown, raw dates such as 2026-10-16, or rubric words such as "gate". Never mention a missing link or missing information.',
   ].join('\n');
 }
 
@@ -598,6 +605,7 @@ export function checkTelegramDraft(draft, facts) {
   const missing = [facts.total, ...facts.picks.map(pick => pick.score)].find(value => value !== null && !used.has(value));
   if (missing !== undefined) return fail(`The draft left out a number from the facts (${missing}).`);
   if (!/\bsent\b/i.test(text)) return fail("The draft didn't say the email was sent.");
+  if (/\bno link\b|\bnot provided\b/i.test(text)) return fail('The draft talked about missing information.');
   return { ok: true, reason: null };
 }
 
@@ -611,7 +619,7 @@ function telegramWriterPrompt(vibe) {
   return [
     "You are ISA, Seamgen's AI sales assistant, posting in the sales team's Telegram group right after you sent this week's pursue email.",
     `Your voice: ${vibe}. Write like a teammate in a chat: simple words, short sentences, natural and casual. Say "I" for yourself and "we" or "us" for Seamgen. No hype, no emoji.`,
-    "Say you sent this week's pursue email and how many RFPs it covers. Then one line per pick, in the given order: the name in bold, the score, its biggest blocker in plain words (or that none stood out), and its link written as [label](url). End with how many RFPs you looked at this week.",
+    "Say you sent this week's pursue email and how many RFPs it covers. Then one line per pick, in the given order: the name in bold, the score, its biggest blocker in plain words (or that none stood out), and its link written as [label](url); when a pick has no link, leave it out and don't mention it. End with how many RFPs you looked at this week.",
     'Use only these facts. Copy every number and link exactly, and add no other links or numbers. Never use rubric words such as "gate", internal codes, or file paths.',
     'Formatting: bold only the names with **…**. No headings, bullet dashes, tables or italics.',
     'Keep it under 600 characters. Reply with the message only.',

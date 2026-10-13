@@ -29,7 +29,8 @@ try {
   const parsed = JSON.parse(raw);
   entries = Array.isArray(parsed) ? parsed : parsed.entries;
 } catch {
-  entries = raw.split('\n').filter(line => line.trim()).map(line => JSON.parse(line).entry).filter(Boolean);
+  // One JSON line per RFP. OpenClaw also logs to stdout during model calls, so other lines are skipped.
+  entries = raw.split('\n').filter(line => line.startsWith('{')).map(line => JSON.parse(line).entry).filter(Boolean);
 }
 if (!entries?.length) {
   console.error('No RFP entries found. For score-sample output, run it with --entries.');

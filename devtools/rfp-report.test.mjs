@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 import {
   MAIL_SYNC_PURSUE_SUBJECT, buildResults, checkPursueSentences, checkTelegramDraft, pursueFacts, pursueSentencesFallback,
   renderMarkdown, renderPursueEmail, renderTelegramFallback, reportEntry, telegramFacts, vibeFrom, writePursueEmail, writeTelegramMessage,
 } from '../workspace/scripts/rfp-report.mjs';
-import { deliverPursueUpdate } from '../workspace/scripts/weekly-rfp-pursue-decision.mjs';
+import { deliverPursueUpdate, readPortalCandidate } from '../workspace/scripts/weekly-rfp-pursue-decision.mjs';
 
 // Invented RFPs shaped like the weekly job's real inputs. No real opportunity data.
 const GATES = ['gate1', 'gate2', 'gate3', 'gate4', 'gate5', 'gate6'];
@@ -218,6 +220,8 @@ test("ISA's email sentences are used only when they pass; otherwise the code-bui
     'rubric words': change(copy => { copy.rfps[0].fit = 'Gate 6 passes on our references.'; }),
     'formatting': change(copy => { copy.rfps[0].name = '**City permit portal**'; }),
     'a long situation': change(copy => { copy.rfps[0].situation = `${SILENT} They want permits online. They also want payments. And reports.`; }),
+    // October 12 VM preview: ISA wrote "9 RFPs are worth pursuing" for a one-RFP email.
+    'the RFPs looked at instead of the picks': change(copy => { copy.intro = "10 RFPs are worth pursuing from this week's HigherGov search, scored on the full RFP documents."; }),
   };
   for (const [name, sentences] of Object.entries(rejected)) {
     const outcome = await writePursueEmail(facts, async () => ({ text: JSON.stringify(sentences) }));
@@ -260,6 +264,7 @@ test("the Telegram draft checks reject changed facts, wrong links, and anything 
     'emoji': `${good} 📈`,
     'too long': `${good}\n${'Extra words. '.repeat(80)}`,
     'not saying it was sent': good.replace("Sent this week's", "Here's this week's"),
+    'talking about a missing link': `${good} No link provided.`,
   };
   for (const [name, draft] of Object.entries(rejected)) assert.equal(checkTelegramDraft(draft, facts).ok, false, name);
 
@@ -324,4 +329,16 @@ test('the Markdown record lists every RFP by decision, with the email blockers a
 test("ISA's voice comes from IDENTITY.md, with a default", () => {
   assert.equal(vibeFrom('- **Name:** ISA\n- **Vibe:** Warm, direct, commercially sharp\n'), 'Warm, direct, commercially sharp');
   assert.equal(vibeFrom(''), 'Warm, direct, commercially sharp');
+});
+
+test("candidate files from Jake's PowerShell tools keep their header despite the byte-order mark", async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'isa-bom-'));
+  try {
+    const file = path.join(dir, 'candidate.md');
+    await fs.writeFile(file, '\uFEFF---\ntitle: "Example AI services"\nagency_name: "Example Metroparks"\nsource_url: "https://www.highergov.com/sl/example"\n---\nBody.\n');
+    const candidate = await readPortalCandidate(file);
+    assert.deepEqual([candidate.title, candidate.issuer, candidate.sourceUrl], ['Example AI services', 'Example Metroparks', 'https://www.highergov.com/sl/example']);
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
 });
