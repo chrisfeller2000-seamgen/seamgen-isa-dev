@@ -240,6 +240,7 @@ test('key dates: the cited questions deadline, then proposals; listing-only and 
     .picks.find(pick => pick.title === 'Permit portal dates').dates;
   assert.equal(dates({ due: '2026-10-07', time: 'noon Central', evidence: cited }), 'questions due Oct 7 at noon Central (1 day); proposals due Nov 2 at 2pm PT (27 days)');
   assert.equal(dates({ due: '2026-10-01', time: null, evidence: cited }), 'questions due Oct 1 (passed); proposals due Nov 2 at 2pm PT (27 days)');
+  assert.equal(dates({ due: '2026-10-13', time: '2PM (EST)', evidence: cited }), 'questions due Oct 13 at 2PM EST (7 days); proposals due Nov 2 at 2pm PT (27 days)');
   // Uncited or unreadable dates are left out rather than guessed.
   assert.equal(dates({ due: '2026-10-07', time: null, evidence: [] }), 'proposals due Nov 2 at 2pm PT (27 days)');
   assert.equal(dates({ due: 'soon', time: null, evidence: cited }), 'proposals due Nov 2 at 2pm PT (27 days)');

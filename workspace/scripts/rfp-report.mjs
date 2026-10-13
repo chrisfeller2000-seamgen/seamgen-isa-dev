@@ -127,7 +127,8 @@ function questionsOf(final) {
   if (!questions || !Array.isArray(questions.evidence) || !questions.evidence.length) return null;
   const parsed = parseDeadlineDate(questions.due);
   if (parsed.status !== 'valid') return null;
-  const time = clean(questions.time);
+  // As written, minus brackets: "2PM (EST)" would read "2PM (EST) (7 days)".
+  const time = clean(String(questions.time ?? '').replace(/[()]/g, ' '));
   const at = time && time.length <= 30 && /\d|\bnoon\b|\bmidnight\b/i.test(time) ? ` at ${time}` : '';
   const today = final?.timeline?.assessmentDate;
   const days = today ? Math.round((Date.parse(`${parsed.date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000) : null;
