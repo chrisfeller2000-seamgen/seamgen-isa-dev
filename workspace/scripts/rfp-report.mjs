@@ -53,6 +53,20 @@ const clean = value => String(value ?? '').replace(/\s+/g, ' ').trim();
 const finite = value => (Number.isFinite(value) ? value : null);
 const plural = (count, one, many) => (count === 1 ? one : many);
 
+// Jake's "Why it fits us" named the closest projects, the stack match and any scoring
+// advantage. From the scorer: the case-study reasoning without its caveats ("…but senior
+// features are not a clone"), and the tech reasoning only when the stack match is strong.
+const FIT_CAVEAT = /\b(?:but|however|although|though|not an?|isn't|is not|no direct|weaker|limited)\b/i;
+const STRONG_TECH = new Set(['proven', 'mostlyKnown', 'agnostic']);
+function fitOf(reason) {
+  const sentences = clean(reason).match(/[^.!?]+[.!?]+(?=\s|$)|[^.!?]+$/g) || [];
+  const kept = sentences.map(sentence => sentence.trim()).filter(sentence => !FIT_CAVEAT.test(sentence)).slice(0, 2);
+  return (kept.length ? kept.map(sentence => firstSentence(sentence, 220)).join(' ') : firstSentence(reason, 220)) || null;
+}
+function stackOf(tech) {
+  return STRONG_TECH.has(tech?.band) ? firstSentence(tech.reason, 220) || null : null;
+}
+
 function firstSentence(text, max = 260) {
   const value = clean(text);
   if (!value) return '';
@@ -315,7 +329,8 @@ export function reportEntry({ candidate, preliminary, final = null, documentStat
     rankFrom: rank.from,
     scoreIfYes: questions.length ? finite(final?.potential_total) : null,
     need: needOf(candidate),
-    fit: firstSentence(result.judgments?.categories?.caseStudy?.reason) || null,
+    fit: fitOf(result.judgments?.categories?.caseStudy?.reason),
+    stack: stackOf(result.judgments?.categories?.tech),
     buyer: buyerOf(final),
     blockers: place.tier === 'strong' || place.tier === 'worth' ? blockersOf(final) : [],
     questions,
@@ -371,6 +386,7 @@ export function pursueFacts(results) {
       silent: Boolean(entry.buyer?.silent && !entry.buyer?.currentSolution),
       objective: entry.buyer?.objective || entry.need || null,
       fit: entry.fit,
+      stack: entry.stack || null,
       advantage: entry.buyer?.advantage || null,
       // Results files written before ISA-6 have no blockers or sensitive flag.
       blockers: entry.blockers || [],
@@ -424,7 +440,7 @@ export function checkPursueSentences(sentences, facts) {
     if (!name || name.length > 60 || !hook || hook.length > 80) return fail(`${label}: the name or hook was missing or too long.`);
     if (!situation || sentenceCount(situation) > 2 || situation.length > 420) return fail(`${label}: the current solution and objective were missing or over 2 sentences.`);
     if (/silent on any incumbent/i.test(situation) !== pick.silent) return fail(`${label}: the "silent on any incumbent" line didn't match the facts.`);
-    if (pick.fit || pick.advantage ? !fit || sentenceCount(fit) > 2 || fit.length > 360 : fit) return fail(`${label}: "why it fits us" was missing, too long, or not in the facts.`);
+    if (pick.fit || pick.stack || pick.advantage ? !fit || sentenceCount(fit) > 3 || fit.length > 480 : fit) return fail(`${label}: "why it fits us" was missing, too long, or not in the facts.`);
     if (!blockers || blockers.length !== pick.blockers.length) return fail(`${label}: the blockers didn't match the facts.`);
     if (blockers.some(line => sentenceCount(line) > 1 || line.length > BLOCKER_CHARS)) return fail(`${label}: a blocker was longer than one line.`);
     written.push(name, hook, situation, fit, ...blockers);
@@ -447,7 +463,7 @@ export function pursueSentencesFallback(facts) {
       name: shortName(pick.title),
       hook: `scored ${pick.score}`,
       situation: [pick.currentSolution || (pick.silent ? SILENT_LINE : ''), pick.objective].filter(Boolean).join(' '),
-      fit: [pick.fit, pick.advantage].filter(Boolean).join(' '),
+      fit: [pick.fit, pick.stack, pick.advantage].filter(Boolean).join(' '),
       blockers: pick.blockers.map(blocker => blocker.text),
     })),
   };
@@ -549,7 +565,7 @@ function pursueWriterPrompt(vibe) {
     "intro: one line saying how many RFPs this email covers (count, not lookedAt) are worth pursuing, from this week's HigherGov search, scored on the full RFP documents. Use no other number in it.",
     'name: the plain short name people would use, with the place (for example "Yonkers senior services app"), under 60 characters. hook: a few words on why it stands out for us, under 80 characters (for example "strongest fit of the three", "custom AI, scored on past AI work").',
     `situation: at most 2 sentences. First what they use today (currentSolution), then what they want built and why (objective). When currentSolution is null and silent is true, the first sentence must be exactly: "${SILENT_LINE}" When silent is false, never call the RFP silent.`,
-    'fit: 1 or 2 sentences from fit, naming the past project it mentions, in everyday words; when advantage is given, add it as a short clause or second sentence (for example "Cost is only 5 of 100 evaluation points."). An empty string when both are null.',
+    'fit: up to 3 short sentences, as Jake wrote it: the past project(s) named in fit and what they show, then the tech match from stack when given, then advantage when given (for example "Cost is only 5 of 100 evaluation points."). Everyday words, and only what those facts say. An empty string when fit, stack and advantage are all null.',
     `blockers: each given blocker as one plain line under ${BLOCKER_CHARS} characters, in the same order and the same number of lines; [] when there are none. Lead with what is missing or required, never with what already checks out. Use its quote to be specific, naming the actual portal, certification or requirement (for example "Submission only through BidNet, where we aren't registered."), but never add anything the quote and text do not say.`,
     'No links, Markdown, raw dates such as 2026-10-16, or rubric words such as "gate". Never mention a missing link or missing information.',
   ].join('\n');
@@ -738,7 +754,7 @@ export function renderMarkdown(results) {
     `- Due: ${dueLabel(entry)}`,
     `- Budget: ${entry.budget.text}`,
     entry.need ? `- What they want: ${entry.need}` : null,
-    entry.fit ? `- Why Seamgen fits: ${entry.fit}` : null,
+    entry.fit || entry.stack ? `- Why Seamgen fits: ${[entry.fit, entry.stack].filter(Boolean).join(' ')}` : null,
     entry.blockers.length ? `- Blockers: ${entry.blockers.map(blocker => blocker.text).join(' ')}` : null,
     entry.questions.length ? `- ${plural(entry.questions.length, 'Open question', 'Open questions')}: ${entry.questions.join(' ')}` : null,
     entry.agencyQuestion ? `- Question for the agency: ${entry.agencyQuestion}` : null,

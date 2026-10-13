@@ -49,7 +49,10 @@ One small addition to the scorer supplies the part Jake's format needs and ISA d
      - "<short name> — <short hook>"
      - "RFP Opportunity through HigherGov: <agency> RFP No. <number> — <full title> — Drive folder", in Jake's order (a link; the number is HigherGov's `source_id`, when there is one)
      - "Current solution & hopeful objective:" 2 sentences
-     - "Why it fits us:" 1–2 sentences that name a real past project, plus how the evaluation favors us when the scorer finds it (Jake's "cost is only 5 of 100 points")
+     - "Why it fits us:" up to 3 sentences, as Jake wrote it:
+       - the real past project(s), from the case-study reasoning without its caveats;
+       - the tech-stack match, when the scorer rates it strong;
+       - how the evaluation favors us, when the scorer finds it (Jake's "cost is only 5 of 100 points").
      - "Blockers:" up to 3 one-liners, worst first, or "None identified." ISA gets the RFP text cited behind each one, so it can name the actual portal or certification, as Jake did
   3. A "Note for Peter/Marianne:" line, only when an RFP has a sensitive-industry flag.
   4. Sign-off: "Cheers," then "ISA".

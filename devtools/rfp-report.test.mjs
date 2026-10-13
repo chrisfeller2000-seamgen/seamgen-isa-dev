@@ -117,6 +117,21 @@ test('deadlines are shown in Pacific time with days left, and listing-only dates
     final: result({ recommendation: 'Strong Pursue', total: 80, value: { status: 'stated', estimate: 400000 } }) }).budget.text, '$400k (from the RFP)');
 });
 
+test("why we fit, like Jake's: the project without its caveats, the stack when it's a strong match, and the advantage", () => {
+  // Reasoning shaped like the October 13 Yonkers and SW Wisconsin answers.
+  const entry = (caseStudy, tech) => reportEntry({ candidate: candidate('fit'), preliminary: preliminary(70),
+    final: result({ recommendation: 'Strong Pursue', total: 80, caseStudy, judgment: { categories: { tech } } }) });
+  const strong = entry('HCP demonstrates secure role-based portals, authentication, audit controls and AI referral routing. These capabilities transfer, but senior community features are not a clone. InsideOut served patients, caregivers and staff on one platform.',
+    { band: 'proven', reason: 'The requested React Native, Node and AWS stack is the one we deliver on. Python AI services are also familiar.' });
+  assert.equal(strong.fit, 'HCP demonstrates secure role-based portals, authentication, audit controls and AI referral routing. InsideOut served patients, caregivers and staff on one platform.');
+  assert.equal(strong.stack, 'The requested React Native, Node and AWS stack is the one we deliver on.');
+  assert.equal(entry('Contentstack shows website redesign work.', { band: 'halfNew', reason: 'Half of the stack is new to us.' }).stack, null);
+  // The code-built version keeps all three parts, as one "Why it fits us" line.
+  const facts = { count: 1, lookedAt: 1, picks: [{ number: 1, title: 'Permit portal', score: 80, fit: strong.fit, stack: strong.stack,
+    advantage: 'Cost is only 5 of 100 evaluation points.', blockers: [], link: null, silent: true, objective: 'A permit portal.' }] };
+  assert.equal(pursueSentencesFallback(facts).rfps[0].fit, `${strong.fit} ${strong.stack} Cost is only 5 of 100 evaluation points.`);
+});
+
 test("what the buyer uses today: named when cited, Jake's silent line when the documents name none, left out when unknown", () => {
   const buyer = value => strongPick('b', { buyer: value }).buyer;
   assert.deepEqual(buyer({ currentSolution: 'They use a 2014 Accela permit system.', objective: 'A modern portal.', advantage: 'Cost is only 10 of 100 points.', evidence: cited }),
