@@ -5,10 +5,10 @@ import path from 'node:path';
 import test from 'node:test';
 import { alignmentCases } from './fixtures/rfp-alignment-cases.mjs';
 import { companySources, fixturePolicies, recordedJudgment, referenceJudgment } from './fixtures/rfp-recorded-judgments.mjs';
-import { CATEGORY_BANDS, DOCUMENT_FETCH_THRESHOLD, assessProjectValue, documentEvidence, finalizeRfpScore, scoringSources } from '../workspace/scripts/rfp-scoring-policy.mjs';
+import { CATEGORY_BANDS, DOCUMENT_FETCH_THRESHOLD, assessProjectValue, documentEvidence, finalizeRfpScore, intakeText, scoringSources } from '../workspace/scripts/rfp-scoring-policy.mjs';
 import { createAssessmentContext } from '../workspace/scripts/rfp-deadline.mjs';
 import { createOpenClawJudge, scoreRfp } from '../workspace/scripts/rfp-scoring-judgment.mjs';
-import { persistValidatedScore, scoreCandidateFromText, shouldFetchDocuments } from '../workspace/scripts/weekly-rfp-pursue-decision.mjs';
+import { persistValidatedScore, readPortalCandidate, scoreCandidateFromText, shouldFetchDocuments } from '../workspace/scripts/weekly-rfp-pursue-decision.mjs';
 import { buildSecondaryReport, resolveSelectedCandidates } from '../workspace/scripts/secondary-fulltext-score.mjs';
 
 const assessment = createAssessmentContext({ runDate: '2026-09-30' });
@@ -156,6 +156,19 @@ test("only HigherGov's sections of a candidate body reach the judge, not notes o
   assert.match(metadata, /online permit portal/);
   assert.match(metadata, /Build and host the portal/);
   assert.doesNotMatch(metadata, /KILL GATES|Gate 6|For Claude|attachment text|Strong Pursue|highergov\.com/i);
+});
+
+test("candidate files from Jake's PowerShell tools keep their header despite the byte-order mark", async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'isa-bom-'));
+  try {
+    const file = path.join(dir, 'candidate.md');
+    await fs.writeFile(file, '\uFEFF---\ntitle: "Example AI services"\nagency_name: "Example Metroparks"\ndue_date: "2026-08-11"\nscore: 83\n---\n## HigherGov AI summary\nBody.\n');
+    const candidate = await readPortalCandidate(file);
+    assert.deepEqual([candidate.title, candidate.issuer, candidate.frontmatter.due_date], ['Example AI services', 'Example Metroparks', '2026-08-11']);
+    assert.equal(intakeText(candidate.body), '## HigherGov AI summary\nBody.');
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
 });
 
 test('project size excludes incidental amounts and preserves uncertain/ranged estimates', () => {

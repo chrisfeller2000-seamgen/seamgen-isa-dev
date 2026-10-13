@@ -542,7 +542,9 @@ async function listFilesRecursive(rootDir) {
 }
 
 function parseFrontmatterMarkdown(content = '') {
-  const text = String(content || '');
+  // Files written by Jake's PowerShell tools start with a byte-order mark, which would hide
+  // the whole header (title, agency, links) from the match below.
+  const text = String(content || '').replace(/^\uFEFF/, '');
   const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
   const frontmatter = {};
   if (!match) {
