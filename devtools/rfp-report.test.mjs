@@ -148,7 +148,9 @@ test('blockers come worst first, in plain words, at most three', () => {
   const open = reportEntry({ candidate: candidate('open'), preliminary: preliminary(70), final: result({ recommendation: 'Strong Pursue', total: 80,
     gates: { gate6: { pass: null, reason: 'Gate 6 is unresolved or not met under its documented subrule; see the recorded evidence.' } } }) });
   assert.deepEqual(open.blockers.map(blocker => blocker.text), ['We may not meet one of its eligibility requirements.']);
-  assert.deepEqual(weekEntries()[1].blockers, [], 'only picks for the email get blockers');
+  // Worth a look RFPs get blockers too, for the Markdown record; screened-out ones don't.
+  assert.deepEqual(weekEntries()[1].blockers.map(blocker => blocker.text), ['The solicitation requires utility-management experience at comparable scale.']);
+  assert.deepEqual(weekEntries()[3].blockers, []);
 });
 
 test("the pursue email covers only Strong Pursue RFPs, in Jake's format, with links and titles from the facts", () => {

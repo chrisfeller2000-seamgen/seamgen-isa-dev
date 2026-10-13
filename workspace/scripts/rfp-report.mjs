@@ -277,7 +277,7 @@ export function reportEntry({ candidate, preliminary, final = null, documentStat
     need: needOf(candidate),
     fit: firstSentence(result.judgments?.categories?.caseStudy?.reason) || null,
     buyer: buyerOf(final),
-    blockers: place.tier === 'strong' ? blockersOf(final) : [],
+    blockers: place.tier === 'strong' || place.tier === 'worth' ? blockersOf(final) : [],
     questions,
     agencyQuestion: conditional || null,
     notes: flags.map(flag => firstSentence(flag.reason)).filter(Boolean).slice(0, 2),
