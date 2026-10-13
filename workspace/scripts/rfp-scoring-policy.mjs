@@ -395,7 +395,9 @@ const categoryTotal = categories => Object.values(categories).reduce((a, b) => a
 
 // Gates 2/2a "Conditional — Ask the Agency": product framing must be the sole
 // unresolved blocker and the question window must still be open.
-function conditionalOutcome(base, conditional, { sources, runDate, phase, deal, value }) {
+function conditionalOutcome(base, judged, { sources, runDate, phase, deal, value }) {
+  // The output contract shows the rule as 2|2a, and models answer 2 as a number.
+  const conditional = { ...judged, rule: String(judged.rule ?? '') };
   cite(conditional.evidence, sources);
   if (!norm(conditional.question) || !['2', '2a'].includes(conditional.rule)) throw new Error('Invalid conditional route.');
   const noBid = { ...base, recommendation: 'No-bid', qualification_status: 'failed-gate', gate: { ...base.gate, gate2: false } };

@@ -344,6 +344,8 @@ function conditional(j, rule = '2') {
 test('Gate 2 conditional needs a real analog and an open verified question window', () => {
   const result = finalize(packet(), conditional);
   assert.equal(result.recommendation, 'Conditional — Ask the Agency');
+  // Models write the rule as a number (Suwannee land, October 12); it was rejected every run.
+  assert.equal(finalize(packet(), j => conditional(j, 2)).recommendation, 'Conditional — Ask the Agency');
   assert.equal(result.total, null);
   assert.equal(result.gate.gate2, null);
   assert.equal(finalize(packet(), j => { conditional(j); j.conditional.qaStatus = 'closed'; delete j.categories; }).recommendation, 'No-bid');
