@@ -146,7 +146,6 @@ One small addition to the scorer supplies the part Jake's format needs and ISA d
 
 ## Open questions
 
-- Peter's email address, for `RFP_EMAIL_TO`.
 - Whether `gog gmail send --to` accepts several addresses separated by commas. Check on the VM (`gog gmail send --help`) before release.
 
 ## References

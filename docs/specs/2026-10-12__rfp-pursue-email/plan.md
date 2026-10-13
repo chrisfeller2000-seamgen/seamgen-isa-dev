@@ -54,7 +54,7 @@ As built:
      `run`, `preview`, `to` and the writer can be injected for tests.
    - `main` writes the results files once, after delivery, with the `email` and `telegram` records.
    - `RFP_EMAIL_TO` replaces `REPORT_TO`.
-5. **`workspace/scripts/run-new-rfp-qualification-cron.sh`.** `RFP_EMAIL_TO` defaults to Marianne and sales@. Peter is added before release.
+5. **`workspace/scripts/run-new-rfp-qualification-cron.sh`.** `RFP_EMAIL_TO` defaults to Peter, Marianne and sales@.
 6. **`devtools/rfp-preview.mjs`, `npm run rfp:preview`, `devtools/fixtures/rfp-preview-week.json`.** `devtools/score-sample.mjs --entries` adds full entries for real-data previews.
 7. **`workspace/AGENTS.md` RFP section, `docs/domains/rfp/README.md`, specs index, October 6 spec note.**
 

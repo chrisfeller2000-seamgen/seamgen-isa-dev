@@ -3,7 +3,7 @@
 - [x] Branch `feat/rfp-pursue-email` from `main` at `9289874`, which includes the ISA-3 scoring fixes. The worktree was clean.
 - [x] Chris's decisions recorded (October 12): Jake's format, sent automatically, Telegram summary, no weekly summary email, no no-bid emails.
 - [x] Open questions answered (October 12): Strong Pursue only, signed "ISA", sales@seamgen.com, no meeting brief.
-- [ ] Peter's email address for `RFP_EMAIL_TO`.
+- [x] Peter's email address for `RFP_EMAIL_TO` (October 13).
 - [x] Scorer: `buyer` field (the policy's existing citation check covers it), with a policy test showing points and decisions are unchanged.
 - [ ] `rfp-report.mjs`:
   - [x] entry fields (`buyer`, `blockers`, `sensitive`), plus plain gate reasons;
@@ -13,7 +13,7 @@
   - [x] delete the old report email and unused helpers;
   - [x] tests.
 - [x] Weekly script: email then Telegram, the once-a-week guard, the `email` record, `.html` removed, preview files.
-- [x] Cron wrapper: `RFP_EMAIL_TO` (Marianne and sales@ until Peter's address is known).
+- [x] Cron wrapper: `RFP_EMAIL_TO` (Peter, Marianne and sales@).
 - [x] `npm run rfp:preview`, a synthetic fixture, and `score-sample.mjs --entries`.
 - [x] `workspace/AGENTS.md` RFP section, `docs/domains/rfp/README.md`, specs index, October 6 spec note.
 - [ ] Check on the VM that `gog gmail send --to` takes comma-separated addresses.
