@@ -16,6 +16,8 @@ test('file names identify the actual solicitation, not finals, agendas, rating f
     'Request_for_Proposals.pdf': 'solicitation',
     'RFP 26-118 Website Redesign.pdf': 'solicitation',
     'Solicitation 26-118.pdf': 'solicitation',
+    'ESBD_564376_1790883342185_RFO 781-6-CB-20 - Managed Services CCA.pdf': 'solicitation',
+    'RFA PLS Central Repository 6100066135.pdf': 'solicitation',
     'RFP 26-118 Addendum 1.pdf': 'addendum',
     'RFP_RATING_FORM.pdf': 'evaluation',
     'Final Rating Form.pdf': 'evaluation',
@@ -39,6 +41,23 @@ test('solicitation text names itself, states a submission deadline, and describe
   assert.equal(looksLikeSolicitationText('Solicitation Number 36C25227Q0040. Quotes are due October 16, 2026.'), false);
   assert.equal(looksLikeSolicitationText('Scope of Work: see the agency portal for the full solicitation package.'), false);
   assert.equal(looksLikeSolicitationText('Pre-proposal conference agenda and sign-in sheet.'), false);
+});
+
+// The four ways the October 9 run filed a solicitation HigherGov had returned as something else.
+test('a solicitation is recognized under the names and wording agencies really use', () => {
+  const rfpText = 'REQUEST FOR PROPOSAL 26-27/12. Proposals must be received by November 12, 2026. Scope of Services: passenger flow management.';
+  const role = (file_name, text) => classifyDocumentRecord({ file_name, text }).role;
+  // An RFP that tells bidders where to get itself and its addenda is still the RFP.
+  assert.equal(role('26-27-12-final-Passenger-Flow-Management-System.pdf', `${rfpText} Select "Bids/RFPs/RFQs Center" to download the RFP document.`), 'solicitation');
+  assert.equal(role('Bid board listing.pdf', `${rfpText} This is a summary. Download the actual RFP from the agency portal.`), 'other');
+  assert.equal(role('Bid board listing.pdf', `${rfpText} See the separate RFP PDF.`), 'other');
+  // "Request for Offers" names itself a solicitation.
+  assert.equal(looksLikeSolicitationText('Request for Offers 781-6-CB-20. Responses must be submitted by October 30, 2026. Statement of Work: advising services.'), true);
+  // A whole RFP named "Scope of Work" is the solicitation; a scope attachment is not.
+  assert.equal(role('217041194-1 Scope of Work .pdf', rfpText), 'solicitation');
+  assert.equal(role('217041194-1 Scope of Work .pdf', 'Scope of Work: the contractor shall operate the enclave.'), 'requirements');
+  assert.equal(role('Attachment A - Scope of Work.pdf', rfpText), 'requirements');
+  assert.equal(role('Exhibit B Technical Requirements.pdf', rfpText), 'requirements');
 });
 
 // [scenario, fetchStatus, reason] — rows other than those listed in `scored` must stay unscored.
