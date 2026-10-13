@@ -153,7 +153,7 @@ test('blockers come worst first, in plain words, at most three', () => {
   const mixed = reportEntry({ candidate: candidate('mixed'), preliminary: preliminary(70), final: result({ recommendation: 'Strong Pursue', total: 80,
     judgment: { subrules: { submission: { status: 'unknown' } } },
     gates: {
-      gate6: { pass: null, reason: 'Relevant AI delivery is supported, and the reference form asks for generic references. Current insurance and financial-capacity evidence is also needed before confirming eligibility.' },
+      gate6: { pass: null, reason: 'Relevant AI delivery is supported, and the reference form asks for generic references. However, current insurance and financial-capacity evidence is also needed before confirming eligibility.' },
       gate4: { pass: null, reason: 'Public Purchase submission is required. Our account access and registration timing are not established by the supplied evidence.' },
     } }) });
   assert.deepEqual(mixed.blockers.map(blocker => blocker.text), ['Current insurance and financial-capacity evidence is also needed before confirming eligibility.',

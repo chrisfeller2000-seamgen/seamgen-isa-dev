@@ -142,7 +142,7 @@ function openIssue(reason, max = 160) {
 }
 
 function plainReason(reason, max = 260) {
-  return firstSentence(clean(reason).replace(RUBRIC_PREFIX, '').replace(GATE_MENTION, ' ').trim()
+  return firstSentence(clean(reason).replace(RUBRIC_PREFIX, '').replace(GATE_MENTION, ' ').trim().replace(/^(?:however|but|also|still)\b,?\s*/i, '')
     .replace(/^\w/, letter => letter.toUpperCase()), max);
 }
 

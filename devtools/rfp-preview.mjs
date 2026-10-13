@@ -29,7 +29,8 @@ const raw = await fs.readFile(file, 'utf8');
 let entries;
 try {
   const parsed = JSON.parse(raw);
-  entries = Array.isArray(parsed) ? parsed : parsed.entries;
+  // A results file has `entries`; a one-RFP score-sample run is a single line with `entry`.
+  entries = Array.isArray(parsed) ? parsed : parsed.entries || (parsed.entry ? [parsed.entry] : null);
 } catch {
   // One JSON line per RFP. OpenClaw also logs to stdout during model calls, so other lines are skipped.
   entries = raw.split('\n').filter(line => line.startsWith('{')).map(line => JSON.parse(line).entry).filter(Boolean);
