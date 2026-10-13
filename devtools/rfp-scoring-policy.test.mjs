@@ -163,9 +163,10 @@ test("candidate files from Jake's PowerShell tools keep their header despite the
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'isa-bom-'));
   try {
     const file = path.join(dir, 'candidate.md');
-    await fs.writeFile(file, '\uFEFF---\ntitle: "Example AI services"\nagency_name: "Example Metroparks"\ndue_date: "2026-08-11"\nscore: 83\n---\n## HigherGov AI summary\nBody.\n');
+    await fs.writeFile(file, '\uFEFF---\ntitle: "Example \\"Connect Seniors\\" app"\nagency_name: "Example Metroparks"\ndue_date: "2026-08-11"\nscore: 83\n---\n## HigherGov AI summary\nBody.\n');
     const candidate = await readPortalCandidate(file);
-    assert.deepEqual([candidate.title, candidate.issuer, candidate.frontmatter.due_date], ['Example AI services', 'Example Metroparks', '2026-08-11']);
+    // Quotes inside a title come back without the backslashes the intake writes.
+    assert.deepEqual([candidate.title, candidate.issuer, candidate.frontmatter.due_date], ['Example "Connect Seniors" app', 'Example Metroparks', '2026-08-11']);
     assert.equal(intakeText(candidate.body), '## HigherGov AI summary\nBody.');
   } finally {
     await fs.rm(dir, { recursive: true, force: true });

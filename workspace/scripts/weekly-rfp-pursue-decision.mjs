@@ -562,9 +562,10 @@ function parseFrontmatterMarkdown(content = '') {
     let value = line.slice(idx + 1).trim();
     if (!key) continue;
     value = value.replace(/^\s+|\s+$/g, '');
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith('\'') && value.endsWith('\''))) {
-      value = value.slice(1, -1);
-    }
+    // formatYamlValue escapes \\ and \" inside double quotes; undo that, or titles show
+    // backslashes ("Connect Yonkers Seniors" read back as \"Connect Yonkers Seniors\").
+    if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1).replace(/\\(["\\])/g, '$1');
+    else if (value.startsWith('\'') && value.endsWith('\'')) value = value.slice(1, -1);
     if (value === 'null') value = '';
     frontmatter[key] = value;
   }
