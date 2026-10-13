@@ -221,6 +221,19 @@ test('potential_total is the category sum: the score if an open question checks 
   assert.notEqual(open.qualification_status, 'qualified');
 });
 
+test("the buyer summary for the pursue email is checked like any citation and never changes the score", () => {
+  const input = packet();
+  const plain = finalize(input);
+  const withBuyer = finalize(input, judgment => {
+    judgment.buyer = { currentSolution: null, objective: 'A new case management portal for agency staff.', evidence: citation };
+  });
+  assert.deepEqual([withBuyer.total, withBuyer.recommendation], [plain.total, plain.recommendation]);
+  assert.equal(withBuyer.judgments.buyer.objective, 'A new case management portal for agency staff.');
+  assert.throws(() => finalize(input, judgment => {
+    judgment.buyer = { currentSolution: 'A 1990s mainframe.', objective: 'A new portal.', evidence: [{ sourceId: 'doc-1', quote: 'An invented sentence' }] };
+  }), /citation does not match/);
+});
+
 test('an unknown gate or submission route needs no citation; a definite one still does', () => {
   const unknown = finalize(packet(), j => {
     j.gates.gate4 = { pass: null, reason: 'The listing does not say how to submit.', evidence: [] };

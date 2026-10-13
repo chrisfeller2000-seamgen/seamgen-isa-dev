@@ -4,18 +4,19 @@
 - [x] Chris's decisions recorded (October 12): Jake's format, sent automatically, Telegram summary, no weekly summary email, no no-bid emails.
 - [x] Open questions answered (October 12): Strong Pursue only, signed "ISA", sales@seamgen.com, no meeting brief.
 - [ ] Peter's email address for `RFP_EMAIL_TO`.
-- [ ] Scorer: `buyer` field and citation check, with a policy test showing points and decisions are unchanged.
+- [x] Scorer: `buyer` field (the policy's existing citation check covers it), with a policy test showing points and decisions are unchanged.
 - [ ] `rfp-report.mjs`:
-  - [ ] entry fields (`buyer`, `blockers`, `sensitive`);
-  - [ ] pursue facts, sentence checks and fallback, email renderer;
-  - [ ] shared `writeChecked` helper;
-  - [ ] Telegram summary;
-  - [ ] delete the old report email and unused helpers;
-  - [ ] tests.
-- [ ] Weekly script: email then Telegram, the once-a-week guard, the `email` record, `.html` removed, preview files.
-- [ ] Cron wrapper: `RFP_EMAIL_TO`.
-- [ ] `npm run rfp:preview` and a fixture to try it on.
-- [ ] `workspace/AGENTS.md` RFP section, `docs/domains/rfp/README.md`, specs index, October 6 spec note.
+  - [x] entry fields (`buyer`, `blockers`, `sensitive`), plus plain gate reasons;
+  - [x] pursue facts, sentence checks and fallback, email renderer;
+  - [x] shared `writeChecked` helper;
+  - [x] Telegram summary;
+  - [x] delete the old report email and unused helpers;
+  - [x] tests.
+- [x] Weekly script: email then Telegram, the once-a-week guard, the `email` record, `.html` removed, preview files.
+- [x] Cron wrapper: `RFP_EMAIL_TO` (Marianne and sales@ until Peter's address is known).
+- [x] `npm run rfp:preview`, a synthetic fixture, and `score-sample.mjs --entries`.
+- [x] `workspace/AGENTS.md` RFP section, `docs/domains/rfp/README.md`, specs index, October 6 spec note.
+- [ ] Check on the VM that `gog gmail send --to` takes comma-separated addresses.
 - [ ] `npm test`, `npm run check`, diff review and secret scan.
 - [ ] Local previews reviewed by Chris, on fixtures and then on real entries (VM `score-sample.mjs`, with approval).
 - [ ] Before switching it on: ISA-3 deployed, and Jake's July Strong Pursues re-checked.

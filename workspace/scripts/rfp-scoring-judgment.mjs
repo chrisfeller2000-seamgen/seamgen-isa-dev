@@ -62,6 +62,9 @@ const OUTPUT_CONTRACT = {
     },
   },
   flags: [{ type: 'sensitive-industry|ceo-connection', reason: 'explanation', evidence: [] }],
+  // Read only by the Friday pursue email (Jake's "current solution & hopeful objective").
+  buyer: { currentSolution: 'one sentence on the system, vendor, or manual process the buyer uses today; null when the supplied text does not say',
+    objective: 'one sentence: what they want built and the outcome behind it', evidence: EVIDENCE },
 };
 
 // How to cite, sent with the evidence packet.
@@ -117,6 +120,7 @@ const SYSTEM_RULES = [
   'At full-text depth, if the requirements are supplied but a gate remains unknown, still return the eight provisional category judgments; code withholds the final total.',
   'Categories may be omitted only when a gate is known false, the bid is not open, or a required buyer document is missing at full-text depth. An unconfirmed deadline still gets all eight categories; code withholds the total.',
   'Never invent evidence to fill categories.',
+  'buyer is for the sales email and never affects gates or points: give currentSolution only when the supplied text names what is in place today, citing that text; otherwise null.',
 ].join(' ');
 
 export function buildEvidenceCatalog(sources) {

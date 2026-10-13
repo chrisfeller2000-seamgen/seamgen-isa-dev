@@ -81,25 +81,27 @@ One small addition to the scorer supplies the part Jake's format needs and ISA d
 ### The Telegram message
 
 - **After the email:**
-  - "Sent this week's pursue email to Peter, Marianne and Sales: <n> RFP(s)."
-  - one line per RFP: short name linked to its Drive folder, score, biggest blocker;
-  - "Looked at <total> RFPs this week."
-- **No picks:** no email goes out, and the message says: "No RFPs worth pursuing this week, so no email went out. Looked at <total>; the closest was <name> at <score>, held back because <reason>."
-- **Email failed:** the message says the email didn't go out and lists the picks. The run is recorded as failed.
-- **How it's written:** ISA writes it in its own voice, with the existing checks and code fallback. Under 800 characters.
+  - "Sent this week's pursue email: <n> RFP(s)."
+  - one line per RFP: short name in bold, score, biggest blocker (or "No blockers stood out."), and its Drive folder link;
+  - "I looked at <total> RFPs this week."
+- **No picks:** no email goes out, and the message says: "No RFPs worth pursuing this week, so no email went out. I looked at <total>; the closest was <name> at <score> (<why>)."
+- **Email failed:** the message says the email didn't go out, lists the picks, and points Chris to the job log.
+- **How it's written:** ISA writes the "sent" version in its own voice, checked like the email (links, numbers, wording, under 800 characters). The failed and no-picks versions are always code-built, because their wording matters more than the voice.
 - **Removed:** the questions for the team and the biggest-skipped line.
 
 ### Records and safety
 
-- **Results file** (`<date>.json`, `latest.json`): keeps every RFP as today, plus `email: {status, subject, to, picks, writtenBy, reason}`. The Markdown copy stays. The `.html` report is no longer written.
-- **One pursue email per week.** Before sending, check that week's results file; if an email for that week already went out, skip sending and log it. This holds until the database (ISA-5) records runs properly.
+- **Results file** (`<date>.json`, `latest.json`): keeps every RFP as today. It adds `email: {status, subject, to, picks, writtenBy, reason, text, sentAt}` and `telegram: {status, source, reason, text}`. Email status is `sent`, `failed`, `none`, `preview` or `already-sent`. The Markdown copy stays; the `.html` report is no longer written.
+- **One pursue email per week.** Before sending, the job reads `latest.json`. If a pursue email already went out in the same ISO week, nothing new is sent or posted. A failed send doesn't count, so a re-run retries it. This holds until the database (ISA-5) records runs properly.
+- **Failures:** a failed email is reported in Telegram, and the run still succeeds. If that Telegram post also fails, the run exits with an error, so the cron wrapper's failure notice tries once more.
 - **Preview mode** (`RFP_DELIVERY=preview`) sends nothing. It writes `<date>-email.html` and `<date>-telegram.md`.
+- **Plain gate reasons:** when a subrule changes a gate, the policy stores a stock reason ("Gate N is unresolved or not met under its documented subrule…"). The report replaces it with a plain sentence, so it can't leak into the email, the message or the Markdown (issue 8 from October 9).
 
 ### Local testing
 
-- `npm run rfp:preview -- <entries.json>` builds the email and the Telegram message into `.isa-local/preview/` and sends nothing.
-  - **Input:** report entries, either a results file or the output of `devtools/score-sample.mjs`.
-  - **Writer:** ISA's writer when a local OpenClaw gateway is running, otherwise the code version.
+- `npm run rfp:preview -- <file> [--isa]` builds the email and the Telegram message into `.isa-local/preview/` and sends nothing.
+  - **Input:** a results file, or `devtools/score-sample.mjs --entries` output for real RFPs. `devtools/fixtures/rfp-preview-week.json` is a synthetic week to try it on.
+  - **Writer:** with `--isa`, ISA's model writes the words through the installed OpenClaw (on the VM, or a local install); otherwise the code version is shown.
 
 ## Acceptance
 
@@ -115,7 +117,7 @@ One small addition to the scorer supplies the part Jake's format needs and ISA d
 - preview sends nothing.
 
 **Scorer:**
-- the new `buyer` field cites document excerpts only;
+- the new `buyer` field is citation-checked like every other part of the judgment;
 - points and decisions are unchanged (existing policy tests pass as they are).
 
 **Other:**
@@ -141,6 +143,7 @@ One small addition to the scorer supplies the part Jake's format needs and ISA d
 ## Open questions
 
 - Peter's email address, for `RFP_EMAIL_TO`.
+- Whether `gog gmail send --to` accepts several addresses separated by commas. Check on the VM (`gog gmail send --help`) before release.
 
 ## References
 

@@ -8,7 +8,9 @@ import { createAssessmentContext } from './rfp-deadline.mjs';
 import { extractDocumentText } from './document-text.mjs';
 import { DOCUMENT_FETCH_THRESHOLD, unscoredRfp } from './rfp-scoring-policy.mjs';
 import { createOpenClawJudge, scoreRfp } from './rfp-scoring-judgment.mjs';
-import { buildResults, renderEmailHtml, renderMarkdown, reportEntry, telegramFacts, vibeFrom, writeTelegramMessage } from './rfp-report.mjs';
+import {
+  buildResults, pursueFacts, renderMarkdown, renderPursueEmail, reportEntry, telegramFacts, vibeFrom, writePursueEmail, writeTelegramMessage,
+} from './rfp-report.mjs';
 import {
   classifyDocumentRecord,
   ensureCandidateResourcesDir,
@@ -30,11 +32,13 @@ const HIGHERGOV_STATE_PATH = path.join(PIPELINE_DIR, 'state.json');
 const HIGHERGOV_SEEN_PATH = path.join(PIPELINE_DIR, 'seen.csv');
 const FAVORABLE_RFP_ROOT_FOLDER_ID = '1FgeVVURDnS-JyQTyapa7pCl3BN4_PmaW';
 const REPORT_FROM = 'isa@seamgen.com';
-const REPORT_TO = process.env.REPORT_TO || 'mariannefaro@seamgen.com';
+// Who gets the Friday pursue email (Peter, Marianne and Sales), comma-separated, set by the
+// cron wrapper. Without it the email is recorded as failed and nothing is sent.
+const RFP_EMAIL_TO = String(process.env.RFP_EMAIL_TO || '').split(',').map(address => address.trim()).filter(Boolean);
 const TELEGRAM_TARGET = process.env.TELEGRAM_TARGET || '-1003890997073';
 const NO_TELEGRAM = ['1', 'true', 'yes'].includes(String(process.env.NO_TELEGRAM || '').toLowerCase());
-// RFP_DELIVERY=preview runs the job and writes every report file, including the Telegram
-// text, but sends no email or Telegram message and creates no Drive folders.
+// RFP_DELIVERY=preview runs the job and writes every report file, including the email and
+// Telegram text, but sends no email or Telegram message and creates no Drive folders.
 const DELIVERY_PREVIEW = String(process.env.RFP_DELIVERY || '').toLowerCase() === 'preview';
 // Tests install a recorded writer here instead of calling ISA's model.
 const writerSymbol = Symbol.for('isa.rfp.testWriter');
@@ -1807,79 +1811,93 @@ async function main() {
   }
 
   const week = weekNumber(new Date(runDate));
-  const subject = `New qualified RFP's for pursue decision - week ${week}`;
   const results = buildResults({ runDate, week, entries, intake });
   const { strong, worth, check, screened } = results.counts;
   process.stderr.write(`[weekly-rfp] qualification complete: ${strong} strong pursue, ${worth} worth a look, ${check} to check, ${screened} screened out\n`);
 
-  // ISA words the Telegram message from these facts; the draft is checked against them and
-  // the code-built version is sent if it doesn't match or the writer fails.
-  const facts = telegramFacts(results);
   const complete = globalThis[writerSymbol] || await createOpenClawJudge().catch(() => null);
   const vibe = vibeFrom(await fs.readFile(path.join(WORKSPACE, 'IDENTITY.md'), 'utf8').catch(() => ''));
-  const message = await writeTelegramMessage(facts, complete, { vibe });
-  process.stderr.write(`[weekly-rfp] Telegram message: ${message.source}${message.reason ? ` (${message.reason})` : ''}\n`);
+  const previous = await fs.readFile(path.join(REPORT_DIR, 'latest.json'), 'utf8').then(JSON.parse).catch(() => null);
+  process.stderr.write(`[weekly-rfp] delivering${DELIVERY_PREVIEW ? ' (preview mode: nothing is sent)' : ''}\n`);
+  const delivery = await deliverPursueUpdate({ results, complete, vibe, previous });
+  process.stderr.write(`[weekly-rfp] email ${delivery.email.status}${delivery.email.reason ? ` (${delivery.email.reason})` : ''}; Telegram ${delivery.telegram.status}\n`);
 
-  process.stderr.write(`[weekly-rfp] rendering report${DELIVERY_PREVIEW ? ' (preview mode: nothing is sent)' : ' and sending mail'}\n`);
-  const reportHtml = renderEmailHtml(results, { subject });
-  const reportMarkdown = renderMarkdown(results, { subject });
-  const resultsJson = `${JSON.stringify({ ...results, telegram: message }, null, 2)}\n`;
+  const resultsJson = `${JSON.stringify({ ...results, email: delivery.email, telegram: delivery.telegram }, null, 2)}\n`;
+  const reportMarkdown = renderMarkdown(results);
   await fs.mkdir(REPORT_DIR, { recursive: true });
   const reportFiles = {
     [`${runDate}.json`]: resultsJson, 'latest.json': resultsJson,
     [`${runDate}.md`]: reportMarkdown, 'latest.md': reportMarkdown,
-    [`${runDate}.html`]: reportHtml, 'latest.html': reportHtml,
   };
-  if (DELIVERY_PREVIEW) reportFiles[`${runDate}-telegram.md`] = `${message.text}\n`;
+  if (DELIVERY_PREVIEW && delivery.emailHtml) reportFiles[`${runDate}-email.html`] = delivery.emailHtml;
+  if (DELIVERY_PREVIEW && delivery.telegram.text) reportFiles[`${runDate}-telegram.md`] = `${delivery.telegram.text}\n`;
   for (const [name, content] of Object.entries(reportFiles)) await fs.writeFile(path.join(REPORT_DIR, name), content, 'utf8');
 
-  const delivery = await deliverWeeklyReport({ subject, htmlPath: path.join(REPORT_DIR, `${runDate}.html`), telegramText: message.text });
+  // A failed email is reported in Telegram. If that didn't go out either, fail the run so
+  // the cron wrapper's notice tries once more.
+  if (delivery.email.status === 'failed' && delivery.telegram.status !== 'sent') process.exitCode = 1;
   process.stdout.write(`${JSON.stringify({
     runDate,
-    qualifiedRfps: strong,
     counts: results.counts,
     reportDir: REPORT_DIR,
-    telegramSource: message.source,
-    telegramReason: message.reason || undefined,
-    ...delivery,
+    emailStatus: delivery.email.status,
+    emailSubject: delivery.email.subject || undefined,
+    emailWrittenBy: delivery.email.writtenBy || undefined,
+    telegramStatus: delivery.telegram.status,
+    telegramSource: delivery.telegram.source || undefined,
   }, null, 2)}\n`);
 }
 
-// Sends the email, then the Telegram message. Preview mode sends nothing; the report
-// files are already written. `run` is a parameter so tests can prove that.
-export async function deliverWeeklyReport({ subject, htmlPath, telegramText, preview = DELIVERY_PREVIEW, noTelegram = NO_TELEGRAM, run = runJson }) {
-  if (preview) return { emailStatus: 'preview', telegramStatus: 'preview' };
-  const sendResult = await run('gog', [
-    '-a',
-    'isa@seamgen.com',
-    'gmail',
-    'send',
-    '--from',
-    REPORT_FROM,
-    '--to',
-    REPORT_TO,
-    '--subject',
-    subject,
-    '--body-html-file',
-    htmlPath,
-    '--no-input',
-  ], { timeoutMs: 120000 });
-  const email = { emailStatus: 'sent', gmailResponse: String(sendResult || '').slice(0, 200) };
-  if (noTelegram) return { ...email, telegramStatus: 'skipped' };
-  const telegram = await run('openclaw', [
-    'message',
-    'send',
-    '--channel',
-    'telegram',
-    '--target',
-    TELEGRAM_TARGET,
-    '--message',
-    telegramText,
-  ], { timeoutMs: 45000 }).then(() => ({ telegramStatus: 'sent' })).catch((error) => ({
-    telegramStatus: `failed (${typeof error?.exitCode === 'number' ? error.exitCode : 1})`,
-    telegramError: normalizeText(error?.stderr || error?.stdout || error?.message || 'unknown Telegram error'),
-  }));
-  return { ...email, telegramTarget: TELEGRAM_TARGET, ...telegram };
+// `previous` is latest.json from an earlier run. A pursue email that already went out in
+// the same ISO week is not sent again: it goes to Peter, so a re-run must not repeat it.
+function emailAlreadySent(previous, results) {
+  return Boolean(previous && ['sent', 'already-sent'].includes(previous.email?.status)
+    && previous.week === results.week && String(previous.runDate).slice(0, 4) === String(results.runDate).slice(0, 4));
+}
+
+/**
+ * The Friday delivery. With Strong Pursue RFPs, ISA's pursue email goes out first; then the
+ * Telegram summary says what actually happened (sent, failed, or nothing to pursue). Preview
+ * mode sends nothing and returns the text for the report files. `run` is a parameter so
+ * tests can prove what is sent. Returns { email, telegram, emailHtml }.
+ */
+export async function deliverPursueUpdate({ results, complete, vibe, previous = null, preview = DELIVERY_PREVIEW,
+  noTelegram = NO_TELEGRAM, to = RFP_EMAIL_TO, run = runJson }) {
+  const pursue = pursueFacts(results);
+  if (pursue.picks.length && emailAlreadySent(previous, results)) {
+    return { email: { ...previous.email, status: 'already-sent' }, telegram: { status: 'skipped', reason: "This week's email already went out." }, emailHtml: null };
+  }
+  const email = { status: 'none', subject: null, to: [], picks: pursue.picks.length, writtenBy: null, reason: null, text: null };
+  let written = null;
+  let message = null;
+  if (pursue.picks.length) {
+    written = await writePursueEmail(pursue, complete, { vibe });
+    message = renderPursueEmail(pursue, written.sentences);
+    Object.assign(email, { subject: message.subject, to, writtenBy: written.source, reason: written.reason, text: message.text });
+    if (preview) email.status = 'preview';
+    else if (!to.length) Object.assign(email, { status: 'failed', reason: 'No recipients are set (RFP_EMAIL_TO).' });
+    else {
+      // The body is passed inline, as the weekly sales report does; gog sends it as HTML.
+      const sent = await run('gog', ['-a', REPORT_FROM, 'gmail', 'send', '--from', REPORT_FROM, '--to', to.join(','),
+        '--subject', message.subject, '--body-html', message.html, '--no-input'], { timeoutMs: 120000 })
+        .then(() => true).catch(() => false);
+      Object.assign(email, sent ? { status: 'sent', sentAt: new Date().toISOString() } : { status: 'failed', reason: "Gmail didn't accept the email (gog failed)." });
+    }
+  }
+
+  const facts = telegramFacts(results, pursue, { status: email.status, sentences: written?.sentences });
+  const telegramMessage = await writeTelegramMessage(facts, complete, { vibe });
+  const telegram = { status: preview ? 'preview' : noTelegram ? 'skipped' : null, source: telegramMessage.source,
+    reason: telegramMessage.reason, text: telegramMessage.text };
+  if (!telegram.status) {
+    await run('openclaw', ['message', 'send', '--channel', 'telegram', '--target', TELEGRAM_TARGET, '--message', telegramMessage.text], { timeoutMs: 45000 })
+      .then(() => { telegram.status = 'sent'; })
+      .catch((error) => {
+        telegram.status = `failed (${typeof error?.exitCode === 'number' ? error.exitCode : 1})`;
+        telegram.error = normalizeText(error?.stderr || error?.stdout || error?.message || 'unknown Telegram error');
+      });
+  }
+  return { email, telegram, emailHtml: message?.html || null };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => {

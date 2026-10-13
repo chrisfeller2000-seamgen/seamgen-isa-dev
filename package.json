@@ -14,6 +14,7 @@
     "local:health": "node devtools/local-isa.mjs health",
     "local:version": "node devtools/local-isa.mjs version",
     "local:chat": "node devtools/local-isa.mjs chat",
+    "rfp:preview": "node devtools/rfp-preview.mjs",
     "test": "node --test devtools/*.test.mjs",
     "check": "node devtools/check-source.mjs"
   },

@@ -14,51 +14,51 @@ This is a change to how the Friday results are delivered. The scoring, intake an
 
 ## Source and insertion points
 
-In order:
+As built:
 
-1. **`workspace/scripts/rfp-scoring-judgment.mjs`.** Add `buyer` to `OUTPUT_CONTRACT`:
-   - `currentSolution`: the system or vendor in place today, or null when the documents don't say;
-   - `objective`: what they want built and why;
-   - `evidence`: document excerpts.
+1. **`workspace/scripts/rfp-scoring-judgment.mjs`.** `buyer` added to `OUTPUT_CONTRACT`:
+   - `currentSolution`: one sentence on what is in place today, or null when the text doesn't say;
+   - `objective`: one sentence on what they want built and why;
+   - `evidence`: excerpt citations.
 
-   Plus one prompt rule. It's required at full-text depth only.
-2. **`workspace/scripts/rfp-scoring-policy.mjs`.** When finalizing, `cite(judgment.buyer.evidence, sources, { kind: 'document' })` whenever `buyer` is present, and keep it on the result. It never touches points, gates or decisions.
+   Plus one rule: `buyer` never affects gates or points.
+2. **`workspace/scripts/rfp-scoring-policy.mjs`: no change.** `validateAllCitations` already checks every citation anywhere in the judgment, and the finalized result keeps the whole judgment as `judgments`. A policy test shows a `buyer` field is checked and leaves points and decisions unchanged.
 3. **`workspace/scripts/rfp-report.mjs`.**
    - `reportEntry` gains:
-     - `buyer`;
-     - `blockers`: worst first, built from open gates (the `QUESTION_GATES` order), `subrules.submission`, `subrules.eligibility` and `competitive`;
-     - `sensitive`, from the flags.
-   - New functions:
-     - `pursueFacts(results)`: picks and per-RFP facts;
-     - `checkPursueSentences(sentences, facts)`;
-     - `pursueSentencesFallback(facts)`;
-     - `renderPursueEmail(facts, sentences)`, which returns `{ subject, html, text }`;
-     - `writePursueEmail(facts, complete)`.
+     - `buyer`: a current solution only when cited, and `silent` only when the scorer said null;
+     - `blockers`: worst first, from open gates, then submission, a wired competitive verdict, and an unfamiliar compliance band;
+     - `sensitive`.
+   - `gateReason` swaps the policy's stock "under its documented subrule" reason for a plain sentence per gate, and strips "Gate N" mentions from model reasons.
+   - New functions: `pursueFacts`, `checkPursueSentences`, `pursueSentencesFallback`, `renderPursueEmail` (`{ subject, text, html }`) and `writePursueEmail`.
+   - `MAIL_SYNC_PURSUE_SUBJECT` mirrors the mail sync's pattern; a test reads the mail sync's source to keep them equal.
    - Telegram:
-     - `telegramFacts(results, email)` describes the email outcome;
-     - `TEMPLATE`, `renderTelegramFallback` and `checkTelegramDraft` are rewritten for the short summary, and links must be the picks' Drive folders.
-   - Extract the shared `writeChecked` helper from `writeTelegramMessage`.
-   - Delete:
-     - `renderEmailHtml` and `EMAIL_FOOTER`;
-     - the biggest-skipped helpers (`biggestSkipped`, `SKIPPED_MIN_VALUE`, `PARTNER_GATES`);
-     - the team-question helpers and fields, once nothing uses them.
+     - `telegramFacts(results, pursue, email)` describes the outcome;
+     - `renderTelegramFallback` has sent, failed and none versions;
+     - `checkTelegramDraft` checks the Drive links, numbers and "sent";
+     - `writeTelegramMessage` only asks the model for the sent version.
+   - One shared `writeChecked` helper handles the timeout, the check and the fallback for both writers.
+   - Deleted:
+     - the report email (`renderEmailHtml`, `EMAIL_FOOTER`, `cardHtml`, `lineHtml`);
+     - the biggest-skipped and team-question Telegram helpers.
 
-     Keep `renderMarkdown`.
-4. **`workspace/scripts/weekly-rfp-pursue-decision.mjs`,** after `buildResults`:
-   1. build `pursueFacts`;
-   2. if there are picks and no email went out this week, write and send the email;
-   3. write the Telegram summary from the actual email outcome;
-   4. write the results files, now including `email`.
+     `renderMarkdown(results)` stays, now titled "RFP results, week N", and lists blockers.
+4. **`workspace/scripts/weekly-rfp-pursue-decision.mjs`.**
+   - `deliverPursueUpdate`, which replaces `deliverWeeklyReport`:
+     1. the once-a-week guard against the previous `latest.json`;
+     2. ISA's sentences;
+     3. the email, through `gog gmail send --body-html`;
+     4. the Telegram summary from the actual outcome.
 
-   `deliverWeeklyReport` becomes two small sends, email then Telegram, each keeping the injectable `run` for tests. The `.html` report writes are removed. Drive folders, the HubSpot check and the subject constant change only as described in the spec.
-5. **`workspace/scripts/run-new-rfp-qualification-cron.sh`.** `RFP_EMAIL_TO` replaces `REPORT_TO`, with its default recipients.
-6. **`devtools/rfp-preview.mjs`, plus `rfp:preview` in `package.json`.** It reads report entries (a results file or `score-sample.mjs` output) and writes the email and Telegram text to `.isa-local/preview/`. It uses the local OpenClaw writer when one is reachable, otherwise the code version.
-7. **`workspace/AGENTS.md` (ISA's runtime instructions), RFP section.** Describe the email and the Telegram summary, and remove "Replies to the Friday questions" now that there are none.
-8. **Docs.** Update the "Friday update" section of `docs/domains/rfp/README.md` and the specs index entry. In the October 6 spec, mark its email and Telegram sections as replaced by this spec.
+     `run`, `preview`, `to` and the writer can be injected for tests.
+   - `main` writes the results files once, after delivery, with the `email` and `telegram` records.
+   - `RFP_EMAIL_TO` replaces `REPORT_TO`.
+5. **`workspace/scripts/run-new-rfp-qualification-cron.sh`.** `RFP_EMAIL_TO` defaults to Marianne and sales@. Peter is added before release.
+6. **`devtools/rfp-preview.mjs`, `npm run rfp:preview`, `devtools/fixtures/rfp-preview-week.json`.** `devtools/score-sample.mjs --entries` adds full entries for real-data previews.
+7. **`workspace/AGENTS.md` RFP section, `docs/domains/rfp/README.md`, specs index, October 6 spec note.**
 
 ## Invariants and side effects
 
-- **At most one pursue email per week.** The guard reads that week's results file before sending. A failed send doesn't count, so a re-run can retry it.
+- **At most one pursue email per week.** The guard reads `latest.json` before sending. A failed send doesn't count, so a re-run can retry it. The results file is written right after delivery, so a crash in those few seconds could let a re-run send again; that's acceptable until the database (ISA-5).
 - **The email goes out first.** The Telegram message describes what actually happened: sent, none, or failed.
 - **Preview mode and tests never send.** Tests inject `run` and the writer (`Symbol.for('isa.rfp.testWriter')`).
 - **The subject never matches `RFP_PURSUE_SUBJECT_PATTERN`.** The mail sync can't be imported (it runs on load), so the test copies the pattern, with a comment pointing to `daily-mail-hubspot-sync.mjs:67`.

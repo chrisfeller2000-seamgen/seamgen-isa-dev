@@ -7,7 +7,9 @@ export WORKSPACE_DIR="${WORKSPACE_DIR:-/home/azureuser/.openclaw/workspace}"
 export PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH:-}"
 export GOG_ACCOUNT="${GOG_ACCOUNT:-isa@seamgen.com}"
 export GOG_KEYRING_BACKEND="${GOG_KEYRING_BACKEND:-file}"
-export REPORT_TO="${REPORT_TO:-mariannefaro@seamgen.com}"
+# Who gets the Friday pursue email, comma-separated. Peter's address is added before the
+# email is switched on (Jira ISA-6).
+export RFP_EMAIL_TO="${RFP_EMAIL_TO:-mariannefaro@seamgen.com,sales@seamgen.com}"
 export TELEGRAM_TARGET="${TELEGRAM_TARGET:--1003890997073}"
 # Fetch HigherGov documents for preliminary 50+ candidates and AI-score their full text.
 # Nothing else runs full-text scoring on a schedule. This adds roughly 2-3 hours to the run.

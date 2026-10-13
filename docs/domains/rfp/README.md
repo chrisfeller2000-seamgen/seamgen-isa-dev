@@ -17,13 +17,15 @@ The weekly job in `workspace/scripts/weekly-rfp-pursue-decision.mjs` runs intake
 
 From that file:
 
-- **The email** to Marianne lists every RFP by tier. It is built by code, and its subject must not change, because the mail-to-HubSpot job matches it.
-- **The Telegram message** names up to three RFPs whose documents ISA read, asks the team the open questions, and names the biggest skipped RFP a partner could rescue. ISA's model writes it in ISA's voice from facts the code prepares. `checkTelegramDraft()` compares every link and number with those facts; if anything differs or the writer fails, the code-built version is sent.
-- **The results file** records which version was sent and why. ISA's chat reads the file to answer questions about the week's RFPs.
+- **The pursue email** goes to Peter, Marianne and Sales (`RFP_EMAIL_TO`) when there are Strong Pursue RFPs, in Jake's format (`workspace/skills/rfp-email-pursue-skill.md`): per RFP, a Drive folder link, what they use today and want, why it fits us, and up to three blockers. ISA's model writes only the sentences; code adds the subject, titles, links and sign-off, and `checkPursueSentences()` checks the sentences against the facts. If anything differs or the writer fails, code-built sentences are used. What the buyer uses today comes from the scorer's `buyer` field, which never affects points.
+- **The subject must never match the mail-to-HubSpot job's pursue pattern** (`RFP_PURSUE_SUBJECT_PATTERN`). That job turns matching emails from isa@ into deals, paragraph by paragraph, so a match would create junk deals. A test keeps the two patterns in step.
+- **At most one pursue email per week.** A re-run in the same week sends nothing new; a failed send can be retried.
+- **The Telegram message** is a short summary of what happened: the email was sent (with each RFP's score and biggest blocker), it failed, or nothing was worth pursuing (with the closest one and why). ISA writes the "sent" version, checked like the email; the other two are code-built.
+- **The results file** records the email and the message, who wrote them, and why a code-built version was used. ISA's chat reads it to answer questions about the week's RFPs.
 
-`RFP_DELIVERY=preview` writes the same files, including the Telegram text, but sends no email or Telegram message and creates no Drive folders. It still runs intake, so use it only with an isolated `WORKSPACE_DIR`.
+`RFP_DELIVERY=preview` writes the same files plus the email and Telegram text (`<run date>-email.html`, `<run date>-telegram.md`), but sends nothing and creates no Drive folders. It still runs intake, so use it only with an isolated `WORKSPACE_DIR`. To review the wording without running the job, use `npm run rfp:preview -- <results file>` (add `--isa` for ISA's own words).
 
-If the run fails, the cron wrapper posts one failure notice to the group. See the [weekly update spec](../../specs/2026-10-06__rfp-weekly-messages/spec.md).
+If the run fails, the cron wrapper posts one failure notice to the group. See the [pursue email spec](../../specs/2026-10-12__rfp-pursue-email/spec.md) and the earlier [weekly update spec](../../specs/2026-10-06__rfp-weekly-messages/spec.md).
 
 ## Invariants and sharp edges
 

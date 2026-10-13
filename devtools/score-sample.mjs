@@ -4,9 +4,10 @@
 // It reads candidate files and saved documents from the live workspace and calls ISA's
 // model once per RFP with complete documents. It writes nothing and sends nothing.
 //
-// Usage: node devtools/score-sample.mjs --date 2026-10-09 [--report <weekly results.json>] [slug ...]
+// Usage: node devtools/score-sample.mjs --date 2026-10-09 [--report <weekly results.json>] [--entries] [slug ...]
 // --report adds that week's strong and worth-a-look picks. --date is the assessment date,
-// usually the original run date so deadlines count the same way.
+// usually the original run date so deadlines count the same way. --entries adds each full
+// report entry, which `npm run rfp:preview` turns into the Friday email and message.
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { reportEntry } from '../workspace/scripts/rfp-report.mjs';
@@ -22,6 +23,8 @@ const option = name => {
 };
 const runDate = option('--date') || new Date().toISOString().slice(0, 10);
 const reportPath = option('--report');
+const withEntries = args.includes('--entries');
+if (withEntries) args.splice(args.indexOf('--entries'), 1);
 const slugs = [...args];
 if (reportPath) {
   const report = JSON.parse(await fs.readFile(reportPath, 'utf8'));
@@ -60,6 +63,7 @@ async function scoreOne(slug) {
     notPassed: (result.gateReasons || []).filter(item => item.pass !== true).map(item => `${item.gate}: ${item.reason}`).slice(0, 3),
     model: result.provenance?.model || null,
     error: result.scoring_error || null,
+    ...(withEntries ? { entry } : {}),
   };
 }
 
