@@ -168,6 +168,16 @@ test('blockers come worst first, in plain words, at most three', () => {
   assert.deepEqual(real.blockers.map(blocker => blocker.text), [
     'The mandatory certification submission names no minimum credential, and no current credential or good-standing records establish compliance.',
     'Six distinct applicable end-client references are required, three current and three served for five years.']);
+  // A strength joined to the gap with "but" is dropped, and a submission blocker carries the
+  // excerpt that names the portal, not the first one cited (SW Wisconsin, October 13).
+  const joined = reportEntry({ candidate: candidate('joined'), preliminary: preliminary(70), final: result({ recommendation: 'Strong Pursue', total: 84,
+    judgment: { subrules: { submission: { status: 'feasible', basis: 'feasible-registration', evidence: [
+      { quote: 'Southwest Tech will accept sealed proposals until 1:00 p.m. on August 10, 2026.' },
+      { quote: 'DemandStar.com is the automatic Supplier registration and document distribution system used by the colleges.' }] } } },
+    gates: { gate6: { pass: null, reason: 'Production AI and government delivery are documented, but required security certifications are unspecified and need current proof.' } } }) });
+  assert.deepEqual(joined.blockers.map(blocker => blocker.text), ['Required security certifications are unspecified and need current proof.',
+    "Submitting needs a registration on the agency's portal."]);
+  assert.match(joined.blockers[1].quote, /^DemandStar\.com is the automatic Supplier registration/);
   // Worth a look RFPs get blockers too, for the Markdown record; screened-out ones don't.
   assert.deepEqual(weekEntries()[1].blockers.map(blocker => blocker.text), ['The solicitation requires utility-management experience at comparable scale.']);
   assert.deepEqual(weekEntries()[3].blockers, []);

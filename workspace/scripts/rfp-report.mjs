@@ -141,7 +141,10 @@ function openIssue(reason, max = BLOCKER_CHARS) {
   const sentences = text.match(/[^.!?]+[.!?]+(?=\s|$)|[^.!?]+$/g) || [text];
   // The model sometimes labels the open part itself ("Blocker: six references are required…").
   const labelled = sentences.find(sentence => /^\s*blocker:/i.test(sentence))?.replace(/^\s*blocker:\s*/i, '');
-  const pick = labelled || sentences.find(sentence => OPEN_ISSUE.test(sentence)) || sentences.find(sentence => NEEDS.test(sentence)) || sentences[0];
+  let pick = labelled || sentences.find(sentence => OPEN_ISSUE.test(sentence)) || sentences.find(sentence => NEEDS.test(sentence)) || sentences[0];
+  // "Delivery is documented, but certifications are unspecified": keep only the open part.
+  const turn = pick.match(/^(.*?)[,;]\s*(?:but|however|yet),?\s+(.+)$/i);
+  if (turn && !OPEN_ISSUE.test(turn[1]) && (OPEN_ISSUE.test(turn[2]) || NEEDS.test(turn[2]))) pick = turn[2];
   return plainReason(pick, max);
 }
 
@@ -176,8 +179,13 @@ function openQuestions(final) {
 
 // The RFP text a judgment cited, shortened, so ISA can name the actual portal or
 // certification in a blocker instead of a generic line.
-function quoteOf(evidence) {
-  const quote = clean(Array.isArray(evidence) ? evidence[0]?.quote : '');
+// The cited text the writer uses to be specific. `prefer` picks the excerpt that says the
+// relevant thing; for submission, the one naming the portal (SW Wisconsin's first excerpt
+// was the notice header, and "DemandStar" was in the second).
+const SUBMISSION_WORDS = /\b(?:submi\w*|portal|regist\w*|upload|electronic)\b|\.com\b/i;
+function quoteOf(evidence, prefer) {
+  const quotes = (Array.isArray(evidence) ? evidence : []).map(item => clean(item?.quote)).filter(Boolean);
+  const quote = (prefer && quotes.find(text => prefer.test(text))) || quotes[0] || '';
   return quote.length <= 240 ? quote : `${quote.slice(0, 239).replace(/\s+\S*$/, '')}…`;
 }
 
@@ -206,12 +214,12 @@ function blockersOf(final) {
   const lines = open.map(key => {
     const reason = final.gateReasons?.find(item => item.gate === `Gate ${key.slice(4)}`)?.reason;
     const text = !reason ? gateReason(final, key) : STOCK_GATE_REASON.test(reason) ? GATE_PLAIN[key] || '' : openIssue(reason);
-    return { text: firstSentence(text, BLOCKER_CHARS), quote: quoteOf(judgment.gates?.[key]?.evidence) };
+    return { text: firstSentence(text, BLOCKER_CHARS), quote: quoteOf(judgment.gates?.[key]?.evidence, key === 'gate4' ? SUBMISSION_WORDS : null) };
   });
   // An open Gate 4 is already the submission blocker.
   const submission = open.includes('gate4') ? null : judgment.subrules?.submission;
-  if (submission?.status === 'unknown') lines.push({ text: "How to submit isn't confirmed yet.", quote: quoteOf(submission.evidence) });
-  else if (submission?.basis === 'feasible-registration') lines.push({ text: "Submitting needs a registration on the agency's portal.", quote: quoteOf(submission.evidence) });
+  if (submission?.status === 'unknown') lines.push({ text: "How to submit isn't confirmed yet.", quote: quoteOf(submission.evidence, SUBMISSION_WORDS) });
+  else if (submission?.basis === 'feasible-registration') lines.push({ text: "Submitting needs a registration on the agency's portal.", quote: quoteOf(submission.evidence, SUBMISSION_WORDS) });
   if (['Leaning wired', 'Wired'].includes(judgment.competitive?.verdict)) {
     lines.push({ text: 'It looks written with a particular vendor in mind.', quote: quoteOf(judgment.competitive.tells) });
   }
@@ -532,7 +540,7 @@ function pursueWriterPrompt(vibe) {
     'name: the plain short name people would use, with the place (for example "Yonkers senior services app"), under 60 characters. hook: a few words on why it stands out for us, under 80 characters (for example "strongest fit of the three", "custom AI, scored on past AI work").',
     `situation: at most 2 sentences. First what they use today (currentSolution), then what they want built and why (objective). When currentSolution is null and silent is true, the first sentence must be exactly: "${SILENT_LINE}" When silent is false, never call the RFP silent.`,
     'fit: 1 or 2 sentences from fit, naming the past project it mentions, in everyday words; when advantage is given, add it as a short clause or second sentence (for example "Cost is only 5 of 100 evaluation points."). An empty string when both are null.',
-    'blockers: each given blocker as one plain line, in the same order and the same number of lines; [] when there are none. Use its quote to be specific, naming the actual portal, certification or requirement (for example "Submission only through BidNet, where we aren\'t registered."), but never add anything the quote and text do not say.',
+    `blockers: each given blocker as one plain line under ${BLOCKER_CHARS} characters, in the same order and the same number of lines; [] when there are none. Lead with what is missing or required, never with what already checks out. Use its quote to be specific, naming the actual portal, certification or requirement (for example "Submission only through BidNet, where we aren't registered."), but never add anything the quote and text do not say.`,
     'No links, Markdown, raw dates such as 2026-10-16, or rubric words such as "gate". Never mention a missing link or missing information.',
   ].join('\n');
 }
