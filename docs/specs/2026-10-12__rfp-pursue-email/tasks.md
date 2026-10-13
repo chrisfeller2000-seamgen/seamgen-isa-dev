@@ -18,7 +18,16 @@
 - [x] `workspace/AGENTS.md` RFP section, `docs/domains/rfp/README.md`, specs index, October 6 spec note.
 - [ ] Check on the VM that `gog gmail send --to` takes comma-separated addresses.
 - [ ] `npm test`, `npm run check`, diff review and secret scan.
-- [ ] Local previews reviewed by Chris, on fixtures and then on real entries (VM `score-sample.mjs`, with approval).
+- [x] VM preview on Jake's archive (October 12, temporary folder, removed afterwards). This branch's scorer re-scored his July Strong Pursues, and ISA wrote the email and message. Fixes from it:
+  - the opening line's count;
+  - missing-link filler;
+  - Jake's byte-order-mark files;
+  - blocker sentences;
+  - null scores in Telegram.
+
+  Yonkers matches Jake: a no-bid on the 3-reference requirement, "silent on any incumbent", nearly the same objective, and the BidNet and references blockers.
+  Caution for ISA-3: Jake's candidate files can contain his own scoring notes ("KILL GATES … PASS"), which the scorer reads. Strip them before comparing scores.
+- [ ] Chris reviews the final preview email (`.isa-local/vm-preview/`).
 - [ ] Before switching it on: ISA-3 deployed, and Jake's July Strong Pursues re-checked.
 - [ ] Release, with explicit approval: guarded deploy, `RFP_EMAIL_TO` set, release recorded here.
 - [ ] After the first live Friday: email, Telegram, `email` record, no mail-sync deals, log.
