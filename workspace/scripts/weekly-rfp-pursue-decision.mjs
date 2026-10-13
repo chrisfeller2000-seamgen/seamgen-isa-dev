@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { createAssessmentContext } from './rfp-deadline.mjs';
 import { extractDocumentText } from './document-text.mjs';
 import { DOCUMENT_FETCH_THRESHOLD, unscoredRfp } from './rfp-scoring-policy.mjs';
-import { createOpenClawJudge, scoreRfp } from './rfp-scoring-judgment.mjs';
+import { createModelOutageGuard, createOpenClawJudge, scoreRfp } from './rfp-scoring-judgment.mjs';
 import { buildResults, renderEmailHtml, renderMarkdown, reportEntry, telegramFacts, vibeFrom, writeTelegramMessage } from './rfp-report.mjs';
 import {
   classifyDocumentRecord,
@@ -267,9 +267,9 @@ function buildMetadataText(candidate) {
   ].filter(Boolean).join('\n\n');
 }
 
-export async function scoreCandidateFromText({ candidate, runDate, phase = 'full-text', documents = [], completeness, companySources, policies, landscapeSources, judge }) {
+export async function scoreCandidateFromText({ candidate, runDate, phase = 'full-text', documents = [], completeness, companySources, policies, landscapeSources, judge, outage }) {
   const assessment = createAssessmentContext({ runDate, reportingTimeZone: process.env.RFP_ASSESSMENT_TIME_ZONE || 'UTC' });
-  const result = await scoreRfp({ candidate, phase, documents, completeness, assessment, companySources, policies, landscapeSources }, { judge, workspace: WORKSPACE });
+  const result = await scoreRfp({ candidate, phase, documents, completeness, assessment, companySources, policies, landscapeSources }, { judge, outage, workspace: WORKSPACE });
   // Adapt the validated result to the fields the existing weekly report builders read.
   const failedGate = result.gateReasons?.find((item) => item.pass === false)
     || (Object.values(result.gate).includes(false) ? { gate: 'Scoring', reason: result.reasons.join('; ') } : null);
@@ -1384,7 +1384,7 @@ function extractContractValue(text = '') {
   return 'not stated';
 }
 
-async function scoreMetadataCandidate(candidate, runDate) {
+async function scoreMetadataCandidate(candidate, runDate, outage) {
   const metadataText = buildMetadataText(candidate);
   const known = value => Boolean(normalizeText(value)) && !/^(unknown|n\/a|tbd)$/i.test(normalizeText(value));
   const enoughMetadata = normalizeText(metadataText).length >= 120
@@ -1403,7 +1403,7 @@ async function scoreMetadataCandidate(candidate, runDate) {
     };
   }
 
-  const preview = await scoreCandidateFromText({ candidate, phase: 'preliminary', runDate });
+  const preview = await scoreCandidateFromText({ candidate, phase: 'preliminary', runDate, outage });
   return {
     status: 'preliminary-below-threshold',
     score: Number.isFinite(preview.score) ? preview.score : null,
@@ -1637,6 +1637,9 @@ async function main() {
   const seenRfpKeys = new Set();
   const apiKey = getHigherGovApiKey();
   const config = await loadHigherGovConfig();
+  // Shared by every scoring call below, so a model outage pauses the run once instead
+  // of failing each remaining RFP.
+  const outage = createModelOutageGuard();
 
   for (let i = 0; i < candidatePaths.length; i += 1) {
     const candidatePath = candidatePaths[i];
@@ -1645,7 +1648,7 @@ async function main() {
     const { slug, title: frontTitle, issuer: frontIssuer } = candidate;
     const title = cleanName(frontTitle || slug);
     const issuer = cleanName(frontIssuer || '');
-    const preliminary = await scoreMetadataCandidate(candidate, runDate);
+    const preliminary = await scoreMetadataCandidate(candidate, runDate, outage);
     const preliminaryScore = preliminary.score;
     const rfpKey = buildRfpKey(title, issuer);
     if (rfpKey && seenRfpKeys.has(rfpKey)) {
@@ -1751,7 +1754,7 @@ async function main() {
       continue;
     }
 
-    const scoringBundle = await scoreCandidateFromText({ candidate, runDate, documents: extracted.documents, completeness });
+    const scoringBundle = await scoreCandidateFromText({ candidate, runDate, documents: extracted.documents, completeness, outage });
     await persistValidatedScore(candidatePath, { preliminaryScore, result: scoringBundle,
       manifestPath: path.join(resourcesDir, '_document-manifest.json'), runDate });
     const qualifies = scoringBundle.qualification_status === 'qualified' && Number.isFinite(scoringBundle.total)
@@ -1845,9 +1848,17 @@ async function main() {
   }, null, 2)}\n`);
 }
 
+// The gateway refused the connection, so nothing was posted and sending again cannot
+// post twice. Any other failure (a timeout, say) may have delivered and is not retried.
+const TELEGRAM_GATEWAY_DOWN = /Gateway not reachable|ECONNREFUSED|gateway is draining/i;
+
 // Sends the email, then the Telegram message. Preview mode sends nothing; the report
 // files are already written. `run` is a parameter so tests can prove that.
-export async function deliverWeeklyReport({ subject, htmlPath, telegramText, preview = DELIVERY_PREVIEW, noTelegram = NO_TELEGRAM, run = runJson }) {
+// The Telegram send goes through the OpenClaw gateway. On October 9 an OpenClaw update
+// had the gateway down for nine minutes when the run finished, and the one attempt
+// failed. Five attempts three minutes apart cover a twelve-minute restart.
+export async function deliverWeeklyReport({ subject, htmlPath, telegramText, preview = DELIVERY_PREVIEW, noTelegram = NO_TELEGRAM, run = runJson,
+  telegramAttempts = 5, telegramRetryMs = 180000, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)) }) {
   if (preview) return { emailStatus: 'preview', telegramStatus: 'preview' };
   const sendResult = await run('gog', [
     '-a',
@@ -1866,19 +1877,26 @@ export async function deliverWeeklyReport({ subject, htmlPath, telegramText, pre
   ], { timeoutMs: 120000 });
   const email = { emailStatus: 'sent', gmailResponse: String(sendResult || '').slice(0, 200) };
   if (noTelegram) return { ...email, telegramStatus: 'skipped' };
-  const telegram = await run('openclaw', [
-    'message',
-    'send',
-    '--channel',
-    'telegram',
-    '--target',
-    TELEGRAM_TARGET,
-    '--message',
-    telegramText,
-  ], { timeoutMs: 45000 }).then(() => ({ telegramStatus: 'sent' })).catch((error) => ({
-    telegramStatus: `failed (${typeof error?.exitCode === 'number' ? error.exitCode : 1})`,
-    telegramError: normalizeText(error?.stderr || error?.stdout || error?.message || 'unknown Telegram error'),
-  }));
+  let telegram;
+  for (let attempt = 1; ; attempt += 1) {
+    telegram = await run('openclaw', [
+      'message',
+      'send',
+      '--channel',
+      'telegram',
+      '--target',
+      TELEGRAM_TARGET,
+      '--message',
+      telegramText,
+    ], { timeoutMs: 45000 }).then(() => ({ telegramStatus: 'sent' })).catch((error) => ({
+      telegramStatus: `failed (${typeof error?.exitCode === 'number' ? error.exitCode : 1})`,
+      telegramError: normalizeText(error?.stderr || error?.stdout || error?.message || 'unknown Telegram error'),
+    }));
+    telegram.telegramAttempts = attempt;
+    if (telegram.telegramStatus === 'sent' || attempt >= telegramAttempts || !TELEGRAM_GATEWAY_DOWN.test(telegram.telegramError)) break;
+    process.stderr.write(`[weekly-rfp] Telegram gateway not reachable (attempt ${attempt}/${telegramAttempts}); trying again in ${Math.round(telegramRetryMs / 1000)}s\n`);
+    await sleep(telegramRetryMs);
+  }
   return { ...email, telegramTarget: TELEGRAM_TARGET, ...telegram };
 }
 
