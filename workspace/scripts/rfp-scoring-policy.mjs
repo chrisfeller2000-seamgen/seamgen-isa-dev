@@ -110,12 +110,15 @@ function timelineFor(input) {
   const phase = input.phase || 'full-text';
   const timeline = assessDeadline({ metadataDueDate: input.candidate?.frontmatter?.due_date,
     documents: phase === 'preliminary' ? [] : (input.documents || []).map(doc => ({ ...doc, name: doc.name || doc.file })), assessment: input.assessment || createAssessmentContext() });
-  // Jake's cheap pass can use a valid listing date, but remains metadata-only.
-  if (phase === 'preliminary' && timeline.status === 'metadata-only' && Number.isFinite(timeline.days)) {
-    const pass = timeline.days >= 10 && !timeline.expired;
+  // Jake used the listing date when nothing else gave one. Before documents it passes;
+  // when the documents don't state a deadline, Gate 1 stays open (a blocker to confirm)
+  // but still earns its timeline points. A listing date under 10 days or past fails.
+  if (timeline.status === 'metadata-only' && Number.isFinite(timeline.days)) {
+    const ok = timeline.days >= 10 && !timeline.expired;
+    const confirm = phase === 'preliminary' ? 'the solicitation must confirm it' : "the documents don't state one, so confirm it";
     const note = timeline.expired ? 'The listing deadline has passed.'
-      : `The listing deadline is ${timeline.days} days away${pass ? '; the solicitation must confirm it' : ', below the 10-day minimum'}.`;
-    return { ...timeline, pass, score: timelinePoints(timeline.days), note };
+      : `The listing deadline is ${timeline.days} days away${ok ? `; ${confirm}` : ', below the 10-day minimum'}.`;
+    return { ...timeline, pass: ok ? (phase === 'preliminary' || null) : false, score: timelinePoints(timeline.days), note };
   }
   return timeline;
 }
@@ -439,9 +442,13 @@ export function finalizeRfpScore(input, judgment) {
   // can only make completeness stricter than the supplied documents show.
   const missing = requiredDocuments(judgment, sources, phase);
   const completeness = input.completeness?.complete === false ? input.completeness : documentEvidence(input.documents);
-  if (phase === 'full-text' && (!completeness.complete || missing.some(item => !item.documentIds.length))) {
-    return { ...base, recommendation: 'Needs documents', document_status: 'partial-documents' };
-  }
+  if (phase === 'full-text' && !completeness.complete) return { ...base, recommendation: 'Needs documents', document_status: 'partial-documents' };
+  // The solicitation was read, but it refers to a document we don't have (an exhibit, a
+  // form). Like Jake, score what we have and list the document as a blocker, unless the
+  // model couldn't score the categories without it.
+  const unread = phase === 'full-text' ? missing.filter(item => !item.documentIds.length) : [];
+  if (unread.length && !judgment.categories) return { ...base, recommendation: 'Needs documents', document_status: 'partial-documents' };
+  if (unread.length) base.reasons.push(`Missing referenced document: ${unread.map(item => item.name).join('; ')}.`);
   if (phase === 'preliminary' && missing.length) base.reasons.push(`Documents to retrieve: ${missing.map(item => item.name).join('; ')}.`);
 
   const categories = categoryPoints(judgment.categories, sources);
@@ -453,12 +460,16 @@ export function finalizeRfpScore(input, judgment) {
   // conditional result has no total; the weekly update shows this as the score if the
   // team confirms the open question. It never changes a decision.
   const scored = { ...base, cp, categories: scoredCategories, potential_total: categoryTotal(scoredCategories), flags: reviewFlags(judgment.flags, sources) };
-  if (timeline.pass === null) return { ...scored, recommendation: 'Deadline needs review' };
+  // A listing-only deadline is scored as an open gate; missing or conflicting dates are not.
+  if (timeline.pass === null && timeline.status !== 'metadata-only') return { ...scored, recommendation: 'Deadline needs review' };
   if (judgment.conditional) {
     const runDate = input.assessment?.runDate || timeline.assessmentDate;
     return conditionalOutcome(scored, judgment.conditional, { sources, runDate, phase, deal: judgment.value, value });
   }
-  if ((phase === 'full-text' && (GATE_NAMES.some(name => gate[name] === null) || judgment.value.kind === 'uncertain')) || value.status === 'conflicting') {
+  // An open gate (null) doesn't stop the score. Jake passed what he couldn't confirm
+  // "with a note"; ISA keeps the gate open and the report lists its reason as a blocker.
+  // An uncertain or conflicting project value still needs review.
+  if ((phase === 'full-text' && judgment.value.kind === 'uncertain') || value.status === 'conflicting') {
     return { ...scored, recommendation: 'Needs review' };
   }
   const total = scored.potential_total;

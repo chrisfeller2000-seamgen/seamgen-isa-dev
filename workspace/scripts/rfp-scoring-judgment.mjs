@@ -114,8 +114,8 @@ const SYSTEM_RULES = [
   'bidStatus: open for a live solicitation, even when only its listing is supplied; closed when the notice explicitly invites no submissions; watch only for an RFI, Sources Sought, or pre-solicitation notice.',
   'At preliminary depth only the listing is supplied; that is expected, not a missing document.',
   'Unless a gate is known false, return all eight categories at metadata depth and list the buyer documents to retrieve in requiredDocuments, citing metadata.',
-  'At full-text depth, if the requirements are supplied but a gate remains unknown, still return the eight provisional category judgments; code withholds the final total.',
-  'Categories may be omitted only when a gate is known false, the bid is not open, or a required buyer document is missing at full-text depth. An unconfirmed deadline still gets all eight categories; code withholds the total.',
+  'At full-text depth, if a gate remains unknown, still return all eight category judgments; the open gate is listed as a blocker.',
+  'Categories may be omitted only when a gate is known false or the bid is not open. A referenced document that was not supplied, or an unconfirmed deadline, still gets all eight categories: score from the supplied documents and list the missing document in requiredDocuments.',
   'Never invent evidence to fill categories.',
 ].join(' ');
 
