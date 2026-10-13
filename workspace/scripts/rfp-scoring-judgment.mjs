@@ -251,8 +251,11 @@ export async function scoreRfp(input, { judge, workspace = process.env.WORKSPACE
     return { ...scored, provenance: { rubric: 'Jake v1.8 + approved deadline correction', evidenceFormat: 'source-excerpt-ids-v1', model: result.model || 'recorded test judgment',
       assessmentDate: input.assessment?.runDate, sources: sources.map(source => ({ id: source.id, sha256: crypto.createHash('sha256').update(source.text).digest('hex') })),
       policyHashes: policies.map(item => ({ name: item.name, sha256: crypto.createHash('sha256').update(item.text).digest('hex') })) } };
-  } catch {
+  } catch (error) {
     // Provider errors can contain sensitive URLs/auth details. Do not copy them to reports.
-    return { ...unscoredRfp(input, 'Scoring could not be validated; check model access, source assets, and structured evidence in an isolated test.'), scoring_error: failureStage };
+    // A rejected answer is different: the message is our validator's own ("Invalid ai
+    // category or rubric band.") and says what the model got wrong.
+    const detail = failureStage === 'invalid-judgment' ? { scoring_error_detail: String(error?.message || '').slice(0, 200) } : {};
+    return { ...unscoredRfp(input, 'Scoring could not be validated; check model access, source assets, and structured evidence in an isolated test.'), scoring_error: failureStage, ...detail };
   }
 }

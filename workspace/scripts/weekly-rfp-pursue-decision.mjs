@@ -252,7 +252,7 @@ export async function persistValidatedScore(candidatePath, { preliminaryScore, r
     document_manifest_path: manifestPath, status: result.total === null ? 'provisional' : 'scored',
     scored_date: runDate, scoring_categories: result.categories, scoring_recommendation: result.recommendation,
     scoring_reasons: result.reasons, scoring_flags: result.flags, scoring_conditional: result.conditional || null,
-    scoring_judgments: result.judgments || null, scoring_error: result.scoring_error || null,
+    scoring_judgments: result.judgments || null, scoring_error: result.scoring_error || null, scoring_error_detail: result.scoring_error_detail || null,
     scoring_provenance: result.provenance || null,
   });
 }

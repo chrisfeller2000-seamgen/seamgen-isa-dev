@@ -478,6 +478,13 @@ test('model failures, invalid JSON, unsupported citations, and timeouts stay uns
     assert.notEqual(result.recommendation, 'Strong Pursue');
     assert.doesNotMatch(JSON.stringify(result), /Sensitive provider error/);
   }
+  // A rejected answer keeps the validator's reason, so the failure can be diagnosed.
+  const rejected = await scoreRfp(packet(), { judge: async ({ prompt }) => {
+    const j = recordedJudgment(packet()); j.categories.ai.points = 1000; return JSON.stringify(referenceJudgment(j, JSON.parse(prompt).sources));
+  } });
+  assert.deepEqual([rejected.scoring_error, rejected.scoring_error_detail], ['invalid-judgment', 'Invalid ai category or rubric band.']);
+  const provider = await scoreRfp(packet(), { judge: async () => { throw new Error('Sensitive provider error'); } });
+  assert.equal(provider.scoring_error_detail, undefined);
 });
 
 test('missing private company assets are a context limitation, not an invented score', async () => {

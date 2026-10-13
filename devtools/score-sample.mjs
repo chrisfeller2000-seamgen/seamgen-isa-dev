@@ -60,6 +60,7 @@ async function scoreOne(slug) {
     notPassed: (result.gateReasons || []).filter(item => item.pass !== true).map(item => `${item.gate}: ${item.reason}`).slice(0, 3),
     model: result.provenance?.model || null,
     error: result.scoring_error || null,
+    errorDetail: result.scoring_error_detail || null,
   };
 }
 
