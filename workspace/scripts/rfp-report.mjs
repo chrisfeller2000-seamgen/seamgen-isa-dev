@@ -224,7 +224,7 @@ function blockersOf(final) {
 function rfpNumber(frontmatter = {}) {
   const value = clean(frontmatter.rfp_number);
   if (!value || /^(?:unknown|null|none|n\/?a)$/i.test(value)) return '';
-  return /[a-z]/i.test(value) ? value : `No. ${value}`;
+  return /[a-z]/i.test(value) ? value : `RFP No. ${value}`;
 }
 
 function rankOf(final, preliminary) {
@@ -451,7 +451,9 @@ export function renderPursueEmail(facts, sentences) {
   const subject = count <= 2 && named.length <= 90 && !MAIL_SYNC_PURSUE_SUBJECT.test(named) ? named : countSubject;
   const blocks = facts.picks.map((pick, index) => {
     const words = sentences.rfps[index];
-    const source = `RFP Opportunity through HigherGov: ${pick.title}${pick.rfpNumber ? `, ${pick.rfpNumber}` : ''}${pick.agency ? ` (${pick.agency})` : ''}`;
+    // Jake's order: "City of Yonkers RFP No. 561 — <title> — <Drive folder>".
+    const issuer = [pick.agency, pick.rfpNumber].filter(Boolean).join(' ');
+    const source = `RFP Opportunity through HigherGov: ${issuer ? `${issuer} — ` : ''}${pick.title}`;
     return {
       heading: `${pick.number}. ${clean(words.name)} — ${clean(words.hook)}`,
       source, link: pick.link,

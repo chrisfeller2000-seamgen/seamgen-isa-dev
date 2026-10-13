@@ -188,12 +188,12 @@ test("the pursue email covers only Strong Pursue RFPs, in Jake's format, with li
   assert.equal(email.text, [
     "2 RFPs worth pursuing from this week's HigherGov search, scored on the full RFP documents.",
     '1. Permit portal strong — scored 82',
-    'RFP Opportunity through HigherGov: Permit portal strong (City of Example) — Drive folder: https://drive.example.test/strong',
+    'RFP Opportunity through HigherGov: City of Example — Permit portal strong — Drive folder: https://drive.example.test/strong',
     `Current solution & hopeful objective: ${SILENT} Residents want to apply for permits online instead of on paper.`,
     'Why it fits us: Our permit portal for the City of Sample is a close match.',
     'Blockers: None identified.',
     '2. Permit portal grants — scored 78',
-    'RFP Opportunity through HigherGov: Permit portal grants, No. 2026-114 (City of Example) — Drive folder: https://drive.example.test/grants',
+    'RFP Opportunity through HigherGov: City of Example RFP No. 2026-114 — Permit portal grants — Drive folder: https://drive.example.test/grants',
     'Current solution & hopeful objective: They track grants in spreadsheets today. One system for applicants and reviewers.',
     'Why it fits us: Our permit portal for the City of Sample is a close match. Cost is only 5 of 100 evaluation points.',
     "Blockers:\n- How to submit isn't confirmed yet.",
@@ -201,7 +201,7 @@ test("the pursue email covers only Strong Pursue RFPs, in Jake's format, with li
   ].join('\n\n'));
   const hostile = structuredClone(facts);
   hostile.picks[1].title = 'Grants portal <script>';
-  assert.match(renderPursueEmail(hostile, sentences).html, /Grants portal &lt;script&gt;, No\. 2026-114 \(City of Example\)/);
+  assert.match(renderPursueEmail(hostile, sentences).html, /City of Example RFP No\. 2026-114 — Grants portal &lt;script&gt;/);
   assert.match(email.html, /— <a href="https:\/\/drive\.example\.test\/strong">Drive folder<\/a>/);
   assert.match(email.html, /<li>How to submit isn&#39;t confirmed yet\.<\/li>/);
   assert.doesNotMatch(email.html, /color:|<table|<img|Strong pursue|Screened out/);

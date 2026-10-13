@@ -47,7 +47,7 @@ One small addition to the scorer supplies the part Jake's format needs and ISA d
   1. One opening line: how many RFPs, from this week's HigherGov search, scored on the full documents.
   2. For each RFP, numbered:
      - "<short name> — <short hook>"
-     - "RFP Opportunity through HigherGov: <full title>, <RFP number> (<agency>) — Drive folder" (a link; the number is HigherGov's `source_id`, when there is one)
+     - "RFP Opportunity through HigherGov: <agency> RFP No. <number> — <full title> — Drive folder", in Jake's order (a link; the number is HigherGov's `source_id`, when there is one)
      - "Current solution & hopeful objective:" 2 sentences
      - "Why it fits us:" 1–2 sentences that name a real past project, plus how the evaluation favors us when the scorer finds it (Jake's "cost is only 5 of 100 points")
      - "Blockers:" up to 3 one-liners, worst first, or "None identified." ISA gets the RFP text cited behind each one, so it can name the actual portal or certification, as Jake did
