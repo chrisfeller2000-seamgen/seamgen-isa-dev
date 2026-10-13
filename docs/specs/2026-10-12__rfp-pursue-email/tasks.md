@@ -1,0 +1,22 @@
+# ISA task checklist: RFP updates in Jake's format
+
+- [x] Branch `feat/rfp-pursue-email` from `main` at `9289874`, which includes the ISA-3 scoring fixes. The worktree was clean.
+- [x] Chris's decisions recorded (October 12): Jake's format, sent automatically, Telegram summary, no weekly summary email, no no-bid emails.
+- [ ] Chris approves this spec and answers the open questions (Peter's address, Sales, Worth a look, sign-off).
+- [ ] Scorer: `buyer` field and citation check, with a policy test showing points and decisions are unchanged.
+- [ ] `rfp-report.mjs`:
+  - [ ] entry fields (`buyer`, `blockers`, `sensitive`);
+  - [ ] pursue facts, sentence checks and fallback, email renderer;
+  - [ ] shared `writeChecked` helper;
+  - [ ] Telegram summary;
+  - [ ] delete the old report email and unused helpers;
+  - [ ] tests.
+- [ ] Weekly script: email then Telegram, the once-a-week guard, the `email` record, `.html` removed, preview files.
+- [ ] Cron wrapper: `RFP_EMAIL_TO`.
+- [ ] `npm run rfp:preview` and a fixture to try it on.
+- [ ] `workspace/AGENTS.md` RFP section, `docs/domains/rfp/README.md`, specs index, October 6 spec note.
+- [ ] `npm test`, `npm run check`, diff review and secret scan.
+- [ ] Local previews reviewed by Chris, on fixtures and then on real entries (VM `score-sample.mjs`, with approval).
+- [ ] Before switching it on: ISA-3 deployed, and Jake's July Strong Pursues re-checked.
+- [ ] Release, with explicit approval: guarded deploy, `RFP_EMAIL_TO` set, release recorded here.
+- [ ] After the first live Friday: email, Telegram, `email` record, no mail-sync deals, log.
