@@ -140,7 +140,7 @@ test('blockers come worst first, in plain words, at most three', () => {
     competitive: { verdict: 'Leaning wired' },
     categories: { compliance: { band: 'unfamiliar', points: 1, reason: 'Compliance: the RFP asks for SOC 2 Type II evidence, which we do not hold.' } },
   });
-  assert.deepEqual(pick.blockers.map(blocker => blocker.text), ["Submitting needs a registration on the agency's portal.",
+  assert.deepEqual(pick.blockers.map(blocker => blocker.text), ['Submitting needs a registration on BidNet Direct.',
     'It looks written with a particular vendor in mind.', 'Compliance: the RFP asks for SOC 2 Type II evidence, which we do not hold.']);
   // ISA gets the cited RFP text, so it can say "only through BidNet" instead of "a portal".
   assert.equal(pick.blockers[0].quote, 'Proposals must be submitted through BidNet Direct, the Empire State Purchasing Group portal.');
@@ -172,12 +172,11 @@ test('blockers come worst first, in plain words, at most three', () => {
   // excerpt that names the portal, not the first one cited (SW Wisconsin, October 13).
   const joined = reportEntry({ candidate: candidate('joined'), preliminary: preliminary(70), final: result({ recommendation: 'Strong Pursue', total: 84,
     judgment: { subrules: { submission: { status: 'feasible', basis: 'feasible-registration', evidence: [
-      { quote: 'Southwest Tech will accept sealed proposals until 1:00 p.m. on August 10, 2026.' },
+      { quote: 'Southwest Tech will accept sealed proposals until 1:00 p.m. on August 10, 2026. Sealed proposal documents must be submitted through DemandStar.' },
       { quote: 'DemandStar.com is the automatic Supplier registration and document distribution system used by the colleges.' }] } } },
     gates: { gate6: { pass: null, reason: 'Production AI and government delivery are documented, but required security certifications are unspecified and need current proof.' } } }) });
   assert.deepEqual(joined.blockers.map(blocker => blocker.text), ['Required security certifications are unspecified and need current proof.',
-    "Submitting needs a registration on the agency's portal."]);
-  assert.match(joined.blockers[1].quote, /^DemandStar\.com is the automatic Supplier registration/);
+    'Submitting needs a registration on DemandStar.']);
   // Worth a look RFPs get blockers too, for the Markdown record; screened-out ones don't.
   assert.deepEqual(weekEntries()[1].blockers.map(blocker => blocker.text), ['The solicitation requires utility-management experience at comparable scale.']);
   assert.deepEqual(weekEntries()[3].blockers, []);

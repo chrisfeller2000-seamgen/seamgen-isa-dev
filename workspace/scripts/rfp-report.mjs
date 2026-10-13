@@ -183,6 +183,13 @@ function openQuestions(final) {
 // relevant thing; for submission, the one naming the portal (SW Wisconsin's first excerpt
 // was the notice header, and "DemandStar" was in the second).
 const SUBMISSION_WORDS = /\b(?:submi\w*|portal|regist\w*|upload|electronic)\b|\.com\b/i;
+// Submission portals agencies name; Jake named them ("only through BidNet"). Longer names first.
+const PORTALS = ['DemandStar', 'BidNet Direct', 'BidNet', 'Public Purchase', 'Beacon Bid', 'OpenGov', 'Bonfire', 'PlanetBids', 'BidSync', 'Jaggaer', 'Empire State Purchasing Group'];
+function portalIn(evidence) {
+  const text = (Array.isArray(evidence) ? evidence : []).map(item => clean(item?.quote)).join(' ');
+  return PORTALS.find(name => new RegExp(`\\b${name.replace(/ /g, '\\s*')}\\b`, 'i').test(text)) || '';
+}
+
 function quoteOf(evidence, prefer) {
   const quotes = (Array.isArray(evidence) ? evidence : []).map(item => clean(item?.quote)).filter(Boolean);
   const quote = (prefer && quotes.find(text => prefer.test(text))) || quotes[0] || '';
@@ -219,7 +226,10 @@ function blockersOf(final) {
   // An open Gate 4 is already the submission blocker.
   const submission = open.includes('gate4') ? null : judgment.subrules?.submission;
   if (submission?.status === 'unknown') lines.push({ text: "How to submit isn't confirmed yet.", quote: quoteOf(submission.evidence, SUBMISSION_WORDS) });
-  else if (submission?.basis === 'feasible-registration') lines.push({ text: "Submitting needs a registration on the agency's portal.", quote: quoteOf(submission.evidence, SUBMISSION_WORDS) });
+  else if (submission?.basis === 'feasible-registration') {
+    const portal = portalIn(submission.evidence);
+    lines.push({ text: `Submitting needs a registration on ${portal || "the agency's portal"}.`, quote: quoteOf(submission.evidence, SUBMISSION_WORDS) });
+  }
   if (['Leaning wired', 'Wired'].includes(judgment.competitive?.verdict)) {
     lines.push({ text: 'It looks written with a particular vendor in mind.', quote: quoteOf(judgment.competitive.tells) });
   }
