@@ -26,7 +26,7 @@
   - null scores in Telegram.
 
   Yonkers matches Jake: a no-bid on the 3-reference requirement, "silent on any incumbent", nearly the same objective, and the BidNet and references blockers.
-  Caution for ISA-3: Jake's candidate files can contain his own scoring notes ("KILL GATES … PASS"), which the scorer reads. Strip them before comparing scores.
+  The first 9-RFP run was skewed: Jake's candidate files contain his own scoring notes ("KILL GATES … PASS"), and the scorer read them. Fixed on `fix/rfp-scorer-intake-text`, so the ISA-3 comparison can re-score his files as they are.
 - [ ] Chris reviews the final preview email (`.isa-local/vm-preview/`).
 - [ ] Before switching it on: ISA-3 deployed, and Jake's July Strong Pursues re-checked.
 - [ ] Release, with explicit approval: guarded deploy, `RFP_EMAIL_TO` set, release recorded here.
