@@ -257,6 +257,24 @@ test('potential_total is the category sum, and an open gate no longer withholds 
   assert.equal(open.total, open.potential_total);
 });
 
+test("the buyer summary and questions deadline for the pursue email are checked like any citation and never change the score", () => {
+  const input = packet();
+  const plain = finalize(input);
+  const withBuyer = finalize(input, judgment => {
+    judgment.buyer = { currentSolution: null, objective: 'A new case management portal for agency staff.', evidence: citation };
+    judgment.questions = { due: '2026-10-05', time: '2:00 PM ET', evidence: citation };
+  });
+  assert.equal(withBuyer.judgments.questions.due, '2026-10-05');
+  assert.throws(() => finalize(input, judgment => {
+    judgment.questions = { due: '2026-10-05', time: null, evidence: [{ sourceId: 'doc-1', quote: 'Questions are due October 5.' }] };
+  }), /citation does not match/);
+  assert.deepEqual([withBuyer.total, withBuyer.recommendation], [plain.total, plain.recommendation]);
+  assert.equal(withBuyer.judgments.buyer.objective, 'A new case management portal for agency staff.');
+  assert.throws(() => finalize(input, judgment => {
+    judgment.buyer = { currentSolution: 'A 1990s mainframe.', objective: 'A new portal.', evidence: [{ sourceId: 'doc-1', quote: 'An invented sentence' }] };
+  }), /citation does not match/);
+});
+
 test('an unknown gate or submission route needs no citation; a definite one still does', () => {
   const unknown = finalize(packet(), j => {
     j.gates.gate4 = { pass: null, reason: 'The listing does not say how to submit.', evidence: [] };

@@ -62,6 +62,14 @@ const OUTPUT_CONTRACT = {
     },
   },
   flags: [{ type: 'sensitive-industry|ceo-connection', reason: 'explanation', evidence: [] }],
+  // Read only by the Friday pursue email (Jake's "current solution & hopeful objective").
+  buyer: { currentSolution: 'one sentence on the system, vendor, or manual process the buyer uses today; null when the supplied text does not say',
+    objective: 'one sentence: what they want built and the outcome behind it',
+    advantage: 'null, or one sentence on how the evaluation criteria favor us (for example cost weighted low, or no named incumbent), citing them',
+    evidence: EVIDENCE },
+  // Read only by the email's key dates line.
+  questions: { due: 'YYYY-MM-DD: the deadline for written questions or clarification requests; null when the documents give none',
+    time: 'that deadline\'s time and time zone exactly as written, or null', evidence: EVIDENCE },
 };
 
 // How to cite, sent with the evidence packet.
@@ -117,6 +125,8 @@ const SYSTEM_RULES = [
   'At full-text depth, if a gate remains unknown, still return all eight category judgments; the open gate is listed as a blocker.',
   'Categories may be omitted only when a gate is known false or the bid is not open. A referenced document that was not supplied, or an unconfirmed deadline, still gets all eight categories: score from the supplied documents and list the missing document in requiredDocuments.',
   'Never invent evidence to fill categories.',
+  'buyer is for the sales email and never affects gates or points: give currentSolution only when the supplied text names what is in place today, citing that text; otherwise null.',
+  'questions is for the sales email and never affects gates or points: give due only when the documents state a deadline for questions or clarification requests, citing it; otherwise null.',
 ].join(' ');
 
 export function buildEvidenceCatalog(sources) {
