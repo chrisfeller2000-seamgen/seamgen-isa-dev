@@ -53,6 +53,10 @@ test('a solicitation is recognized under the names and wording agencies really u
   assert.equal(role('Bid board listing.pdf', `${rfpText} See the separate RFP PDF.`), 'other');
   // "Request for Offers" names itself a solicitation.
   assert.equal(looksLikeSolicitationText('Request for Offers 781-6-CB-20. Responses must be submitted by October 30, 2026. Statement of Work: advising services.'), true);
+  // A federal Area of Interest under a Commercial Solutions Opening never says "RFP".
+  const aoiText = 'AREA OF INTEREST (AOI) #02. Published Under: Commercial Solutions Opening (CSO) HT003826SC005. Vendors must submit Phase I responses no later than 28 October 2026. 3.2 Phase I Evaluation Criteria.';
+  assert.equal(role('HT003826SC005-AOI0002_EIDS Data Exchange Platform_FINAL.pdf', aoiText), 'solicitation');
+  assert.equal(looksLikeSolicitationText('The area of interest covers three watersheds. Scope of work: mapping and modeling.'), false);
   // A whole RFP named "Scope of Work" is the solicitation; a scope attachment is not.
   assert.equal(role('217041194-1 Scope of Work .pdf', rfpText), 'solicitation');
   assert.equal(role('217041194-1 Scope of Work .pdf', 'Scope of Work: the contractor shall operate the enclave.'), 'requirements');

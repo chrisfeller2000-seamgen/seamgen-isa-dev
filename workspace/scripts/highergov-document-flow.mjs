@@ -100,8 +100,11 @@ function classifyDocumentRecord(record = {}) {
 // Extracted text counts as a solicitation only when it names itself one, states how or
 // when to submit, and describes the work. A short notice that lacks any of these stays
 // unrecognized; reading its meaning needs a content review.
-const SOLICITATION_TEXT = /request\s+for\s+(?:proposals?|quotations?|qualifications?|offers?|applications?)|invitation\s+(?:to|for)\s+(?:bids?|tenders?)|solicitation\s+(?:no\b|number|#)|\b(?:RFP|RFQ|RFO|RFA|IFB|ITB)\b/i;
-const SUBMISSION_TEXT = /\b(?:proposals?|quotes?|quotations?|offers?|responses?|bids?|submissions?|submittals?)\s+(?:must|shall|will|are)\s+be\s+(?:received|submitted|delivered|due)|\b(?:proposals?|quotes?|offers?|responses?|bids?)\s+(?:are\s+)?due\b|\bdue\s+date\b|\bclosing\s+date\b|\bsubmission\s+deadline\b|\bdeadline\s+for\s+(?:submissions?|proposals?|responses?|offers?|quotes?)\b/i;
+// A federal "Area of Interest" names the Commercial Solutions Opening it is issued under
+// and tells vendors what they must submit. "Area of interest" alone is not used as a
+// name, because GIS documents use it for a place on a map.
+const SOLICITATION_TEXT = /request\s+for\s+(?:proposals?|quotations?|qualifications?|offers?|applications?)|invitation\s+(?:to|for)\s+(?:bids?|tenders?)|solicitation\s+(?:no\b|number|#)|commercial\s+solutions\s+opening|\b(?:RFP|RFQ|RFO|RFA|IFB|ITB)\b/i;
+const SUBMISSION_TEXT = /\b(?:proposals?|quotes?|quotations?|offers?|responses?|bids?|submissions?|submittals?)\s+(?:must|shall|will|are)\s+be\s+(?:received|submitted|delivered|due)|\b(?:proposals?|quotes?|offers?|responses?|bids?)\s+(?:are\s+)?due\b|\bdue\s+date\b|\bclosing\s+date\b|\bsubmission\s+deadline\b|\bdeadline\s+for\s+(?:submissions?|proposals?|responses?|offers?|quotes?)\b|\b(?:vendors?|offerors?|proposers?|respondents?|bidders?)\s+(?:must|shall)\s+submit\b/i;
 const SCOPE_TEXT = /scope\s+of\s+(?:work|services)|statement\s+of\s+work|minimum\s+(?:requirements|qualifications)|evaluation\s+criteria|technical\s+requirements|functional\s+requirements/i;
 
 function looksLikeSolicitationText(text = '') {
