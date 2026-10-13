@@ -34,7 +34,10 @@ const FAVORABLE_RFP_ROOT_FOLDER_ID = '1FgeVVURDnS-JyQTyapa7pCl3BN4_PmaW';
 const REPORT_FROM = 'isa@seamgen.com';
 // Who gets the Friday pursue email (Peter, Marianne and Sales), comma-separated, set by the
 // cron wrapper. Without it the email is recorded as failed and nothing is sent.
-const RFP_EMAIL_TO = String(process.env.RFP_EMAIL_TO || '').split(',').map(address => address.trim()).filter(Boolean);
+const addresses = value => String(value || '').split(',').map(address => address.trim()).filter(Boolean);
+const RFP_EMAIL_TO = addresses(process.env.RFP_EMAIL_TO);
+// Copied on the pursue email (Chris and the other ISA developer), also set by the cron wrapper.
+const RFP_EMAIL_CC = addresses(process.env.RFP_EMAIL_CC);
 const TELEGRAM_TARGET = process.env.TELEGRAM_TARGET || '-1003890997073';
 const NO_TELEGRAM = ['1', 'true', 'yes'].includes(String(process.env.NO_TELEGRAM || '').toLowerCase());
 // RFP_DELIVERY=preview runs the job and writes every report file, including the email and
@@ -1864,24 +1867,24 @@ function emailAlreadySent(previous, results) {
  * tests can prove what is sent. Returns { email, telegram, emailHtml }.
  */
 export async function deliverPursueUpdate({ results, complete, vibe, previous = null, preview = DELIVERY_PREVIEW,
-  noTelegram = NO_TELEGRAM, to = RFP_EMAIL_TO, run = runJson }) {
+  noTelegram = NO_TELEGRAM, to = RFP_EMAIL_TO, cc = RFP_EMAIL_CC, run = runJson }) {
   const pursue = pursueFacts(results);
   if (pursue.picks.length && emailAlreadySent(previous, results)) {
     return { email: { ...previous.email, status: 'already-sent' }, telegram: { status: 'skipped', reason: "This week's email already went out." }, emailHtml: null };
   }
-  const email = { status: 'none', subject: null, to: [], picks: pursue.picks.length, writtenBy: null, reason: null, text: null };
+  const email = { status: 'none', subject: null, to: [], cc: [], picks: pursue.picks.length, writtenBy: null, reason: null, text: null };
   let written = null;
   let message = null;
   if (pursue.picks.length) {
     written = await writePursueEmail(pursue, complete, { vibe });
     message = renderPursueEmail(pursue, written.sentences);
-    Object.assign(email, { subject: message.subject, to, writtenBy: written.source, reason: written.reason, text: message.text });
+    Object.assign(email, { subject: message.subject, to, cc, writtenBy: written.source, reason: written.reason, text: message.text });
     if (preview) email.status = 'preview';
     else if (!to.length) Object.assign(email, { status: 'failed', reason: 'No recipients are set (RFP_EMAIL_TO).' });
     else {
       // The body is passed inline, as the weekly sales report does; gog sends it as HTML.
       const sent = await run('gog', ['-a', REPORT_FROM, 'gmail', 'send', '--from', REPORT_FROM, '--to', to.join(','),
-        '--subject', message.subject, '--body-html', message.html, '--no-input'], { timeoutMs: 120000 })
+        ...(cc.length ? ['--cc', cc.join(',')] : []), '--subject', message.subject, '--body-html', message.html, '--no-input'], { timeoutMs: 120000 })
         .then(() => true).catch(() => false);
       Object.assign(email, sent ? { status: 'sent', sentAt: new Date().toISOString() } : { status: 'failed', reason: "Gmail didn't accept the email (gog failed)." });
     }

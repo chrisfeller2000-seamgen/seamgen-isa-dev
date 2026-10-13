@@ -346,12 +346,14 @@ test('delivery: one email to the recipients, then Telegram; preview, re-runs and
   const run = async (cmd, args) => { calls.push([cmd, ...args]); return 'ok'; };
   const results = weekResults();
   const to = ['marianne@example.test', 'sales@example.test'];
-  const base = { results, complete: null, vibe: 'Warm', to, noTelegram: false, run };
+  const base = { results, complete: null, vibe: 'Warm', to, cc: ['dev@example.test'], noTelegram: false, run };
 
   const sent = await deliverPursueUpdate({ ...base, preview: false });
   assert.deepEqual(calls.map(call => call[0]), ['gog', 'openclaw']);
   const gmail = calls[0];
   assert.equal(gmail[gmail.indexOf('--to') + 1], 'marianne@example.test,sales@example.test');
+  assert.equal(gmail[gmail.indexOf('--cc') + 1], 'dev@example.test');
+  assert.deepEqual(sent.email.cc, ['dev@example.test']);
   assert.equal(gmail[gmail.indexOf('--subject') + 1], 'Permit portal strong — pursuing');
   assert.match(gmail[gmail.indexOf('--body-html') + 1], /Cheers,<br>ISA/);
   assert.equal(calls[1].at(-1), sent.telegram.text);

@@ -26,7 +26,7 @@ One small addition to the scorer supplies the part Jake's format needs and ISA d
 - Drop the weekly summary email. No no-bid emails.
 - Build now. Switch it on only after the ISA-3 scoring is live and checked against Jake's July Strong Pursues.
 - Strong Pursue only, like Jake. Sign it "ISA".
-- Send it to Peter, Marianne (mariannefaro@seamgen.com) and Sales (sales@seamgen.com).
+- Send it to Peter (peter.schepers@seamgen.com), Marianne (mariannefaro@seamgen.com) and Sales (sales@seamgen.com), with Chris (cfeller@seamgen.com) and jgaribay@seamgen.com copied (October 13).
 - No meeting brief. It was Jake's own working document, and nobody needs it now.
 
 ## Desired behavior
@@ -38,7 +38,7 @@ One small addition to the scorer supplies the part Jake's format needs and ISA d
 
 ### The email
 
-- **From:** isa@seamgen.com. **To:** Peter, Marianne and Sales, from one setting, `RFP_EMAIL_TO`.
+- **From:** isa@seamgen.com. **To:** Peter, Marianne and Sales (`RFP_EMAIL_TO`). **Cc:** cfeller@ and jgaribay@ (`RFP_EMAIL_CC`). Both are set in the cron wrapper.
 - **Subject:**
   - one or two RFPs: their short names, as Jake named the set ("<name> and <name> — pursuing");
   - three or more, or names too long for a subject: "<n> RFPs this week — pursuing";
@@ -95,7 +95,7 @@ One small addition to the scorer supplies the part Jake's format needs and ISA d
 
 ### Records and safety
 
-- **Results file** (`<date>.json`, `latest.json`): keeps every RFP as today. It adds `email: {status, subject, to, picks, writtenBy, reason, text, sentAt}` and `telegram: {status, source, reason, text}`. Email status is `sent`, `failed`, `none`, `preview` or `already-sent`. The Markdown copy stays; the `.html` report is no longer written.
+- **Results file** (`<date>.json`, `latest.json`): keeps every RFP as today. It adds `email: {status, subject, to, cc, picks, writtenBy, reason, text, sentAt}` and `telegram: {status, source, reason, text}`. Email status is `sent`, `failed`, `none`, `preview` or `already-sent`. The Markdown copy stays; the `.html` report is no longer written.
 - **One pursue email per week.** Before sending, the job reads `latest.json`. If a pursue email already went out in the same ISO week, nothing new is sent or posted. A failed send doesn't count, so a re-run retries it. This holds until the database (ISA-5) records runs properly.
 - **Failures:** a failed email is reported in Telegram, and the run still succeeds. If that Telegram post also fails, the run exits with an error, so the cron wrapper's failure notice tries once more.
 - **Preview mode** (`RFP_DELIVERY=preview`) sends nothing. It writes `<date>-email.html` and `<date>-telegram.md`.
@@ -146,7 +146,7 @@ One small addition to the scorer supplies the part Jake's format needs and ISA d
 
 ## Open questions
 
-- Whether `gog gmail send --to` accepts several addresses separated by commas. Check on the VM (`gog gmail send --help`) before release.
+- Whether `gog gmail send` accepts several comma-separated addresses in `--to` and has `--cc`. Check on the VM (`gog gmail send --help`) before release.
 
 ## References
 
