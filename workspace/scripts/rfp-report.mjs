@@ -9,6 +9,8 @@ const MIN_PICK_SCORE = 50;
 const MINIMUM_DEAL = 100000;
 // Jake's pursue-email limits (rfp-email-pursue-skill.md v1.7).
 const MAX_BLOCKERS = 3;
+// One line each, like Jake's: his longest Yonkers blocker ran about 185 characters.
+const BLOCKER_CHARS = 220;
 const MAX_TELEGRAM_CHARS = 800;
 const GATE_KEYS = ['gate1', 'gate2', 'gate3', 'gate4', 'gate5', 'gate6'];
 // Eligibility is usually the real blocker, so it comes first. An unconfirmed deadline
@@ -131,13 +133,15 @@ const GATE_PLAIN = {
 
 // The sentence of a gate reason that says what's still missing. Reasons often open with
 // what checks out ("Relevant AI delivery is supported, …") and only then say what isn't.
-const OPEN_ISSUE = /\b(?:unverified|not (?:yet )?(?:verified|established|confirmed|met)|missing|unclear|unknown|lacks?|no named|shortfall)\b/i;
+const OPEN_ISSUE = /\b(?:unverified|unconfirmed|unspecified|pending|not (?:yet )?(?:verified|established|confirmed|met|supplied|provided)|missing|unclear|unknown|lacks?|no (?:named|current)|names no|shortfall)\b/i;
 const NEEDS = /\b(?:needs?|needed|requires?|required|only)\b/i;
 
-function openIssue(reason, max = 160) {
+function openIssue(reason, max = BLOCKER_CHARS) {
   const text = clean(reason).replace(RUBRIC_PREFIX, '');
   const sentences = text.match(/[^.!?]+[.!?]+(?=\s|$)|[^.!?]+$/g) || [text];
-  const pick = sentences.find(sentence => OPEN_ISSUE.test(sentence)) || sentences.find(sentence => NEEDS.test(sentence)) || sentences[0];
+  // The model sometimes labels the open part itself ("Blocker: six references are required…").
+  const labelled = sentences.find(sentence => /^\s*blocker:/i.test(sentence))?.replace(/^\s*blocker:\s*/i, '');
+  const pick = labelled || sentences.find(sentence => OPEN_ISSUE.test(sentence)) || sentences.find(sentence => NEEDS.test(sentence)) || sentences[0];
   return plainReason(pick, max);
 }
 
@@ -202,7 +206,7 @@ function blockersOf(final) {
   const lines = open.map(key => {
     const reason = final.gateReasons?.find(item => item.gate === `Gate ${key.slice(4)}`)?.reason;
     const text = !reason ? gateReason(final, key) : STOCK_GATE_REASON.test(reason) ? GATE_PLAIN[key] || '' : openIssue(reason);
-    return { text: firstSentence(text, 160), quote: quoteOf(judgment.gates?.[key]?.evidence) };
+    return { text: firstSentence(text, BLOCKER_CHARS), quote: quoteOf(judgment.gates?.[key]?.evidence) };
   });
   // An open Gate 4 is already the submission blocker.
   const submission = open.includes('gate4') ? null : judgment.subrules?.submission;
@@ -212,7 +216,7 @@ function blockersOf(final) {
     lines.push({ text: 'It looks written with a particular vendor in mind.', quote: quoteOf(judgment.competitive.tells) });
   }
   const compliance = judgment.categories?.compliance;
-  if (compliance?.band === 'unfamiliar' && compliance.reason) lines.push({ text: plainReason(compliance.reason, 160), quote: quoteOf(compliance.evidence) });
+  if (compliance?.band === 'unfamiliar' && compliance.reason) lines.push({ text: plainReason(compliance.reason, BLOCKER_CHARS), quote: quoteOf(compliance.evidence) });
   return lines.filter(line => line.text).slice(0, MAX_BLOCKERS);
 }
 
@@ -404,7 +408,7 @@ export function checkPursueSentences(sentences, facts) {
     if (/silent on any incumbent/i.test(situation) !== pick.silent) return fail(`${label}: the "silent on any incumbent" line didn't match the facts.`);
     if (pick.fit || pick.advantage ? !fit || sentenceCount(fit) > 2 || fit.length > 360 : fit) return fail(`${label}: "why it fits us" was missing, too long, or not in the facts.`);
     if (!blockers || blockers.length !== pick.blockers.length) return fail(`${label}: the blockers didn't match the facts.`);
-    if (blockers.some(line => sentenceCount(line) > 1 || line.length > 160)) return fail(`${label}: a blocker was longer than one line.`);
+    if (blockers.some(line => sentenceCount(line) > 1 || line.length > BLOCKER_CHARS)) return fail(`${label}: a blocker was longer than one line.`);
     written.push(name, hook, situation, fit, ...blockers);
   }
   const text = written.join('\n');

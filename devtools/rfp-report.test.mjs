@@ -158,6 +158,16 @@ test('blockers come worst first, in plain words, at most three', () => {
     } }) });
   assert.deepEqual(mixed.blockers.map(blocker => blocker.text), ['Current insurance and financial-capacity evidence is also needed before confirming eligibility.',
     'Our account access and registration timing are not established by the supplied evidence.']);
+  // Wording from the October 12 Jake comparison: a "However" turn without the usual words,
+  // and a reason the model labeled "Blocker:" itself.
+  const real = reportEntry({ candidate: candidate('real'), preliminary: preliminary(70), final: result({ recommendation: 'Strong Pursue', total: 82,
+    gates: {
+      gate6: { pass: null, reason: 'Operational AI and government delivery are documented. However, the mandatory certification submission names no minimum credential, and no current credential or good-standing records establish compliance. Eligibility remains a blocker pending verification.' },
+      gate4: { pass: null, reason: 'Blocker: six distinct applicable end-client references are required, three current and three served for five years. Relevant delivery is documented, but this exact roster is unverified.' },
+    } }) });
+  assert.deepEqual(real.blockers.map(blocker => blocker.text), [
+    'The mandatory certification submission names no minimum credential, and no current credential or good-standing records establish compliance.',
+    'Six distinct applicable end-client references are required, three current and three served for five years.']);
   // Worth a look RFPs get blockers too, for the Markdown record; screened-out ones don't.
   assert.deepEqual(weekEntries()[1].blockers.map(blocker => blocker.text), ['The solicitation requires utility-management experience at comparable scale.']);
   assert.deepEqual(weekEntries()[3].blockers, []);
