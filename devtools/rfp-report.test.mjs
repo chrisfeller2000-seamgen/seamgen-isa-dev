@@ -11,8 +11,8 @@ import { deliverPursueUpdate, readPortalCandidate } from '../workspace/scripts/w
 
 // Invented RFPs shaped like the weekly job's real inputs. No real opportunity data.
 const GATES = ['gate1', 'gate2', 'gate3', 'gate4', 'gate5', 'gate6'];
-const confirmed = { status: 'verified', due: '2026-11-02', time: '15:00', timeZone: 'America/Denver', days: 27 };
-const listingOnly = { status: 'metadata-only', due: '2026-10-28', time: null, timeZone: null, days: 22 };
+const confirmed = { status: 'verified', due: '2026-11-02', time: '15:00', timeZone: 'America/Denver', days: 27, assessmentDate: '2026-10-06' };
+const listingOnly = { status: 'metadata-only', due: '2026-10-28', time: null, timeZone: null, days: 22, assessmentDate: '2026-10-06' };
 const listingValue = (low, high) => ({ status: 'listing', low, high, estimate: null });
 const SILENT = 'RFP is silent on any incumbent — to be confirmed in Q&A.';
 const cited = [{ sourceId: 'doc-1', quote: 'The City will replace its paper permit forms.' }];
@@ -44,8 +44,8 @@ function result({ recommendation, total = null, potential, gates = {}, timeline 
 const preliminary = (total, extra = {}) => ({ status: 'preliminary-below-threshold', score: total,
   preview: result({ recommendation: total >= 50 ? 'Worth a look' : 'No-bid', total, timeline: listingOnly, ...extra }) });
 
-const strongPick = (slug = 'strong', judgment = { buyer: { currentSolution: null, objective: 'Residents want to apply for permits online instead of on paper.', evidence: cited } }, total = 82, rfpNumber) =>
-  reportEntry({ candidate: candidate(slug, { rfpNumber }), preliminary: preliminary(70), final: result({ recommendation: 'Strong Pursue', total, judgment }),
+const strongPick = (slug = 'strong', judgment = { buyer: { currentSolution: null, objective: 'Residents want to apply for permits online instead of on paper.', evidence: cited } }, total = 82, rfpNumber, { timeline = confirmed } = {}) =>
+  reportEntry({ candidate: candidate(slug, { rfpNumber }), preliminary: preliminary(70), final: result({ recommendation: 'Strong Pursue', total, judgment, timeline }),
     documentStatus: 'full-text', documentsLink: `https://drive.example.test/${slug}` });
 
 function weekEntries() {
@@ -202,6 +202,7 @@ test("the pursue email covers only Strong Pursue RFPs, in Jake's format, with li
     buyer: { currentSolution: 'They track grants in spreadsheets today.', objective: 'One system for applicants and reviewers.',
       advantage: 'Cost is only 5 of 100 evaluation points.', evidence: cited },
     subrules: { submission: { status: 'unknown' } },
+    questions: { due: '2026-10-20', time: '2:00 PM MT', evidence: cited },
   }, 78, '2026-114')]);
   const facts = pursueFacts(results);
   assert.deepEqual(facts.picks.map(pick => pick.title), ['Permit portal strong', 'Permit portal grants']);
@@ -213,11 +214,13 @@ test("the pursue email covers only Strong Pursue RFPs, in Jake's format, with li
     "2 RFPs worth pursuing from this week's HigherGov search, scored on the full RFP documents.",
     '1. Permit portal strong — scored 82',
     'RFP Opportunity through HigherGov: City of Example — Permit portal strong — Drive folder: https://drive.example.test/strong',
+    'Key dates: proposals due Nov 2 at 2pm PT (27 days)',
     `Current solution & hopeful objective: ${SILENT} Residents want to apply for permits online instead of on paper.`,
     'Why it fits us: Our permit portal for the City of Sample is a close match.',
     'Blockers: None identified.',
     '2. Permit portal grants — scored 78',
     'RFP Opportunity through HigherGov: City of Example RFP No. 2026-114 — Permit portal grants — Drive folder: https://drive.example.test/grants',
+    'Key dates: questions due Oct 20 at 2:00 PM MT (14 days); proposals due Nov 2 at 2pm PT (27 days)',
     'Current solution & hopeful objective: They track grants in spreadsheets today. One system for applicants and reviewers.',
     'Why it fits us: Our permit portal for the City of Sample is a close match. Cost is only 5 of 100 evaluation points.',
     "Blockers:\n- How to submit isn't confirmed yet.",
@@ -230,6 +233,17 @@ test("the pursue email covers only Strong Pursue RFPs, in Jake's format, with li
   assert.match(email.html, /<li>How to submit isn&#39;t confirmed yet\.<\/li>/);
   assert.doesNotMatch(email.html, /color:|<table|<img|Strong pursue|Screened out/);
   assert.equal(renderPursueEmail(pursueFacts(weekResults()), pursueSentencesFallback(pursueFacts(weekResults()))).subject, 'Permit portal strong — pursuing');
+});
+
+test('key dates: the cited questions deadline, then proposals; listing-only and past dates say so', () => {
+  const dates = (questions, timeline = confirmed) => pursueFacts(weekResults([strongPick('dates', { questions }, 80, 'unknown', { timeline })]))
+    .picks.find(pick => pick.title === 'Permit portal dates').dates;
+  assert.equal(dates({ due: '2026-10-07', time: 'noon Central', evidence: cited }), 'questions due Oct 7 at noon Central (1 day); proposals due Nov 2 at 2pm PT (27 days)');
+  assert.equal(dates({ due: '2026-10-01', time: null, evidence: cited }), 'questions due Oct 1 (passed); proposals due Nov 2 at 2pm PT (27 days)');
+  // Uncited or unreadable dates are left out rather than guessed.
+  assert.equal(dates({ due: '2026-10-07', time: null, evidence: [] }), 'proposals due Nov 2 at 2pm PT (27 days)');
+  assert.equal(dates({ due: 'soon', time: null, evidence: cited }), 'proposals due Nov 2 at 2pm PT (27 days)');
+  assert.equal(dates(null, listingOnly), 'proposals due Oct 28 (22 days) per the listing, to confirm');
 });
 
 test("the subject never matches the mail sync's pursue pattern, which would turn the email into deals", async () => {

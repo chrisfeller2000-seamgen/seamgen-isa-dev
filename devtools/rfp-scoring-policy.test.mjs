@@ -221,12 +221,17 @@ test('potential_total is the category sum: the score if an open question checks 
   assert.notEqual(open.qualification_status, 'qualified');
 });
 
-test("the buyer summary for the pursue email is checked like any citation and never changes the score", () => {
+test("the buyer summary and questions deadline for the pursue email are checked like any citation and never change the score", () => {
   const input = packet();
   const plain = finalize(input);
   const withBuyer = finalize(input, judgment => {
     judgment.buyer = { currentSolution: null, objective: 'A new case management portal for agency staff.', evidence: citation };
+    judgment.questions = { due: '2026-10-05', time: '2:00 PM ET', evidence: citation };
   });
+  assert.equal(withBuyer.judgments.questions.due, '2026-10-05');
+  assert.throws(() => finalize(input, judgment => {
+    judgment.questions = { due: '2026-10-05', time: null, evidence: [{ sourceId: 'doc-1', quote: 'Questions are due October 5.' }] };
+  }), /citation does not match/);
   assert.deepEqual([withBuyer.total, withBuyer.recommendation], [plain.total, plain.recommendation]);
   assert.equal(withBuyer.judgments.buyer.objective, 'A new case management portal for agency staff.');
   assert.throws(() => finalize(input, judgment => {

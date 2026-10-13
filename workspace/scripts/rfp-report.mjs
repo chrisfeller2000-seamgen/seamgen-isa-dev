@@ -2,7 +2,7 @@
 // Code decides every fact here: tiers, scores, deadlines, budgets, links and counts.
 // ISA's model only words the email's sentences and the Telegram summary. Its words are
 // used only when they pass the checks below; otherwise the code-built version goes out.
-import { deadlineTimestamp } from './rfp-deadline.mjs';
+import { deadlineTimestamp, parseDeadlineDate } from './rfp-deadline.mjs';
 
 const PACIFIC = 'America/Los_Angeles';
 const MIN_PICK_SCORE = 50;
@@ -119,6 +119,33 @@ function deadlineOf(timeline = {}) {
   const when = cutoff ? `${formatDay(cutoff, PACIFIC)} at ${formatTime(cutoff, PACIFIC)} PT` : formatDay(`${date}T12:00:00Z`, 'UTC');
   const left = days === null ? '' : days === 0 ? ' (today)' : ` (${days} ${plural(days, 'day', 'days')})`;
   return { date, confirmed, days, text: `${when}${left}` };
+}
+
+// The questions deadline the scorer cited, as the RFP wrote it. Never a gate or points.
+function questionsOf(final) {
+  const questions = final?.judgments?.questions;
+  if (!questions || !Array.isArray(questions.evidence) || !questions.evidence.length) return null;
+  const parsed = parseDeadlineDate(questions.due);
+  if (parsed.status !== 'valid') return null;
+  const time = clean(questions.time);
+  const at = time && time.length <= 30 && /\d|\bnoon\b|\bmidnight\b/i.test(time) ? ` at ${time}` : '';
+  const today = final?.timeline?.assessmentDate;
+  const days = today ? Math.round((Date.parse(`${parsed.date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000) : null;
+  const left = !Number.isFinite(days) ? '' : days < 0 ? ' (passed)' : days === 0 ? ' (today)' : ` (${days} ${plural(days, 'day', 'days')})`;
+  return { date: parsed.date, text: `${formatDay(`${parsed.date}T12:00:00Z`, 'UTC')}${at}${left}` };
+}
+
+// One code-built line, so the dates are never reworded: questions, then proposals. A
+// deadline only the listing gives is labeled, as everywhere else.
+function keyDates(entry) {
+  const parts = entry.questionsDue?.text ? [`questions due ${entry.questionsDue.text}`] : [];
+  const deadline = entry.deadline || {};
+  if (deadline.confirmed) parts.push(`proposals due ${deadline.text}`);
+  else if (deadline.date) {
+    const left = Number.isFinite(deadline.days) ? ` (${deadline.days} ${plural(deadline.days, 'day', 'days')})` : '';
+    parts.push(`proposals due ${formatDay(`${deadline.date}T12:00:00Z`, 'UTC')}${left} per the listing, to confirm`);
+  }
+  return parts.length ? parts.join('; ') : null;
 }
 
 // HigherGov's own summary, without its "Background" heading.
@@ -338,6 +365,7 @@ export function reportEntry({ candidate, preliminary, final = null, documentStat
     notes: flags.map(flag => firstSentence(flag.reason)).filter(Boolean).slice(0, 2),
     sensitive: firstSentence(flags.find(flag => flag.type === 'sensitive-industry')?.reason) || null,
     deadline: deadlineOf(result.timeline),
+    questionsDue: questionsOf(final),
     budget,
     longShot: place.tier === 'worth' && (questions.length >= 2 || (budget.low !== null && budget.low < MINIMUM_DEAL)),
   };
@@ -385,6 +413,7 @@ export function pursueFacts(results) {
       currentSolution: entry.buyer?.currentSolution ?? null,
       silent: Boolean(entry.buyer?.silent && !entry.buyer?.currentSolution),
       objective: entry.buyer?.objective || entry.need || null,
+      dates: keyDates(entry),
       fit: entry.fit,
       stack: entry.stack || null,
       advantage: entry.buyer?.advantage || null,
@@ -491,6 +520,7 @@ export function renderPursueEmail(facts, sentences) {
     return {
       heading: `${pick.number}. ${clean(words.name)} — ${clean(words.hook)}`,
       source, link: pick.link,
+      dates: pick.dates ? `Key dates: ${pick.dates}` : '',
       situation: `Current solution & hopeful objective: ${clean(words.situation)}`,
       fit: clean(words.fit) ? `Why it fits us: ${clean(words.fit)}` : '',
       blockers: words.blockers.map(clean).filter(Boolean),
@@ -502,6 +532,7 @@ export function renderPursueEmail(facts, sentences) {
     ...blocks.flatMap(block => [
       block.heading,
       block.link ? `${block.source} — ${block.link.label}: ${block.link.url}` : block.source,
+      block.dates,
       block.situation,
       block.fit,
       block.blockers.length ? ['Blockers:', ...block.blockers.map(line => `- ${line}`)].join('\n') : 'Blockers: None identified.',
@@ -515,6 +546,7 @@ ${p(escapeHtml(clean(sentences.intro)))}
 ${blocks.map(block => [
     p(escapeHtml(block.heading)),
     p(`${escapeHtml(block.source)}${block.link ? ` — <a href="${escapeHtml(block.link.url)}">${escapeHtml(block.link.label)}</a>` : ''}`),
+    block.dates ? p(escapeHtml(block.dates)) : '',
     p(escapeHtml(block.situation)),
     block.fit ? p(escapeHtml(block.fit)) : '',
     block.blockers.length
@@ -567,7 +599,7 @@ function pursueWriterPrompt(vibe) {
     `situation: at most 2 sentences. First what they use today (currentSolution), then what they want built and why (objective). When currentSolution is null and silent is true, the first sentence must be exactly: "${SILENT_LINE}" When silent is false, never call the RFP silent.`,
     'fit: up to 3 short sentences, as Jake wrote it: the past project(s) named in fit and what they show, then the tech match from stack when given, then advantage when given (for example "Cost is only 5 of 100 evaluation points."). Everyday words, and only what those facts say. An empty string when fit, stack and advantage are all null.',
     `blockers: each given blocker as one plain line under ${BLOCKER_CHARS} characters, in the same order and the same number of lines; [] when there are none. Lead with what is missing or required, never with what already checks out. Use its quote to be specific, naming the actual portal, certification or requirement (for example "Submission only through BidNet, where we aren't registered."), but never add anything the quote and text do not say.`,
-    'No links, Markdown, raw dates such as 2026-10-16, or rubric words such as "gate". Never mention a missing link or missing information.',
+    'No links, Markdown, raw dates such as 2026-10-16, or rubric words such as "gate". Never mention a missing link or missing information. Leave deadlines out; code adds a key dates line.',
   ].join('\n');
 }
 

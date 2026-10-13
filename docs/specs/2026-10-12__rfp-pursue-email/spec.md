@@ -49,6 +49,7 @@ One small addition to the scorer supplies the part Jake's format needs and ISA d
      - "<short name> — <short hook>"
      - "RFP Opportunity through HigherGov: <agency> RFP No. <number> — <full title> — Drive folder", in Jake's order (a link; the number is HigherGov's `source_id`, when there is one)
      - "Current solution & hopeful objective:" 2 sentences
+     - "Key dates:" one code-built line with the questions deadline, when the documents give one (the scorer cites it; never a gate or points), then the proposal deadline in Pacific time with days left, or the listing date marked "to confirm". Jake had dated lines like this early on, then moved dates to his meeting brief at Peter's request; Chris asked for them back on October 13.
      - "Why it fits us:" up to 3 sentences, as Jake wrote it:
        - the real past project(s), from the case-study reasoning without its caveats;
        - the tech-stack match, when the scorer rates it strong;
