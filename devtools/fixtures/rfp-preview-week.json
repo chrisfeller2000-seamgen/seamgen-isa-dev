@@ -17,6 +17,7 @@
     {
       "slug": "seniors-app",
       "title": "AI-Driven Mobile and Web Application for Senior Services",
+      "number": "",
       "agency": "City of Exampleton",
       "state": "NY",
       "links": {
@@ -38,11 +39,18 @@
       "buyer": {
         "currentSolution": null,
         "silent": true,
-        "objective": "The City wants one app where residents 60+ and their caregivers can find City services without knowing which department to call."
+        "objective": "The City wants one app where residents 60+ and their caregivers can find City services without knowing which department to call.",
+        "advantage": null
       },
       "blockers": [
-        "Submitting needs a registration on the agency's portal.",
-        "The RFP asks for SOC 2 Type II evidence where available, which we do not hold."
+        {
+          "text": "Submitting needs a registration on the agency's portal.",
+          "quote": ""
+        },
+        {
+          "text": "The RFP asks for SOC 2 Type II evidence where available, which we do not hold.",
+          "quote": ""
+        }
       ],
       "questions": [],
       "agencyQuestion": null,
@@ -64,6 +72,7 @@
     {
       "slug": "permits",
       "title": "Online Permitting and Inspections Portal",
+      "number": "",
       "agency": "Example County",
       "state": "NY",
       "links": {
@@ -85,7 +94,8 @@
       "buyer": {
         "currentSolution": "Applicants file paper forms that staff re-key into a 2012 desktop system.",
         "silent": false,
-        "objective": "The County wants applicants to apply, pay and book inspections online."
+        "objective": "The County wants applicants to apply, pay and book inspections online.",
+        "advantage": null
       },
       "blockers": [],
       "questions": [],
@@ -108,6 +118,7 @@
     {
       "slug": "grants",
       "title": "Grants Management System",
+      "number": "",
       "agency": "Example State Arts Council",
       "state": "NY",
       "links": {

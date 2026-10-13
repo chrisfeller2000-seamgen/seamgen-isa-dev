@@ -64,7 +64,9 @@ const OUTPUT_CONTRACT = {
   flags: [{ type: 'sensitive-industry|ceo-connection', reason: 'explanation', evidence: [] }],
   // Read only by the Friday pursue email (Jake's "current solution & hopeful objective").
   buyer: { currentSolution: 'one sentence on the system, vendor, or manual process the buyer uses today; null when the supplied text does not say',
-    objective: 'one sentence: what they want built and the outcome behind it', evidence: EVIDENCE },
+    objective: 'one sentence: what they want built and the outcome behind it',
+    advantage: 'null, or one sentence on how the evaluation criteria favor us (for example cost weighted low, or no named incumbent), citing them',
+    evidence: EVIDENCE },
 };
 
 // How to cite, sent with the evidence packet.

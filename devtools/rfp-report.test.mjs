@@ -15,12 +15,12 @@ const listingValue = (low, high) => ({ status: 'listing', low, high, estimate: n
 const SILENT = 'RFP is silent on any incumbent — to be confirmed in Q&A.';
 const cited = [{ sourceId: 'doc-1', quote: 'The City will replace its paper permit forms.' }];
 
-function candidate(slug, { title = `Permit portal ${slug}`, issuer = 'City of Example', state = 'CA' } = {}) {
+function candidate(slug, { title = `Permit portal ${slug}`, issuer = 'City of Example', state = 'CA', rfpNumber = 'unknown' } = {}) {
   return {
     slug, title, issuer,
     sourceUrl: `https://www.highergov.com/sl/contract-opportunity/${slug}`,
     portalUrl: `https://bids.example.gov/${slug}`,
-    frontmatter: { pop_state: state },
+    frontmatter: { pop_state: state, rfp_number: rfpNumber },
     body: `# ${title}\n\n## HigherGov AI summary\nBackground The city wants an online permit portal for residents and staff. It replaces paper forms.\n\n## Opportunity description\nText.`,
   };
 }
@@ -42,8 +42,8 @@ function result({ recommendation, total = null, potential, gates = {}, timeline 
 const preliminary = (total, extra = {}) => ({ status: 'preliminary-below-threshold', score: total,
   preview: result({ recommendation: total >= 50 ? 'Worth a look' : 'No-bid', total, timeline: listingOnly, ...extra }) });
 
-const strongPick = (slug = 'strong', judgment = { buyer: { currentSolution: null, objective: 'Residents want to apply for permits online instead of on paper.', evidence: cited } }, total = 82) =>
-  reportEntry({ candidate: candidate(slug), preliminary: preliminary(70), final: result({ recommendation: 'Strong Pursue', total, judgment }),
+const strongPick = (slug = 'strong', judgment = { buyer: { currentSolution: null, objective: 'Residents want to apply for permits online instead of on paper.', evidence: cited } }, total = 82, rfpNumber) =>
+  reportEntry({ candidate: candidate(slug, { rfpNumber }), preliminary: preliminary(70), final: result({ recommendation: 'Strong Pursue', total, judgment }),
     documentStatus: 'full-text', documentsLink: `https://drive.example.test/${slug}` });
 
 function weekEntries() {
@@ -117,11 +117,13 @@ test('deadlines are shown in Pacific time with days left, and listing-only dates
 
 test("what the buyer uses today: named when cited, Jake's silent line when the documents name none, left out when unknown", () => {
   const buyer = value => strongPick('b', { buyer: value }).buyer;
-  assert.deepEqual(buyer({ currentSolution: 'They use a 2014 Accela permit system.', objective: 'A modern portal.', evidence: cited }),
-    { currentSolution: 'They use a 2014 Accela permit system.', silent: false, objective: 'A modern portal.' });
-  assert.deepEqual(buyer({ currentSolution: null, objective: 'A modern portal.', evidence: cited }), { currentSolution: null, silent: true, objective: 'A modern portal.' });
+  assert.deepEqual(buyer({ currentSolution: 'They use a 2014 Accela permit system.', objective: 'A modern portal.', advantage: 'Cost is only 10 of 100 points.', evidence: cited }),
+    { currentSolution: 'They use a 2014 Accela permit system.', silent: false, objective: 'A modern portal.', advantage: 'Cost is only 10 of 100 points.' });
+  assert.deepEqual(buyer({ currentSolution: null, objective: 'A modern portal.', advantage: null, evidence: cited }),
+    { currentSolution: null, silent: true, objective: 'A modern portal.', advantage: null });
   // Uncited: not stated, and not "silent" either, because nobody showed the documents say nothing.
-  assert.deepEqual(buyer({ currentSolution: 'A mainframe.', objective: 'A modern portal.', evidence: [] }), { currentSolution: null, silent: false, objective: 'A modern portal.' });
+  assert.deepEqual(buyer({ currentSolution: 'A mainframe.', objective: 'A modern portal.', advantage: 'No incumbent.', evidence: [] }),
+    { currentSolution: null, silent: false, objective: 'A modern portal.', advantage: null });
   assert.equal(strongPick('b', {}).buyer, null);
   const situation = value => pursueSentencesFallback(pursueFacts(weekResults([strongPick('b', { buyer: value })]))).rfps[0].situation;
   assert.equal(situation({ currentSolution: null, objective: 'A modern portal.', evidence: cited }), `${SILENT} A modern portal.`);
@@ -131,30 +133,34 @@ test("what the buyer uses today: named when cited, Jake's silent line when the d
 
 test('blockers come worst first, in plain words, at most three', () => {
   const pick = strongPick('b', {
-    subrules: { submission: { status: 'feasible', basis: 'feasible-registration' } },
+    subrules: { submission: { status: 'feasible', basis: 'feasible-registration',
+      evidence: [{ sourceId: 'doc-1', quote: 'Proposals must be submitted through BidNet Direct, the Empire State Purchasing Group portal.' }] } },
     competitive: { verdict: 'Leaning wired' },
     categories: { compliance: { band: 'unfamiliar', points: 1, reason: 'Compliance: the RFP asks for SOC 2 Type II evidence, which we do not hold.' } },
   });
-  assert.deepEqual(pick.blockers, ["Submitting needs a registration on the agency's portal.", 'It looks written with a particular vendor in mind.',
-    'Compliance: the RFP asks for SOC 2 Type II evidence, which we do not hold.']);
+  assert.deepEqual(pick.blockers.map(blocker => blocker.text), ["Submitting needs a registration on the agency's portal.",
+    'It looks written with a particular vendor in mind.', 'Compliance: the RFP asks for SOC 2 Type II evidence, which we do not hold.']);
+  // ISA gets the cited RFP text, so it can say "only through BidNet" instead of "a portal".
+  assert.equal(pick.blockers[0].quote, 'Proposals must be submitted through BidNet Direct, the Empire State Purchasing Group portal.');
   // The policy's stock reason for a subrule-changed gate leaked into the October 9 report.
   const open = reportEntry({ candidate: candidate('open'), preliminary: preliminary(70), final: result({ recommendation: 'Strong Pursue', total: 80,
     gates: { gate6: { pass: null, reason: 'Gate 6 is unresolved or not met under its documented subrule; see the recorded evidence.' } } }) });
-  assert.deepEqual(open.blockers, ['We may not meet one of its eligibility requirements.']);
+  assert.deepEqual(open.blockers.map(blocker => blocker.text), ['We may not meet one of its eligibility requirements.']);
   assert.deepEqual(weekEntries()[1].blockers, [], 'only picks for the email get blockers');
 });
 
 test("the pursue email covers only Strong Pursue RFPs, in Jake's format, with links and titles from the facts", () => {
   const results = weekResults([...weekEntries(), strongPick('grants', {
-    buyer: { currentSolution: 'They track grants in spreadsheets today.', objective: 'One system for applicants and reviewers.', evidence: cited },
+    buyer: { currentSolution: 'They track grants in spreadsheets today.', objective: 'One system for applicants and reviewers.',
+      advantage: 'Cost is only 5 of 100 evaluation points.', evidence: cited },
     subrules: { submission: { status: 'unknown' } },
-  }, 78)]);
+  }, 78, '2026-114')]);
   const facts = pursueFacts(results);
   assert.deepEqual(facts.picks.map(pick => pick.title), ['Permit portal strong', 'Permit portal grants']);
   const sentences = pursueSentencesFallback(facts);
   assert.deepEqual(checkPursueSentences(sentences, facts), { ok: true, reason: null });
   const email = renderPursueEmail(facts, sentences);
-  assert.equal(email.subject, '2 RFPs this week — pursuing');
+  assert.equal(email.subject, 'Permit portal strong and Permit portal grants — pursuing');
   assert.equal(email.text, [
     "2 RFPs worth pursuing from this week's HigherGov search, scored on the full RFP documents.",
     '1. Permit portal strong — scored 82',
@@ -163,15 +169,15 @@ test("the pursue email covers only Strong Pursue RFPs, in Jake's format, with li
     'Why it fits us: Our permit portal for the City of Sample is a close match.',
     'Blockers: None identified.',
     '2. Permit portal grants — scored 78',
-    'RFP Opportunity through HigherGov: Permit portal grants (City of Example) — Drive folder: https://drive.example.test/grants',
+    'RFP Opportunity through HigherGov: Permit portal grants, No. 2026-114 (City of Example) — Drive folder: https://drive.example.test/grants',
     'Current solution & hopeful objective: They track grants in spreadsheets today. One system for applicants and reviewers.',
-    'Why it fits us: Our permit portal for the City of Sample is a close match.',
+    'Why it fits us: Our permit portal for the City of Sample is a close match. Cost is only 5 of 100 evaluation points.',
     "Blockers:\n- How to submit isn't confirmed yet.",
     'Cheers,\nISA',
   ].join('\n\n'));
   const hostile = structuredClone(facts);
   hostile.picks[1].title = 'Grants portal <script>';
-  assert.match(renderPursueEmail(hostile, sentences).html, /Grants portal &lt;script&gt; \(City of Example\)/);
+  assert.match(renderPursueEmail(hostile, sentences).html, /Grants portal &lt;script&gt;, No\. 2026-114 \(City of Example\)/);
   assert.match(email.html, /— <a href="https:\/\/drive\.example\.test\/strong">Drive folder<\/a>/);
   assert.match(email.html, /<li>How to submit isn&#39;t confirmed yet\.<\/li>/);
   assert.doesNotMatch(email.html, /color:|<table|<img|Strong pursue|Screened out/);

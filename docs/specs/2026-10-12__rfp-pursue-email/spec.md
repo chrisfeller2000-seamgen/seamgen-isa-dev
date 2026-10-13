@@ -40,17 +40,17 @@ One small addition to the scorer supplies the part Jake's format needs and ISA d
 
 - **From:** isa@seamgen.com. **To:** Peter, Marianne and Sales, from one setting, `RFP_EMAIL_TO`.
 - **Subject:**
-  - one RFP: "<short name> — pursuing";
-  - several: "<n> RFPs this week — pursuing";
+  - one or two RFPs: their short names, as Jake named the set ("<name> and <name> — pursuing");
+  - three or more, or names too long for a subject: "<n> RFPs this week — pursuing";
   - never "RFPs to pursue" or "pursue decision" (see the mail sync above).
 - **Body,** in Jake's template, in this order:
   1. One opening line: how many RFPs, from this week's HigherGov search, scored on the full documents.
   2. For each RFP, numbered:
      - "<short name> — <short hook>"
-     - "RFP Opportunity through HigherGov: <full title> — Drive folder" (a link)
+     - "RFP Opportunity through HigherGov: <full title>, <RFP number> (<agency>) — Drive folder" (a link; the number is HigherGov's `source_id`, when there is one)
      - "Current solution & hopeful objective:" 2 sentences
-     - "Why it fits us:" 1–2 sentences that name a real past project
-     - "Blockers:" up to 3 one-liners, worst first, or "None identified."
+     - "Why it fits us:" 1–2 sentences that name a real past project, plus how the evaluation favors us when the scorer finds it (Jake's "cost is only 5 of 100 points")
+     - "Blockers:" up to 3 one-liners, worst first, or "None identified." ISA gets the RFP text cited behind each one, so it can name the actual portal or certification, as Jake did
   3. A "Note for Peter/Marianne:" line, only when an RFP has a sensitive-industry flag.
   4. Sign-off: "Cheers," then "ISA".
 - **Link:** the Drive folder. If there isn't one, the agency's own posting, then HigherGov. Never invented.

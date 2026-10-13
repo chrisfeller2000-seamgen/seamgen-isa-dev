@@ -19,6 +19,7 @@ As built:
 1. **`workspace/scripts/rfp-scoring-judgment.mjs`.** `buyer` added to `OUTPUT_CONTRACT`:
    - `currentSolution`: one sentence on what is in place today, or null when the text doesn't say;
    - `objective`: one sentence on what they want built and why;
+   - `advantage`: one sentence on how the evaluation favors us, or null;
    - `evidence`: excerpt citations.
 
    Plus one rule: `buyer` never affects gates or points.
@@ -26,7 +27,8 @@ As built:
 3. **`workspace/scripts/rfp-report.mjs`.**
    - `reportEntry` gains:
      - `buyer`: a current solution only when cited, and `silent` only when the scorer said null;
-     - `blockers`: worst first, from open gates, then submission, a wired competitive verdict, and an unfamiliar compliance band;
+     - `blockers`: `{ text, quote }`, worst first, from open gates, then submission, a wired competitive verdict, and an unfamiliar compliance band. The quote is the cited RFP text ISA uses to be specific;
+     - `number`: HigherGov's `rfp_number`, shown as Jake did ("No. 561");
      - `sensitive`.
    - `gateReason` swaps the policy's stock "under its documented subrule" reason for a plain sentence per gate, and strips "Gate N" mentions from model reasons.
    - New functions: `pursueFacts`, `checkPursueSentences`, `pursueSentencesFallback`, `renderPursueEmail` (`{ subject, text, html }`) and `writePursueEmail`.

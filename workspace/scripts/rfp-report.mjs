@@ -148,11 +148,21 @@ function failedGate(result) {
   return key ? { key, detail: gateReason(result, key) } : null;
 }
 
-function openQuestions(final) {
+function openGates(final) {
   if (!final?.gate) return [];
   const conditional = final.recommendation === 'Conditional — Ask the Agency';
-  return QUESTION_GATES.filter(key => final.gate[key] === null && !(conditional && key === 'gate2'))
-    .map(key => gateReason(final, key)).filter(Boolean).slice(0, 2);
+  return QUESTION_GATES.filter(key => final.gate[key] === null && !(conditional && key === 'gate2') && gateReason(final, key)).slice(0, 2);
+}
+
+function openQuestions(final) {
+  return openGates(final).map(key => gateReason(final, key));
+}
+
+// The RFP text a judgment cited, shortened, so ISA can name the actual portal or
+// certification in a blocker instead of a generic line.
+function quoteOf(evidence) {
+  const quote = clean(Array.isArray(evidence) ? evidence[0]?.quote : '');
+  return quote.length <= 240 ? quote : `${quote.slice(0, 239).replace(/\s+\S*$/, '')}…`;
 }
 
 // What the buyer uses today and wants (Jake's "current solution & hopeful objective").
@@ -166,22 +176,33 @@ function buyerOf(final) {
     currentSolution: cited ? firstSentence(buyer.currentSolution, 200) || null : null,
     silent: buyer.currentSolution === null,
     objective: firstSentence(buyer.objective, 200) || null,
+    // How the evaluation favors us, which Jake added to "why it fits us" when it applied.
+    advantage: cited ? firstSentence(buyer.advantage, 200) || null : null,
   };
 }
 
 // Jake's "Blockers": what could stop us winning, worst first, one line each. Open gates
 // (eligibility first), then submission, a vendor-shaped RFP, and a compliance regime we
-// haven't worked in.
+// haven't worked in. Each keeps the RFP text behind it for ISA's wording.
 function blockersOf(final) {
   const judgment = final?.judgments || {};
-  const lines = openQuestions(final).map(line => firstSentence(line, 160));
+  const lines = openGates(final).map(key => ({ text: firstSentence(gateReason(final, key), 160), quote: quoteOf(judgment.gates?.[key]?.evidence) }));
   const submission = judgment.subrules?.submission;
-  if (submission?.status === 'unknown') lines.push("How to submit isn't confirmed yet.");
-  else if (submission?.basis === 'feasible-registration') lines.push("Submitting needs a registration on the agency's portal.");
-  if (['Leaning wired', 'Wired'].includes(judgment.competitive?.verdict)) lines.push('It looks written with a particular vendor in mind.');
+  if (submission?.status === 'unknown') lines.push({ text: "How to submit isn't confirmed yet.", quote: quoteOf(submission.evidence) });
+  else if (submission?.basis === 'feasible-registration') lines.push({ text: "Submitting needs a registration on the agency's portal.", quote: quoteOf(submission.evidence) });
+  if (['Leaning wired', 'Wired'].includes(judgment.competitive?.verdict)) {
+    lines.push({ text: 'It looks written with a particular vendor in mind.', quote: quoteOf(judgment.competitive.tells) });
+  }
   const compliance = judgment.categories?.compliance;
-  if (compliance?.band === 'unfamiliar' && compliance.reason) lines.push(plainReason(compliance.reason, 160));
-  return lines.filter(Boolean).slice(0, MAX_BLOCKERS);
+  if (compliance?.band === 'unfamiliar' && compliance.reason) lines.push({ text: plainReason(compliance.reason, 160), quote: quoteOf(compliance.evidence) });
+  return lines.filter(line => line.text).slice(0, MAX_BLOCKERS);
+}
+
+// The agency's own RFP number from HigherGov (`source_id`), as Jake showed it ("RFP No. 561").
+function rfpNumber(frontmatter = {}) {
+  const value = clean(frontmatter.rfp_number);
+  if (!value || /^(?:unknown|null|none|n\/?a)$/i.test(value)) return '';
+  return /[a-z]/i.test(value) ? value : `No. ${value}`;
 }
 
 function rankOf(final, preliminary) {
@@ -240,6 +261,7 @@ export function reportEntry({ candidate, preliminary, final = null, documentStat
   return {
     slug: candidate?.slug || '',
     title: clean(candidate?.title || frontmatter.title || candidate?.slug),
+    number: rfpNumber(frontmatter),
     agency: clean(candidate?.issuer || frontmatter.agency_name),
     state: /^[A-Z]{2}$/.test(clean(frontmatter.pop_state)) ? clean(frontmatter.pop_state) : '',
     links: { highergov: listing, posting: posting !== listing ? posting : '', documents: publicUrl(documentsLink) },
@@ -296,6 +318,7 @@ export function pursueFacts(results) {
     picks: picks.map((entry, index) => ({
       number: index + 1,
       title: entry.title,
+      rfpNumber: entry.number || '',
       agency: entry.agency,
       score: entry.score,
       link: pickLink(entry),
@@ -303,6 +326,7 @@ export function pursueFacts(results) {
       silent: Boolean(entry.buyer?.silent && !entry.buyer?.currentSolution),
       objective: entry.buyer?.objective || entry.need || null,
       fit: entry.fit,
+      advantage: entry.buyer?.advantage || null,
       // Results files written before ISA-6 have no blockers or sensitive flag.
       blockers: entry.blockers || [],
       sensitive: entry.sensitive || null,
@@ -351,7 +375,7 @@ export function checkPursueSentences(sentences, facts) {
     if (!name || name.length > 60 || !hook || hook.length > 80) return fail(`${label}: the name or hook was missing or too long.`);
     if (!situation || sentenceCount(situation) > 2 || situation.length > 420) return fail(`${label}: the current solution and objective were missing or over 2 sentences.`);
     if (/silent on any incumbent/i.test(situation) !== pick.silent) return fail(`${label}: the "silent on any incumbent" line didn't match the facts.`);
-    if (pick.fit ? !fit || sentenceCount(fit) > 2 || fit.length > 360 : fit) return fail(`${label}: "why it fits us" was missing, too long, or not in the facts.`);
+    if (pick.fit || pick.advantage ? !fit || sentenceCount(fit) > 2 || fit.length > 360 : fit) return fail(`${label}: "why it fits us" was missing, too long, or not in the facts.`);
     if (!blockers || blockers.length !== pick.blockers.length) return fail(`${label}: the blockers didn't match the facts.`);
     if (blockers.some(line => sentenceCount(line) > 1 || line.length > 160)) return fail(`${label}: a blocker was longer than one line.`);
     written.push(name, hook, situation, fit, ...blockers);
@@ -374,8 +398,8 @@ export function pursueSentencesFallback(facts) {
       name: shortName(pick.title),
       hook: `scored ${pick.score}`,
       situation: [pick.currentSolution || (pick.silent ? SILENT_LINE : ''), pick.objective].filter(Boolean).join(' '),
-      fit: pick.fit || '',
-      blockers: pick.blockers,
+      fit: [pick.fit, pick.advantage].filter(Boolean).join(' '),
+      blockers: pick.blockers.map(blocker => blocker.text),
     })),
   };
 }
@@ -389,12 +413,14 @@ const escapeHtml = text => String(text ?? '').replaceAll('&', '&amp;').replaceAl
  */
 export function renderPursueEmail(facts, sentences) {
   const count = facts.picks.length;
+  // Jake named the RFP, or the set. Three or more names, or two long official titles, make a
+  // long subject, so those get a count instead.
   const countSubject = `${count} ${plural(count, 'RFP', 'RFPs')} this week — pursuing`;
-  const named = count === 1 ? `${clean(sentences.rfps[0].name)} — pursuing` : countSubject;
-  const subject = MAIL_SYNC_PURSUE_SUBJECT.test(named) ? countSubject : named;
+  const named = `${sentences.rfps.map(rfp => clean(rfp.name)).join(' and ')} — pursuing`;
+  const subject = count <= 2 && named.length <= 90 && !MAIL_SYNC_PURSUE_SUBJECT.test(named) ? named : countSubject;
   const blocks = facts.picks.map((pick, index) => {
     const words = sentences.rfps[index];
-    const source = `RFP Opportunity through HigherGov: ${pick.title}${pick.agency ? ` (${pick.agency})` : ''}`;
+    const source = `RFP Opportunity through HigherGov: ${pick.title}${pick.rfpNumber ? `, ${pick.rfpNumber}` : ''}${pick.agency ? ` (${pick.agency})` : ''}`;
     return {
       heading: `${pick.number}. ${clean(words.name)} — ${clean(words.hook)}`,
       source, link: pick.link,
@@ -472,8 +498,8 @@ function pursueWriterPrompt(vibe) {
     "intro: one line saying how many RFPs are worth pursuing from this week's HigherGov search, scored on the full RFP documents.",
     'name: the plain short name people would use, under 60 characters (for example "Yonkers senior services app"). hook: a short phrase on why it stands out, under 80 characters (for example "strongest fit of the three").',
     `situation: at most 2 sentences. First what they use today (currentSolution), then what they want built and why (objective). When currentSolution is null and silent is true, the first sentence must be exactly: "${SILENT_LINE}" When silent is false, never call the RFP silent.`,
-    'fit: 1 or 2 sentences from fit, naming the past project it mentions, in everyday words. An empty string when fit is null.',
-    'blockers: each given blocker rewritten as one plain line, in the same order and the same number of lines; [] when there are none.',
+    'fit: 1 or 2 sentences from fit, naming the past project it mentions, in everyday words; when advantage is given, add it as a short clause or second sentence (for example "Cost is only 5 of 100 evaluation points."). An empty string when both are null.',
+    'blockers: each given blocker as one plain line, in the same order and the same number of lines; [] when there are none. Use its quote to be specific, naming the actual portal, certification or requirement (for example "Submission only through BidNet, where we aren\'t registered."), but never add anything the quote and text do not say.',
     'No links, Markdown, raw dates such as 2026-10-16, or rubric words such as "gate".',
   ].join('\n');
 }
@@ -518,7 +544,7 @@ export function telegramFacts(results, pursue, email = { status: 'none' }) {
       number: pick.number,
       name: clean(email.sentences?.rfps?.[index]?.name) || shortName(pick.title),
       score: pick.score,
-      blocker: pick.blockers[0] || null,
+      blocker: pick.blockers[0]?.text || null,
       link: pick.link,
     })),
     closest: pursue.picks.length ? null : closestMiss(results),
@@ -660,7 +686,7 @@ export function renderMarkdown(results) {
     `- Budget: ${entry.budget.text}`,
     entry.need ? `- What they want: ${entry.need}` : null,
     entry.fit ? `- Why Seamgen fits: ${entry.fit}` : null,
-    entry.blockers.length ? `- Blockers: ${entry.blockers.join(' ')}` : null,
+    entry.blockers.length ? `- Blockers: ${entry.blockers.map(blocker => blocker.text).join(' ')}` : null,
     entry.questions.length ? `- ${plural(entry.questions.length, 'Open question', 'Open questions')}: ${entry.questions.join(' ')}` : null,
     entry.agencyQuestion ? `- Question for the agency: ${entry.agencyQuestion}` : null,
     entry.notes.length ? `- Also note: ${entry.notes.join(' ')}` : null,
