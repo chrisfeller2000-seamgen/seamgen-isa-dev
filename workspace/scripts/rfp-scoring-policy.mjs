@@ -36,6 +36,18 @@ export function documentEvidence(documents = []) {
   return evaluateDocumentCompleteness({ manifest });
 }
 
+// The opportunity facts in a candidate.md body: HigherGov's summary and description.
+// The rest of the body is not about the RFP. The intake's note to the old chat scorer
+// says no attachment text was read, even when the full documents are now attached,
+// and people wrote scores into the file (Jake's "KILL GATES … PASS" screens, as HTML
+// comments or extra sections). A body without sections is a plain description and is kept.
+const INTAKE_SECTIONS = ['## HigherGov AI summary', '## Opportunity description'];
+export function intakeText(body) {
+  const sections = String(body || '').replace(/<!--[\s\S]*?-->/g, '').split(/^(?=## )/m);
+  if (sections.length === 1) return sections[0].trim();
+  return sections.filter(section => INTAKE_SECTIONS.some(heading => section.startsWith(heading))).join('').trim();
+}
+
 export function scoringSources(input) {
   const frontmatter = input.candidate?.frontmatter || {};
   // Do not feed a prior run's scores, judgments, or auth-bearing document URLs
@@ -45,7 +57,7 @@ export function scoringSources(input) {
     'naics_code', 'version_key', 'opp_key', 'primary_contact_name', 'primary_contact_email'];
   const metadata = Object.fromEntries(metadataKeys.filter(key => frontmatter[key] !== undefined).map(key => [key, frontmatter[key]]));
   return [
-    { id: 'metadata', kind: 'metadata', text: `${JSON.stringify(metadata)}\n${input.candidate?.body || ''}` },
+    { id: 'metadata', kind: 'metadata', text: `${JSON.stringify(metadata)}\n${intakeText(input.candidate?.body)}` },
     ...(input.documents || []).map((doc, i) => ({ id: `doc-${i + 1}`, kind: 'document',
       file: doc.file || doc.name || `document-${i + 1}`, text: String(doc.text || '') })),
     ...(input.companySources || []),

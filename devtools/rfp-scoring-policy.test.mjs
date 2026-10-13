@@ -5,7 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { alignmentCases } from './fixtures/rfp-alignment-cases.mjs';
 import { companySources, fixturePolicies, recordedJudgment, referenceJudgment } from './fixtures/rfp-recorded-judgments.mjs';
-import { CATEGORY_BANDS, DOCUMENT_FETCH_THRESHOLD, assessProjectValue, documentEvidence, finalizeRfpScore } from '../workspace/scripts/rfp-scoring-policy.mjs';
+import { CATEGORY_BANDS, DOCUMENT_FETCH_THRESHOLD, assessProjectValue, documentEvidence, finalizeRfpScore, scoringSources } from '../workspace/scripts/rfp-scoring-policy.mjs';
 import { createAssessmentContext } from '../workspace/scripts/rfp-deadline.mjs';
 import { createOpenClawJudge, scoreRfp } from '../workspace/scripts/rfp-scoring-judgment.mjs';
 import { persistValidatedScore, scoreCandidateFromText, shouldFetchDocuments } from '../workspace/scripts/weekly-rfp-pursue-decision.mjs';
@@ -134,6 +134,28 @@ test('fabricated citations and named projects are rejected', () => {
   assert.throws(() => finalize(packet(), j => { j.gates.gate3.evidence = [{ sourceId: 'missing', quote: 'claim' }]; }), /citation/);
   assert.throws(() => finalize(packet(), j => { j.categories.tech.evidence = citation; }), /delivery evidence/);
   assert.throws(() => finalize(packet(), j => { j.categories.compliance.evidence = citation; }), /delivery evidence/);
+});
+
+test("only HigherGov's sections of a candidate body reach the judge, not notes or earlier scores", () => {
+  // Shaped like a real candidate.md: CRLF, a scoring note in an HTML comment, the intake's
+  // note to the old chat scorer, and a score section someone added under the intake's own.
+  const body = [
+    '<!--', 'FULL-TEXT SCORE - 2026-07-21', 'KILL GATES', 'Gate 6 (Eligibility): PASS', '-->', '',
+    '# Permit Portal', '',
+    '> **For Claude.** This is a HigherGov intake record, not the full solicitation.',
+    '> **`scoring_confidence: metadata-only`** - no attachment text was available.', '',
+    '## HigherGov AI summary', 'The city wants an online permit portal.', '',
+    '## Opportunity description (verbatim from HigherGov)', 'Build and host the portal.', '',
+    '## Attachments', '_No attachment text retrieved._', '',
+    '## Full-text score — 2026-07-21', 'Gate 6: PASS. Strong Pursue.', '',
+    '## Links', '- HigherGov page: https://www.highergov.com/opportunity/example', '',
+  ].join('\r\n');
+  const input = packet();
+  input.candidate.body = body;
+  const metadata = scoringSources(input).find(source => source.id === 'metadata').text;
+  assert.match(metadata, /online permit portal/);
+  assert.match(metadata, /Build and host the portal/);
+  assert.doesNotMatch(metadata, /KILL GATES|Gate 6|For Claude|attachment text|Strong Pursue|highergov\.com/i);
 });
 
 test('project size excludes incidental amounts and preserves uncertain/ranged estimates', () => {
