@@ -75,6 +75,14 @@ function isoDate(value) {
   return date.toISOString().slice(0, 10);
 }
 
+// The week a run counts as for the once-a-week pursue email. RFP_REPORT_WEEK_OF files a
+// late delivery under the week it belongs to (October 14 redid October 9's run, cut short
+// by an OpenClaw outage), so that week's Friday run still sends; deadlines keep counting
+// from the real run date.
+export function reportWeek(runDate, weekOf = process.env.RFP_REPORT_WEEK_OF) {
+  return weekNumber(new Date(isoDate(weekOf) || runDate));
+}
+
 async function withTimeout(promise, timeoutMs, label = 'operation') {
   let timeoutId;
   const timeout = new Promise((_, reject) => {
@@ -1819,7 +1827,8 @@ async function main() {
     addEntry({ final: scoringBundle, documentStatus: 'full-text', documentsLink });
   }
 
-  const week = weekNumber(new Date(runDate));
+  const week = reportWeek(runDate);
+  if (process.env.RFP_REPORT_WEEK_OF) process.stderr.write(`[weekly-rfp] late delivery: counted as week ${week}; deadlines count from ${runDate}\n`);
   const results = buildResults({ runDate, week, entries, intake });
   const { strong, worth, check, screened } = results.counts;
   process.stderr.write(`[weekly-rfp] qualification complete: ${strong} strong pursue, ${worth} worth a look, ${check} to check, ${screened} screened out\n`);
