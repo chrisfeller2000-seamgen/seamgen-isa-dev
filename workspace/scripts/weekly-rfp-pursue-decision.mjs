@@ -1051,10 +1051,27 @@ async function getOrCreateUniqueHigherGovSlug(title, existingSlugs, usedSlugs) {
   return slug;
 }
 
-async function runHigherGovIntake() {
+// RFP_INTAKE_REPLAY=YYYY-MM-DD:YYYY-MM-DD pulls past HigherGov days again, to redo a run
+// that failed (October 9's was cut short by an OpenClaw outage). It ignores the seen list
+// and never saves the intake state or seen rows, so the next scheduled run still starts
+// where the last one stopped. A malformed value stops the run rather than falling back to
+// a normal intake, which would move the state forward.
+export function intakeReplayRange(value = process.env.RFP_INTAKE_REPLAY) {
+  if (!value) return null;
+  const match = String(value).trim().match(/^(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})$/);
+  const from = match && new Date(`${match[1]}T00:00:00Z`), to = match && new Date(`${match[2]}T00:00:00Z`);
+  if (!match || Number.isNaN(from?.getTime()) || Number.isNaN(to?.getTime()) || from > to) {
+    throw new Error('RFP_INTAKE_REPLAY must be YYYY-MM-DD:YYYY-MM-DD, oldest day first.');
+  }
+  return { from, to };
+}
+
+export async function runHigherGovIntake() {
   const config = await loadHigherGovConfig();
-  const fullBackfill = ['1', 'true', 'yes', 'full'].includes(String(process.env.RFP_FULL_BACKFILL || '').toLowerCase());
+  const replay = intakeReplayRange();
+  const fullBackfill = !replay && ['1', 'true', 'yes', 'full'].includes(String(process.env.RFP_FULL_BACKFILL || '').toLowerCase());
   const backfillDays = Number.parseInt(process.env.RFP_BACKFILL_DAYS || '30', 10) || 30;
+  if (replay) process.stderr.write(`[weekly-rfp] intake replay ${formatUtcDate(replay.from)} to ${formatUtcDate(replay.to)}: intake state and seen list are left unchanged\n`);
   if (fullBackfill) {
     await resetHigherGovIntakeState();
   }
@@ -1066,11 +1083,11 @@ async function runHigherGovIntake() {
     days: {},
   };
   await clearPortalCandidatesCache();
-  const seenVersions = fullBackfill ? new Set() : await loadHigherGovSeenSet();
+  const seenVersions = fullBackfill || replay ? new Set() : await loadHigherGovSeenSet();
   const usedSlugs = new Set();
   const safetyLag = Number(config.safetyLagDays || 1);
-  const endDate = addUtcDays(utcToday(), -safetyLag);
-  const startDate = fullBackfill
+  const endDate = replay ? replay.to : addUtcDays(utcToday(), -safetyLag);
+  const startDate = replay ? replay.from : fullBackfill
     ? addUtcDays(endDate, -Math.max(backfillDays - 1, 0))
     : (state.highWaterCapturedDate ? addUtcDays(new Date(`${state.highWaterCapturedDate}T00:00:00Z`), 1) : addUtcDays(endDate, -6));
   const daysFetched = [];
@@ -1110,10 +1127,10 @@ async function runHigherGovIntake() {
       totalPass += 1;
       if (versionKey) {
         seenVersions.add(versionKey);
-        await appendHigherGovSeenRow(versionKey, recordString(record, 'opp_key'), recordString(record, 'captured_date')).catch(() => null);
+        if (!replay) await appendHigherGovSeenRow(versionKey, recordString(record, 'opp_key'), recordString(record, 'captured_date')).catch(() => null);
       }
     }
-    if (dr.fullyDrained) {
+    if (dr.fullyDrained && !replay) {
       state.days[day] = { fetched: dr.served, count: dr.count };
       state.highWaterCapturedDate = day;
       state.searchId = config.searchId;
