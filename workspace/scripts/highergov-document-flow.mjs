@@ -54,21 +54,27 @@ function classifyDocumentRecord(record = {}) {
     required = true;
     priority = Math.max(priority, 60);
   }
-  if (role === 'other' && /\b(rfp|request for proposal|request for proposals|solicitation|bid invitation|invitation to bid|request for quotation)\b/.test(haystack)) {
+  // RFO and RFA are what Texas and Pennsylvania call theirs ("Request for Offers", "Request for Application").
+  if (role === 'other' && /\b(rfp|rfo|rfa|request for proposals?|request for offers?|request for applications?|solicitation|bid invitation|invitation to bid|request for quotation)\b/.test(haystack)) {
     role = 'solicitation';
     required = true;
     priority = Math.max(priority, 100);
   }
   // Agencies often name the RFP after the project; once text is extracted, an
   // otherwise unclassified file can be recognized as the solicitation by content.
-  if (role === 'other' && looksLikeSolicitationText(record.text)) {
+  // Some name the whole RFP "Scope of Work", so a requirements-named file is checked
+  // too, unless its name marks it as a part of a larger package.
+  const standaloneRequirements = role === 'requirements' && !/\b(attachment|exhibit|appendix|schedule|workbook)\b/.test(haystack);
+  if ((role === 'other' || standaloneRequirements) && looksLikeSolicitationText(record.text)) {
     role = 'solicitation';
     required = true;
     priority = 100;
   }
-  // An RFP-prefixed rating form or bid-board export is not the RFP itself.
+  // An RFP-prefixed rating form or bid-board export is not the RFP itself. An export
+  // points to the "actual" or "separate" RFP; a real RFP also tells bidders where to
+  // "download the RFP document" and its addenda, so that wording alone does not count.
   if (/rating form|committee rating|bid.board export|bidboard export/.test(haystack)
-      || /(?:bid.board export|download (?:the )?(?:actual |separate )?rfp|separate rfp (?:pdf|document))/i.test(record.text || '')) {
+      || /(?:bid.board export|download (?:the )?(?:actual|separate) rfp|separate rfp (?:pdf|document))/i.test(record.text || '')) {
     role = /rating|evaluation/.test(haystack) ? 'evaluation' : 'other';
     required = role === 'evaluation';
     priority = role === 'evaluation' ? 60 : 0;
@@ -94,8 +100,11 @@ function classifyDocumentRecord(record = {}) {
 // Extracted text counts as a solicitation only when it names itself one, states how or
 // when to submit, and describes the work. A short notice that lacks any of these stays
 // unrecognized; reading its meaning needs a content review.
-const SOLICITATION_TEXT = /request\s+for\s+(?:proposals?|quotations?|qualifications?)|invitation\s+(?:to|for)\s+(?:bids?|tenders?)|solicitation\s+(?:no\b|number|#)|\b(?:RFP|RFQ|IFB|ITB)\b/i;
-const SUBMISSION_TEXT = /\b(?:proposals?|quotes?|quotations?|offers?|responses?|bids?|submissions?|submittals?)\s+(?:must|shall|will|are)\s+be\s+(?:received|submitted|delivered|due)|\b(?:proposals?|quotes?|offers?|responses?|bids?)\s+(?:are\s+)?due\b|\bdue\s+date\b|\bclosing\s+date\b|\bsubmission\s+deadline\b|\bdeadline\s+for\s+(?:submissions?|proposals?|responses?|offers?|quotes?)\b/i;
+// A federal "Area of Interest" names the Commercial Solutions Opening it is issued under
+// and tells vendors what they must submit. "Area of interest" alone is not used as a
+// name, because GIS documents use it for a place on a map.
+const SOLICITATION_TEXT = /request\s+for\s+(?:proposals?|quotations?|qualifications?|offers?|applications?)|invitation\s+(?:to|for)\s+(?:bids?|tenders?)|solicitation\s+(?:no\b|number|#)|commercial\s+solutions\s+opening|\b(?:RFP|RFQ|RFO|RFA|IFB|ITB)\b/i;
+const SUBMISSION_TEXT = /\b(?:proposals?|quotes?|quotations?|offers?|responses?|bids?|submissions?|submittals?)\s+(?:must|shall|will|are)\s+be\s+(?:received|submitted|delivered|due)|\b(?:proposals?|quotes?|offers?|responses?|bids?)\s+(?:are\s+)?due\b|\bdue\s+date\b|\bclosing\s+date\b|\bsubmission\s+deadline\b|\bdeadline\s+for\s+(?:submissions?|proposals?|responses?|offers?|quotes?)\b|\b(?:vendors?|offerors?|proposers?|respondents?|bidders?)\s+(?:must|shall)\s+submit\b/i;
 const SCOPE_TEXT = /scope\s+of\s+(?:work|services)|statement\s+of\s+work|minimum\s+(?:requirements|qualifications)|evaluation\s+criteria|technical\s+requirements|functional\s+requirements/i;
 
 function looksLikeSolicitationText(text = '') {
