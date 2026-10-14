@@ -38,7 +38,7 @@ One small addition to the scorer supplies the part Jake's format needs and ISA d
 
 ### The email
 
-- **From:** isa@seamgen.com. **To:** Peter, Marianne and Sales (`RFP_EMAIL_TO`). **Cc:** cfeller@ and jgaribay@ (`RFP_EMAIL_CC`). Both are set in the cron wrapper.
+- **From:** isa@seamgen.com. **To:** Marianne and Sales (`RFP_EMAIL_TO`); Peter is added later (held back on October 13). **Cc:** cfeller@ and jgaribay@ (`RFP_EMAIL_CC`). Both are set in the cron wrapper.
 - **Subject:**
   - one or two RFPs: their short names, as Jake named the set ("<name> and <name> — pursuing");
   - three or more, or names too long for a subject: "<n> RFPs this week — pursuing";
