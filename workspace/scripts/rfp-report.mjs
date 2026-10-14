@@ -50,6 +50,7 @@ const CHECK_REASONS = {
   agency: 'needs an answer from the agency before it can be scored',
 };
 const TIER_ORDER = { strong: 0, worth: 1, check: 2, screened: 3 };
+const TIER_DECISIONS = { strong: 'Strong pursue', worth: 'Worth a look', check: "Couldn't check yet", screened: 'Screened out' };
 
 const clean = value => String(value ?? '').replace(/\s+/g, ' ').trim();
 const finite = value => (Number.isFinite(value) ? value : null);
@@ -69,10 +70,13 @@ function stackOf(tech) {
   return STRONG_TECH.has(tech?.band) ? firstSentence(tech.reason, 220) || null : null;
 }
 
-function firstSentence(text, max = 260) {
+// A period after a short abbreviation doesn't end the sentence: HigherGov summaries say
+// "(RFP No. 26-1)", which cut the Port of Oakland's "what they want" at "(RFP No.".
+const SENTENCE_END = /^.*?(?<!\b(?:No|Nos|Inc|Co|Corp|Dept|St|Mr|Ms|Dr|vs|approx))[.!?](?=\s|$)/;
+export function firstSentence(text, max = 260) {
   const value = clean(text);
   if (!value) return '';
-  const sentence = (value.match(/^.*?[.!?](?=\s|$)/) || [value])[0];
+  const sentence = (value.match(SENTENCE_END) || [value])[0];
   if (sentence.length <= max) return sentence;
   return `${sentence.slice(0, max).replace(/\s+\S*$/, '')}…`;
 }
@@ -151,10 +155,18 @@ function keyDates(entry) {
   return parts.length ? parts.join('; ') : null;
 }
 
-// HigherGov's own summary, without its "Background" heading.
-function needOf(candidate = {}) {
-  const section = (String(candidate.body || '').match(/## HigherGov AI summary\s+([\s\S]*?)(?:\n## |$)/) || [])[1];
-  const text = clean(section || candidate.frontmatter?.ai_summary || candidate.frontmatter?.description_text)
+// One "## " section of a candidate file, without its heading line.
+function sectionText(body, heading) {
+  const section = String(body || '').split(/^## /m).find(part => part.startsWith(heading));
+  return section ? clean(section.slice(section.indexOf('\n') + 1)) : '';
+}
+
+// HigherGov's own summary, without its "Background" heading; its description when there is
+// no summary. Until October 14 an empty summary returned the next heading, "## Opportunity
+// description (verbatim from HigherGov)", as what the buyer wants (29 of 185 that week).
+export function needOf(candidate = {}) {
+  const text = clean(sectionText(candidate.body, 'HigherGov AI summary') || sectionText(candidate.body, 'Opportunity description')
+    || candidate.frontmatter?.ai_summary || candidate.frontmatter?.description_text)
     .replace(/^(background|summary|overview|purpose)\b[\s:.\-–]*/i, '');
   return firstSentence(text, 200);
 }
@@ -372,6 +384,23 @@ export function reportEntry({ candidate, preliminary, final = null, documentStat
     budget,
     longShot: place.tier === 'worth' && (questions.length >= 2 || (budget.low !== null && budget.low < MINIMUM_DEAL)),
   };
+}
+
+/**
+ * Any entry in plain words, for readers outside the weekly report (the audit workbook,
+ * later ISA's chat): the decision and why. A pick's why is its biggest blockers; a
+ * screened-out RFP's is the scorer's reason, else the group heading.
+ */
+export function plainOutcome(entry) {
+  const sentence = text => {
+    const value = clean(text);
+    return value ? `${value[0].toUpperCase()}${value.slice(1)}${/[.!?…]$/.test(value) ? '' : '.'}` : '';
+  };
+  const picked = entry.tier === 'strong' || entry.tier === 'worth';
+  const why = picked ? (entry.blockers || []).slice(0, 2).map(item => sentence(item.text)).join(' ') || 'No blockers found.'
+    : entry.tier === 'check' ? sentence(CHECK_REASONS[entry.reason])
+      : sentence(entry.reasonDetail) || sentence(REASONS[entry.reason]?.heading);
+  return { decision: TIER_DECISIONS[entry.tier] || entry.tier, why };
 }
 
 /** The results file: every entry, sorted by tier and then rank score, plus the week's counts. */

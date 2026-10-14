@@ -19,5 +19,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
+      # exceljs (the audit workbook) is the only dependency, and dev-only.
+      - run: npm ci
       - run: npm test
       - run: npm run check

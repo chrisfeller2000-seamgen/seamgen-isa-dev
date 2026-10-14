@@ -5,8 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { auditDocuments, auditRecord, createAuditLog } from '../workspace/scripts/rfp-audit.mjs';
-import { auditCsv } from './rfp-audit.mjs';
+import { auditDocuments, auditRecord, auditSkippedRecord, createAuditLog } from '../workspace/scripts/rfp-audit.mjs';
+import { detailRows, salesRows, writeWorkbook } from './rfp-audit.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -49,20 +49,44 @@ async function syntheticWorkspace() {
 
 const readLines = async file => (await fs.readFile(file, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
 
-test("a weekly run keeps one audit line per RFP in the report, and a re-run never overwrites it", async () => {
+// The run's audit lines, kept for the workbook test.
+let weeklyAudit = null;
+
+test("a weekly run audits every listing it pulled, the report's RFPs line for line, and a re-run never overwrites it", async () => {
   const root = await syntheticWorkspace();
   try {
     const reports = path.join(root, 'reports', 'new-rfp-qualification');
     await weeklyRun(root);
     const results = JSON.parse(await fs.readFile(path.join(reports, '2026-10-16.json'), 'utf8'));
     const audit = await readLines(path.join(reports, 'audit', '2026-10-16.jsonl'));
+    weeklyAudit = audit;
     // The audit says exactly what the report said, RFP for RFP.
-    assert.deepEqual(audit.map(line => [line.rfp.slug, line.outcome.tier, line.outcome.score]).sort(),
+    const scored = audit.filter(line => line.outcome.tier !== 'skipped');
+    assert.deepEqual(scored.map(line => [line.rfp.slug, line.outcome.tier, line.outcome.score]).sort(),
       results.entries.map(entry => [entry.slug, entry.tier, entry.score]).sort());
     for (const line of audit) assert.deepEqual([line.schemaVersion, line.run], [1, { date: '2026-10-16', week: 42 }]);
 
-    const portal = audit.find(line => line.rfp.versionKey === 'fixture-portal-v1');
+    // Listings that never reached scoring are there too, with a plain reason.
+    const skipped = audit.filter(line => line.outcome.tier === 'skipped');
+    const dropped = skipped.find(line => line.rfp.versionKey === 'fixture-rush-v1');
+    assert.equal(dropped.outcome.reason, 'intake-due-soon');
+    assert.equal(dropped.outcome.why, 'It was due in 4 days when HigherGov listed it, under the 10-day minimum.');
+    assert.equal(dropped.rfp.links.highergov, 'https://example.test/synthetic-rush');
+    const duplicate = skipped.find(line => line.outcome.reason === 'duplicate');
+    assert.equal(duplicate.outcome.why, 'Same RFP as "Synthetic Case Management Portal", which was scored instead.');
+    assert.equal(skipped.length, 2);
+    assert.equal(results.entries.length, 2);
+
+    const portal = scored.find(line => line.rfp.title === 'Synthetic Case Management Portal');
     assert.equal(portal.outcome.tier, 'strong');
+    assert.deepEqual([portal.outcome.decision, portal.outcome.budget], ['Strong pursue', '$180k (from the RFP)']);
+    assert.match(portal.outcome.due, /^Nov 30/);
+    assert.deepEqual(portal.outcome.blockers, ["Submitting needs a registration on the agency's portal."]);
+    assert.match(portal.outcome.need, /custom case management portal/);
+    assert.match(portal.rfp.listingText, /^## HigherGov AI summary/);
+    assert.ok(Number.isFinite(portal.listing.seconds));
+    assert.match(portal.fullText.rules.prompt, /^[0-9a-f]{12}$/);
+    assert.deepEqual(portal.documents.reasons, []);
     assert.equal(portal.listing.recommendation, 'Strong Pursue');
     assert.equal(portal.listing.attempts, 1);
     assert.deepEqual(portal.documents.files.map(file => [file.name, file.read]),
@@ -73,7 +97,7 @@ test("a weekly run keeps one audit line per RFP in the report, and a re-run neve
 
     // A screened-out RFP keeps the gate that cut it and why; it never reached the documents.
     const renewal = audit.find(line => line.rfp.versionKey === 'fixture-renewal-v1');
-    assert.deepEqual([renewal.outcome.tier, renewal.outcome.reason], ['screened', 'gate2']);
+    assert.deepEqual([renewal.outcome.tier, renewal.outcome.reason, renewal.outcome.why], ['screened', 'gate2', 'Recorded test judgment.']);
     assert.deepEqual(renewal.listing.gates.gate2, { pass: false, reason: 'Recorded test Gate 2 judgment' });
     assert.deepEqual([renewal.documents, renewal.fullText], [null, null]);
 
@@ -82,7 +106,7 @@ test("a weekly run keeps one audit line per RFP in the report, and a re-run neve
 
     await weeklyRun(root);
     assert.deepEqual((await fs.readdir(path.join(reports, 'audit'))).sort(), ['2026-10-16-2.jsonl', '2026-10-16.jsonl']);
-    assert.equal((await readLines(path.join(reports, 'audit', '2026-10-16.jsonl'))).length, 2);
+    assert.equal((await readLines(path.join(reports, 'audit', '2026-10-16.jsonl'))).length, 4);
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }
@@ -123,22 +147,61 @@ test('audit lines cut long evidence quotes and keep file names, never paths or l
     { source_file_name: 'RFP.pdf', local_path: '/home/azureuser/x/RFP.pdf', download_url: 'https://signed.example/RFP.pdf', downloaded: true, extracted: true, role: 'solicitation', document_status: 'downloaded and extracted', extraction_method: 'pdftotext' },
     { source_file_name: 'Exhibit A.pdf', downloaded: false },
   ] });
-  assert.deepEqual(documents, { status: 'partial-documents', files: [
+  assert.deepEqual(documents, { status: 'partial-documents', reasons: [], files: [
     { name: 'RFP.pdf', role: 'solicitation', read: true, status: 'downloaded and extracted', method: 'pdftotext' },
     { name: 'Exhibit A.pdf', role: null, read: false, status: 'not downloaded', method: null },
   ] });
 });
 
-test('the audit spreadsheet has one row per RFP and keeps listing text from running as formulas', () => {
-  const line = {
-    run: { date: '2026-10-16', week: 42 },
-    rfp: { title: '=HYPERLINK("x") portal', agency: 'City, State', state: 'CA', listingDue: '2026-11-30', links: { highergov: 'https://www.highergov.com/x', posting: '' }, versionKey: 'v1' },
-    outcome: { tier: 'screened', reason: 'gate2', detail: 'Buys "an existing" product.', recommendation: 'No-bid', score: null, scoreIfConfirmed: null },
-    listing: { total: null, potentialTotal: 61, gates: { gate1: { pass: true }, gate2: { pass: false }, gate3: { pass: null } }, categories: { caseStudy: 12 }, attempts: 2, error: null },
-    documents: null, fullText: null,
-  };
-  const [header, row, end] = auditCsv([line]).split('\n');
-  assert.equal(end, '');
-  assert.match(header, /^run date,title,agency,state,listing due,tier,reason,why,recommendation,score,/);
-  assert.match(row, /^2026-10-16,"'=HYPERLINK\(""x""\) portal","City, State",CA,2026-11-30,screened,gate2,"Buys ""an existing"" product\.",No-bid,,,61,,,,,2,pass,fail,open,open,open,open,12,/);
+test("the workbook's two tabs list the same RFPs in the same order: plain words for sales, the why for developers", async () => {
+  assert.ok(weeklyAudit, 'runs after the weekly run test');
+  const sales = salesRows(weeklyAudit);
+  const details = detailRows(weeklyAudit);
+  assert.deepEqual(sales.map(row => row.Decision), ['Strong pursue', 'Screened out', 'Skipped before scoring', 'Skipped before scoring']);
+  assert.deepEqual(sales.map(row => row.Title), details.map(row => row.Title));
+  const [pick, cut, , rush] = sales;
+  assert.equal(pick.Why, "Submitting needs a registration on the agency's portal.");
+  assert.match(pick.Score, /^\d+$/);
+  // Where the points went, worst first, with the scorer's reason.
+  assert.match(pick['Lost points on'], /^Case study 20\/25: Recorded comparable Azure portal/);
+  assert.deepEqual(pick.HigherGov, { text: 'HigherGov', hyperlink: 'https://example.test/synthetic-portal' });
+  assert.equal(cut.Why, 'Recorded test judgment.');
+  assert.equal(rush['What they want'], 'The town wants its website refreshed within two weeks.');
+  assert.deepEqual([details[1]['Custom build'], details[1]['10+ days']], ['fail', 'pass']);
+  assert.match(details[1]['Gate notes'], /^Custom build \(fail\): Recorded test Gate 2 judgment/);
+  assert.equal(details[0]['Case study /25'], 20);
+  assert.equal(details[0]['Documents read'], '2 of 2');
+
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'isa-audit-workbook-'));
+  try {
+    const file = path.join(root, '2026-10-16.xlsx');
+    await writeWorkbook(file, weeklyAudit);
+    const { default: ExcelJS } = await import('exceljs');
+    const book = new ExcelJS.Workbook();
+    await book.xlsx.readFile(file);
+    assert.deepEqual(book.worksheets.map(sheet => [sheet.name, sheet.rowCount]), [['Sales', 5], ['Details', 5]]);
+    const sheet = book.getWorksheet('Sales');
+    assert.deepEqual(sheet.getRow(1).values.slice(1, 4), ['Decision', 'Why', 'Title']);
+    assert.equal(sheet.getCell('K2').value.hyperlink, 'https://example.test/synthetic-portal');
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test('a check row says what was missing, and a score says where it came from', () => {
+  const base = { run: { date: '2026-10-14', week: 41 }, rfp: { title: 'T', agency: 'A', links: {} }, listing: null, fullText: null, documents: null };
+  const [docs] = salesRows([{ ...base, outcome: { decision: "Couldn't check yet", reason: 'documents', why: "Couldn't get or read the RFP documents.", score: 69, scoredFrom: 'listing' },
+    documents: { status: 'partial-documents', reasons: ['No extractable solicitation file was saved.'], files: [] } }]);
+  assert.equal(docs.Why, "Couldn't get or read the RFP documents. No extractable solicitation file was saved.");
+  assert.equal(docs.Score, '69 (listing only)');
+  const [open] = salesRows([{ ...base, outcome: { decision: 'Worth a look', why: 'References unverified.', score: null, scoreIfConfirmed: 71 } }]);
+  assert.equal(open.Score, '71 if the open questions check out');
+  // Arithmetic isn't a reason; the competitive verdict is. A listing without a summary uses its own first sentence.
+  const scored = { ...base, outcome: { decision: 'Worth a look', why: 'x', score: 66 }, rfp: { ...base.rfp, listingText: '## Opportunity description (verbatim from HigherGov)\nThe port wants a passenger app (RFP No. 26-1). It runs two years.' },
+    fullText: { categories: { caseStudy: 25, competitive: 0 }, judgment: { competitive: { verdict: 'Insufficient evidence' }, categories: { competitive: { reason: '5 neutral base −3 structural = 2' } } } } };
+  const [row] = salesRows([scored]);
+  assert.equal(row['Lost points on'], 'Competitive 0/10: no market research yet');
+  assert.equal(row['What they want'], 'The port wants a passenger app (RFP No. 26-1).');
+  const skipped = auditSkippedRecord({ run: { date: '2026-10-14', week: '41' }, listing: { title: 'X', killReason: 'set-aside-not-held', setAside: 'Service-Disabled Veteran-Owned' } });
+  assert.deepEqual([skipped.outcome.decision, skipped.outcome.why], ['Skipped before scoring', "It is set aside for Service-Disabled Veteran-Owned Seamgen doesn't hold."]);
 });

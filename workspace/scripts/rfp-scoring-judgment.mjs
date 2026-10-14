@@ -294,6 +294,8 @@ export function createModelOutageGuard({ threshold = 3, waitMs = 300000, maxWait
 export async function scoreRfp(input, { judge, outage, createJudge = createOpenClawJudge, workspace = process.env.WORKSPACE_DIR || '/home/azureuser/.openclaw/workspace', timeoutMs = 300000,
   log = line => process.stderr.write(`${line}\n`) } = {}) {
   let failureStage = 'context-unavailable';
+  const started = Date.now();
+  const seconds = () => Math.round((Date.now() - started) / 1000);
   try {
     let policies = input.policies || globalThis[policiesSymbol], companySources = input.companySources || globalThis[sourcesSymbol];
     if (!policies || !companySources) {
@@ -336,7 +338,8 @@ export async function scoreRfp(input, { judge, outage, createJudge = createOpenC
         const judgment = resolveEvidenceReferences(JSON.parse(raw), catalog);
         const scored = finalizeRfpScore(packetInput, judgment);
         return { ...scored, provenance: { rubric: 'Jake v1.8 + approved deadline correction', evidenceFormat: 'source-excerpt-ids-v1', model: result.model || 'recorded test judgment',
-          attempts: attempt, assessmentDate: input.assessment?.runDate,
+          attempts: attempt, seconds: seconds(), assessmentDate: input.assessment?.runDate,
+          promptSha256: crypto.createHash('sha256').update(systemPrompt).digest('hex'),
           sources: sources.map(source => ({ id: source.id, sha256: crypto.createHash('sha256').update(source.text).digest('hex') })),
           policyHashes: policies.map(item => ({ name: item.name, sha256: crypto.createHash('sha256').update(item.text).digest('hex') })) } };
       } catch (error) {
@@ -356,6 +359,7 @@ export async function scoreRfp(input, { judge, outage, createJudge = createOpenC
       log(`[rfp-scoring] ${input.phase || 'full-text'} scoring failed (${failureStage}) for ${input.candidate?.slug || 'an RFP'}: ${describeScoringFailure(error)}`);
     }
     const detail = failureStage === 'invalid-judgment' ? { scoring_error_detail: String(error?.message || '').slice(0, 200) } : {};
-    return { ...unscoredRfp(input, 'Scoring could not be validated; check model access, source assets, and structured evidence in an isolated test.'), scoring_error: failureStage, ...detail };
+    return { ...unscoredRfp(input, 'Scoring could not be validated; check model access, source assets, and structured evidence in an isolated test.'),
+      scoring_error: failureStage, scoring_seconds: seconds(), ...detail };
   }
 }

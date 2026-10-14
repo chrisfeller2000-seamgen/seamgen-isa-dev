@@ -5,9 +5,9 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createAssessmentContext } from './rfp-deadline.mjs';
-import { auditDocuments, auditRecord, createAuditLog } from './rfp-audit.mjs';
+import { auditDocuments, auditRecord, auditSkippedRecord, createAuditLog } from './rfp-audit.mjs';
 import { extractDocumentText } from './document-text.mjs';
-import { DOCUMENT_FETCH_THRESHOLD, unscoredRfp } from './rfp-scoring-policy.mjs';
+import { DOCUMENT_FETCH_THRESHOLD, intakeText, unscoredRfp } from './rfp-scoring-policy.mjs';
 import { createModelOutageGuard, createOpenClawJudge, scoreRfp } from './rfp-scoring-judgment.mjs';
 import {
   buildResults, pursueFacts, renderMarkdown, renderPursueEmail, reportEntry, telegramFacts, vibeFrom, writePursueEmail, writeTelegramMessage,
@@ -1104,6 +1104,8 @@ export async function runHigherGovIntake() {
   let totalKilled = 0;
   let totalDupes = 0;
   let totalFetched = 0;
+  // Listings the prefilter drops never become candidates; the weekly audit still lists them.
+  const dropped = [];
 
   await fs.mkdir(PORTAL_CANDIDATES_DIR, { recursive: true });
 
@@ -1124,6 +1126,14 @@ export async function runHigherGovIntake() {
       if (!prefilter.pass) {
         totalKilled += 1;
         if (versionKey) seenVersions.add(versionKey);
+        dropped.push({
+          versionKey, oppKey: recordString(record, 'opp_key'), title, agency: getTextField(recordField(record, 'agency')),
+          state: recordString(record, 'pop_state'), captured: recordString(record, 'captured_date'), due: recordString(record, 'due_date'),
+          links: { highergov: recordString(record, 'path'), posting: recordString(record, 'source_path') },
+          listingText: [recordString(record, 'ai_summary'), recordString(record, 'description_text')].map(normalizeText).filter(Boolean).join('\n\n') || null,
+          killReason: prefilter.killReason, daysUntilDue: prefilter.daysUntilDue,
+          oppType: recordString(record, 'opp_type'), setAside: recordString(record, 'set_aside'),
+        });
         continue;
       }
       const slug = await getOrCreateUniqueHigherGovSlug(title, new Set(), usedSlugs);
@@ -1150,6 +1160,7 @@ export async function runHigherGovIntake() {
   return {
     pass: totalPass,
     killed: totalKilled,
+    dropped,
     dupes: totalDupes,
     fetched: totalFetched,
     state,
@@ -1670,6 +1681,7 @@ async function main() {
   const auditRun = { date: runDate, week };
   const audit = await createAuditLog({ dir: path.join(REPORT_DIR, 'audit'), run: auditRun });
   if (audit.file) process.stderr.write(`[weekly-rfp] audit file: ${audit.file}\n`);
+  for (const listing of intake.dropped || []) await audit.append(auditSkippedRecord({ run: auditRun, listing }));
   const entries = [];
   let hubspotDealIndex = null;
   const getHubspotIndex = async () => {
@@ -1681,7 +1693,8 @@ async function main() {
     process.stderr.write(`[weekly-rfp] HubSpot index loaded: ${hubspotDealIndex.length} deal name(s)\n`);
     return hubspotDealIndex;
   };
-  const seenRfpKeys = new Set();
+  // The first title scored for each RFP, so a duplicate's audit line can name it.
+  const seenRfpKeys = new Map();
   const apiKey = getHigherGovApiKey();
   const config = await loadHigherGovConfig();
   // Shared by every scoring call below, so a model outage pauses the run once instead
@@ -1695,15 +1708,20 @@ async function main() {
     const { slug, title: frontTitle, issuer: frontIssuer } = candidate;
     const title = cleanName(frontTitle || slug);
     const issuer = cleanName(frontIssuer || '');
-    const preliminary = await scoreMetadataCandidate(candidate, runDate, outage);
-    const preliminaryScore = preliminary.score;
     const rfpKey = buildRfpKey(title, issuer);
+    // The same RFP posted twice is scored once. This check used to run after the listing
+    // was scored, so each duplicate cost a model call whose answer was thrown away.
     if (rfpKey && seenRfpKeys.has(rfpKey)) {
+      await audit.append(auditSkippedRecord({ run: auditRun, duplicateOf: seenRfpKeys.get(rfpKey), listing: {
+        slug, versionKey: candidate.frontmatter?.version_key, oppKey: candidate.frontmatter?.opp_key, title, agency: issuer,
+        captured: candidate.frontmatter?.captured_date, due: candidate.frontmatter?.due_date,
+        links: { highergov: candidate.sourceUrl || '', posting: candidate.portalUrl || '' }, listingText: intakeText(candidate.body) || null,
+      } }));
       continue;
     }
-    if (rfpKey) {
-      seenRfpKeys.add(rfpKey);
-    }
+    if (rfpKey) seenRfpKeys.set(rfpKey, title);
+    const preliminary = await scoreMetadataCandidate(candidate, runDate, outage);
+    const preliminaryScore = preliminary.score;
 
     if ((i + 1) % 25 === 0) {
       process.stderr.write(`[weekly-rfp] scored ${i + 1}/${candidatePaths.length} candidates\n`);
