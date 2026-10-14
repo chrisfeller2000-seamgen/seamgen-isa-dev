@@ -23,6 +23,8 @@ From that file:
 - **The Telegram message** is a short summary of what happened: the email was sent (with each RFP's score and biggest blocker), it failed, or nothing was worth pursuing (with the closest one and why). ISA writes the "sent" version, checked like the email; the other two are code-built.
 - **The results file** records the email and the message, who wrote them, and why a code-built version was used. ISA's chat reads it to answer questions about the week's RFPs.
 
+`RFP_INTAKE_REPLAY=YYYY-MM-DD:YYYY-MM-DD` pulls those past HigherGov days again, ignoring the seen list, and leaves the intake state and seen list unchanged, so the next scheduled run starts where the last one stopped. A plain re-run pulls new days instead and moves the state forward. To redo a failed week, combine it with `RFP_REPORT_WEEK_OF`.
+
 `RFP_REPORT_WEEK_OF=YYYY-MM-DD` counts a late re-run as that date's week for the once-a-week email, so that week's Friday run still sends; deadlines still count from the real run date. It was used to redo October 9's run on October 14.
 
 `RFP_DELIVERY=preview` writes the same files plus the email and Telegram text (`<run date>-email.html`, `<run date>-telegram.md`), but sends nothing and creates no Drive folders. It still runs intake, so use it only with an isolated `WORKSPACE_DIR`. To review the wording without running the job, use `npm run rfp:preview -- <results file>` (add `--isa` for ISA's own words).
