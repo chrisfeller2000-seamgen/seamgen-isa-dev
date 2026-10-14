@@ -29,7 +29,9 @@ export const MAIL_SYNC_PURSUE_SUBJECT = /\b(?:rfp'?s?\s+to\s+pursue|new\s+qualif
 // quiet week's message), and `heading` labels the Markdown group.
 const REASONS = {
   gate1: { one: 'is due too soon or closed', heading: 'Due too soon or closed' },
-  gate2: { one: 'is buying an existing product', heading: 'Buying an existing product' },
+  // Jake's Gate 2 also screens out work that isn't software at all (rate studies, roadway
+  // design), which "buying an existing product" misdescribed.
+  gate2: { one: "isn't custom software work", heading: 'Not custom software work' },
   gate3: { one: 'is hardware or equipment', heading: 'Hardware or equipment' },
   gate4: { one: "can't be submitted", heading: "Can't be submitted" },
   gate5: { one: 'is under $100k', heading: 'Under $100k' },

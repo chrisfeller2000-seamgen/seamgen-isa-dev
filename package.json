@@ -15,6 +15,7 @@
     "local:version": "node devtools/local-isa.mjs version",
     "local:chat": "node devtools/local-isa.mjs chat",
     "rfp:preview": "node devtools/rfp-preview.mjs",
+    "rfp:audit": "node devtools/rfp-audit.mjs",
     "test": "node --test devtools/*.test.mjs",
     "check": "node devtools/check-source.mjs"
   },

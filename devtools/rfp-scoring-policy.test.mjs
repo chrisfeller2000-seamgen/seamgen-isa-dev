@@ -85,6 +85,9 @@ test('the weekly adapter returns the shared scorer result from one bounded judge
     // Jake's Gate 2: an existing product without a material custom share is a fail, not an open question.
     assert.match(systemPrompt, /Gate 2 resolves to pass, fail, or the conditional route/);
     assert.match(systemPrompt, /fails Gate 2 unless the custom portion is clearly material \(about 40%\+ of the effort\)/);
+    // Jake's listing pass: close Gate 2 calls go on to the documents.
+    assert.match(systemPrompt, /an unconfirmed Q&A window never fails Gate 2 there/);
+    assert.match(systemPrompt, /previousAnswerRejected/);
     const suppliedPacket = JSON.parse(prompt);
     // Enumerated fields stay plain lists; a description inside one gets copied as the value.
     assert.equal(suppliedPacket.outputContract.value.kind, 'stated|inferred|uncertain');
@@ -386,6 +389,25 @@ test('Gate 2a product obligations require a real integrator partner or a conditi
   assert.ok(Number.isFinite(unknown.total));
 });
 
+test("before the documents, the ask-the-agency route is an open gate that still gets its documents fetched", () => {
+  const input = packet('clean-custom-build', { phase: 'preliminary', documents: [] });
+  const listing = [{ sourceId: 'metadata', quote: input.candidate.body }];
+  const productFramed = j => {
+    j.gates.gate2 = { pass: null, reason: 'The listing frames a product buy; the documents decide whether a custom build is accepted.', evidence: listing };
+    j.conditional = { rule: '2', question: 'Would you accept a custom-built solution?', qaStatus: 'unknown', qaDueDate: null, qaBasis: 'unknown', commercialOnly: false, evidence: listing };
+  };
+  const carried = finalize(input, productFramed);
+  assert.equal(carried.gate.gate2, null);
+  assert.ok(Number.isFinite(carried.total));
+  assert.equal(carried.qualification_status, 'provisional');
+  assert.equal(shouldFetchDocuments(carried), carried.total >= DOCUMENT_FETCH_THRESHOLD);
+  assert.ok(carried.total >= DOCUMENT_FETCH_THRESHOLD);
+  // A listing that already says commercial products only is still a Gate 2 failure.
+  assert.equal(finalize(input, j => { productFramed(j); j.conditional.commercialOnly = true; }).recommendation, 'No-bid');
+  // After the documents are read the route is decided as before: no verified open window, no question.
+  assert.equal(finalize(packet(), j => { conditional(j); j.conditional.qaStatus = 'unknown'; }).recommendation, 'Needs review');
+});
+
 test('a conditional product question cannot bypass a second unresolved blocker', () => {
   assert.equal(finalize(packet(), j => { conditional(j); j.subrules.submission.status = 'unknown'; }).recommendation, 'Needs review');
   assert.equal(finalize(packet('value-unknown'), conditional).recommendation, 'Needs review');
@@ -484,6 +506,31 @@ test('reports only count a validated document-backed qualification as Strong Pur
   const row = { title: 'Synthetic', agency: 'Example', preliminary_score: 80, fulltext_score: result.total, ...result, competitive: result.cp, fetchStatus: 'downloaded' };
   assert.equal(buildSecondaryReport([row], assessment).summary.strongPursue, 1);
   assert.equal(buildSecondaryReport([{ ...row, qualification_status: 'provisional' }], assessment).summary.strongPursue, 0);
+});
+
+test('a rejected answer gets one more try, told why it was rejected', async () => {
+  const input = packet(); const prompts = []; const lines = [];
+  const slip = async ({ prompt }) => {
+    prompts.push(JSON.parse(prompt));
+    const j = recordedJudgment(input);
+    if (prompts.length === 1) j.categories.ai.points = 1000;
+    return { text: JSON.stringify(referenceJudgment(j, prompts.at(-1).sources)), model: 'recorded-fixture' };
+  };
+  const scored = await scoreRfp(input, { judge: slip, log: line => lines.push(line) });
+  assert.ok(Number.isFinite(scored.total));
+  assert.equal(scored.provenance.attempts, 2);
+  assert.deepEqual(prompts.map(item => item.previousAnswerRejected), [undefined, 'Invalid ai category or rubric band.']);
+  assert.match(lines.join('\n'), /full-text answer rejected for .*Invalid ai category or rubric band.*asking once more/);
+
+  // A second rejection leaves it unscored: one retry, not a loop.
+  let calls = 0;
+  const alwaysWrong = async ({ prompt }) => { calls++; const j = recordedJudgment(input); j.categories.ai.points = 1000; return JSON.stringify(referenceJudgment(j, JSON.parse(prompt).sources)); };
+  const rejected = await scoreRfp(input, { judge: alwaysWrong, log: () => {} });
+  assert.deepEqual([rejected.scoring_error, calls], ['invalid-judgment', 2]);
+  // A model that can't be reached is the outage guard's job, not a retry here.
+  calls = 0;
+  const down = await scoreRfp(input, { judge: async () => { calls++; throw new Error('provider down'); }, log: () => {} });
+  assert.deepEqual([down.scoring_error, calls], ['model-unavailable', 1]);
 });
 
 test('model failures, invalid JSON, unsupported citations, and timeouts stay unscored', async () => {

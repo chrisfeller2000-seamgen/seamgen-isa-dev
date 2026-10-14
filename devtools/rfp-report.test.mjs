@@ -389,7 +389,7 @@ test('the Markdown record lists every RFP by decision, with the email blockers a
   assert.match(markdown, /^# RFP results, week 41\n\n10 new RFPs this run: 1 strong pursue, 2 worth a look, 1 to check, 6 screened out\./);
   assert.match(markdown, /- Why Seamgen fits: Our permit portal for the City of Sample is a close match\./);
   assert.match(markdown, /## Couldn't check yet\n\n- Permit portal nodocs — City of Example, CA: couldn't get or read the RFP documents\./);
-  assert.match(markdown, /\*\*Buying an existing product \(2\)\*\*/);
+  assert.match(markdown, /\*\*Not custom software work \(2\)\*\*/);
   assert.doesNotMatch(markdown, /metadata-only|preliminary-below-threshold|failed-gate/);
 });
 

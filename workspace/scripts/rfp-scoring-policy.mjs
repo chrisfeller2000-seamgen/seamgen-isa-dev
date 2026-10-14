@@ -402,9 +402,13 @@ function conditionalOutcome(base, judged, { sources, runDate, phase, deal, value
   if (!norm(conditional.question) || !['2', '2a'].includes(conditional.rule)) throw new Error('Invalid conditional route.');
   const noBid = { ...base, recommendation: 'No-bid', qualification_status: 'failed-gate', gate: { ...base.gate, gate2: false } };
   if (conditional.qaStatus === 'closed' || conditional.commercialOnly === true) return noBid;
+  // Jake's listing pass carries a close Gate 2 call forward. Before the documents are read
+  // the route is just an open gate: scored, so a 50+ listing gets its documents fetched and
+  // the full-text pass decides the route. Until October 14 it stopped at Needs review with
+  // no score, so it never reached the documents.
+  if (phase === 'preliminary') return null;
   if (conditional.qaStatus !== 'open') return { ...base, recommendation: 'Needs review' };
   const review = { ...base, recommendation: 'Needs review', conditional };
-  if (phase === 'preliminary') return review;
   // Not a shortcut around unknown submission access, eligibility, or project size.
   if (GATE_NAMES.some(name => name !== 'gate2' && base.gate[name] === null) || deal.kind === 'uncertain' || value.status === 'conflicting') return review;
   if (conditional.qaBasis !== 'confirmed-none-posted') {
@@ -466,7 +470,8 @@ export function finalizeRfpScore(input, judgment) {
   if (timeline.pass === null && timeline.status !== 'metadata-only') return { ...scored, recommendation: 'Deadline needs review' };
   if (judgment.conditional) {
     const runDate = input.assessment?.runDate || timeline.assessmentDate;
-    return conditionalOutcome(scored, judgment.conditional, { sources, runDate, phase, deal: judgment.value, value });
+    const outcome = conditionalOutcome(scored, judgment.conditional, { sources, runDate, phase, deal: judgment.value, value });
+    if (outcome) return outcome;
   }
   // An open gate (null) doesn't stop the score. Jake passed what he couldn't confirm
   // "with a note"; ISA keeps the gate open and the report lists its reason as a blocker.

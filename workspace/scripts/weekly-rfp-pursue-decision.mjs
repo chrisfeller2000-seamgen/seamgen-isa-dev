@@ -5,6 +5,7 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createAssessmentContext } from './rfp-deadline.mjs';
+import { auditDocuments, auditRecord, createAuditLog } from './rfp-audit.mjs';
 import { extractDocumentText } from './document-text.mjs';
 import { DOCUMENT_FETCH_THRESHOLD, unscoredRfp } from './rfp-scoring-policy.mjs';
 import { createModelOutageGuard, createOpenClawJudge, scoreRfp } from './rfp-scoring-judgment.mjs';
@@ -330,6 +331,13 @@ function run(cmd, args, options = {}) {
       if (timeoutHandle) clearTimeout(timeoutHandle);
       resolve({ stdout, stderr, exitCode: typeof exitCode === 'number' ? exitCode : 1 });
     });
+    // A missing command (mcpjam, gog) emits 'error' instead of 'close'. Unhandled, it ended
+    // the whole weekly run; now that one step fails and the caller's fallback applies.
+    child.on('error', (error) => {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+      resolve({ stdout, stderr: stderr || error.message, exitCode: 1 });
+    });
+    child.stdin.on('error', () => {});
     child.stdin.end(options.input ?? '');
   });
 }
@@ -1658,6 +1666,10 @@ async function main() {
   const candidatePaths = await loadPortalCandidates().catch(() => []);
   process.stderr.write(`[weekly-rfp] candidates on disk: ${candidatePaths.length}\n`);
 
+  const week = reportWeek(runDate);
+  const auditRun = { date: runDate, week };
+  const audit = await createAuditLog({ dir: path.join(REPORT_DIR, 'audit'), run: auditRun });
+  if (audit.file) process.stderr.write(`[weekly-rfp] audit file: ${audit.file}\n`);
   const entries = [];
   let hubspotDealIndex = null;
   const getHubspotIndex = async () => {
@@ -1699,8 +1711,13 @@ async function main() {
     const displayTitle = issuer && !normalizeSearchText(title).includes(normalizeSearchText(issuer))
       ? `${title} — ${issuer}`
       : title;
-    // Every RFP ends up as exactly one report entry; rfp-report.mjs decides its tier.
-    const addEntry = (fields = {}) => entries.push(reportEntry({ candidate: { ...candidate, title, issuer }, preliminary, ...fields }));
+    // Every RFP ends up as exactly one report entry; rfp-report.mjs decides its tier. Its
+    // audit line is written at the same moment, so the audit matches the report.
+    const addEntry = async ({ documents = null, ...fields } = {}) => {
+      const entry = reportEntry({ candidate: { ...candidate, title, issuer }, preliminary, ...fields });
+      entries.push(entry);
+      await audit.append(auditRecord({ run: auditRun, entry, candidate, preliminary: preliminary.preview, final: fields.final, documents }));
+    };
 
     if (preliminary.status === 'insufficient-metadata') {
       await persistCandidateState(candidatePath, {
@@ -1712,7 +1729,7 @@ async function main() {
         document_status: 'metadata-only',
         status: 'provisional',
       });
-      addEntry();
+      await addEntry();
       continue;
     }
 
@@ -1733,12 +1750,12 @@ async function main() {
     });
 
     if (!shouldFetchDocuments(preliminary.preview)) {
-      addEntry();
+      await addEntry();
       continue;
     }
 
     if (!DOCUMENT_FETCH_ENABLED) {
-      addEntry({ documentStatus: 'fetch-disabled' });
+      await addEntry({ documentStatus: 'fetch-disabled' });
       continue;
     }
 
@@ -1760,7 +1777,7 @@ async function main() {
         document_status: fetchResult.status,
         status: 'provisional',
       });
-      addEntry({ documentStatus: fetchResult.status });
+      await addEntry({ documentStatus: fetchResult.status, documents: auditDocuments(fetchResult.status, fetchResult.manifest) });
       continue;
     }
 
@@ -1785,17 +1802,18 @@ async function main() {
         document_manifest_path: path.join(resourcesDir, '_document-manifest.json'),
         status: 'provisional',
       });
-      addEntry({ documentStatus });
+      await addEntry({ documentStatus, documents: auditDocuments(documentStatus, extracted.manifest) });
       continue;
     }
 
     const scoringBundle = await scoreCandidateFromText({ candidate, runDate, documents: extracted.documents, completeness, outage });
+    const documentsRead = auditDocuments('full-text', extracted.manifest);
     await persistValidatedScore(candidatePath, { preliminaryScore, result: scoringBundle,
       manifestPath: path.join(resourcesDir, '_document-manifest.json'), runDate });
     const qualifies = scoringBundle.qualification_status === 'qualified' && Number.isFinite(scoringBundle.total)
       && scoringBundle.total >= FULL_QUALIFY_THRESHOLD;
     if (!qualifies) {
-      addEntry({ final: scoringBundle, documentStatus: 'full-text' });
+      await addEntry({ final: scoringBundle, documentStatus: 'full-text', documents: documentsRead });
       continue;
     }
 
@@ -1806,7 +1824,7 @@ async function main() {
       await persistCandidateState(candidatePath, {
         qualification_status: 'rejected',
       });
-      addEntry({ final: scoringBundle, documentStatus: 'full-text', hubspotDuplicate: true });
+      await addEntry({ final: scoringBundle, documentStatus: 'full-text', hubspotDuplicate: true, documents: documentsRead });
       continue;
     }
 
@@ -1841,10 +1859,9 @@ async function main() {
       }
       documentsLink = driveFolder.folderUrl || '';
     }
-    addEntry({ final: scoringBundle, documentStatus: 'full-text', documentsLink });
+    await addEntry({ final: scoringBundle, documentStatus: 'full-text', documentsLink, documents: documentsRead });
   }
 
-  const week = reportWeek(runDate);
   if (process.env.RFP_REPORT_WEEK_OF) process.stderr.write(`[weekly-rfp] late delivery: counted as week ${week}; deadlines count from ${runDate}\n`);
   const results = buildResults({ runDate, week, entries, intake });
   const { strong, worth, check, screened } = results.counts;
