@@ -59,6 +59,11 @@
   4. **Close calls** (70+, not picked) are added to the Telegram message by code.
   - `npm test` (172) and `npm run check` pass, and each new rule's test fails without it.
   - Raleigh's real saved result now places as "Ask the agency first" (questions due October 30) instead of Worth a look.
+  - Real model (gpt-6.1-sol, locally), listing-stage re-scores of 6 backfill listings with this branch:
+    - **Compliance.** The county accessible-website listing went from 4 to 8 (adjacent: accessibility without a named standard). Listings naming no regime stayed at 3–4.
+    - **Budget.** Ranges crossing a band edge scored 8 (viable): $120k–450k, $150k–1.2M, $750k–3.5M. Ranges inside the sweet spot kept 10.
+    - **Net:** the accessible website went from 71 to 72.
+    - **Failure:** one listing failed on both tries with "Missing scoring evidence." That is the known failure mode, not a new one. 7 model calls.
 - [ ] After Friday October 16:
   - the audit file's line count equals the report's entries;
   - `cron.log` shows any "asking once more" lines and their outcome;
