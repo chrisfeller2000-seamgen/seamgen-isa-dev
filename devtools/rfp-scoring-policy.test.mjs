@@ -73,7 +73,11 @@ test('the weekly adapter returns the shared scorer result from one bounded judge
     assert.match(prompt, /Every citation is exactly/);
     assert.match(prompt, /Never emit sourceId or quote fields/);
     assert.match(systemPrompt, /optional AI is potential \(3–5\)/);
-    assert.match(systemPrompt, /standard compliance \(3–5\)/);
+    // Jake's Category 6: accessibility and the regimes Seamgen has delivered are not "standard".
+    assert.match(systemPrompt, /a required accessibility standard \(Section 508, ADA or WCAG\) or a listed regime \(HIPAA, GDPR, NIST 800, FISMA, FITARA\) is demonstrated \(10\)/);
+    assert.match(systemPrompt, /accessibility required without a named standard is adjacent at 8–9/);
+    assert.doesNotMatch(systemPrompt, /basic security\/accessibility without a specified matched regime/);
+    assert.match(systemPrompt, /crosses a size-band edge, score it in the viable band \(8–9\)/);
     assert.match(systemPrompt, /Excerpt IDs are opaque/);
     assert.match(systemPrompt, /not an expanded or combined alias/);
     assert.match(systemPrompt, /if a gate remains unknown, still return all eight category judgments/);
@@ -201,6 +205,19 @@ test('project size excludes incidental amounts and preserves uncertain/ranged es
   bounded.documents[0].text += '\nProject budget: $200,000 to $300,000.';
   assert.equal(assessProjectValue({}, bounded.documents).status, 'range');
   assert.throws(() => finalize(bounded, j => { j.value = { ...j.value, kind: 'inferred', estimate: 5000, reason: 'Unsupported tiny-scope guess' }; }), /contradicts/);
+});
+
+test("a budget range that crosses a size-band edge can be scored in either band it touches, as Jake did", () => {
+  // Listing-only budget, so the listing range is the value evidence.
+  const listing = (low, high) => { const input = packet('clean-custom-build', { phase: 'preliminary', documents: [] });
+    input.candidate.frontmatter.val_est_low = String(low); input.candidate.frontmatter.val_est_high = String(high); return input; };
+  const scoreAs = (band, points, estimate = 500000) => j => { j.value.estimate = estimate; j.categories.deal.band = band; j.categories.deal.points = points; };
+  // $150k-$1.2M straddles the sweet spot's lower edge: Jake gave such ranges 8-9.
+  assert.equal(finalize(listing(150000, 1200000), scoreAs('viable', 8)).categories.deal, 8);
+  assert.equal(finalize(listing(150000, 1200000), scoreAs('sweetSpot', 10)).categories.deal, 10);
+  assert.throws(() => finalize(listing(150000, 1200000), scoreAs('large', 5)), /Deal category does not match/);
+  // A range inside one band still has to use that band.
+  assert.throws(() => finalize(listing(500000, 2000000), scoreAs('viable', 8)), /Deal category does not match/);
 });
 
 test('official value wins over listing estimates and conflicting amounts cannot be cherry-picked', () => {

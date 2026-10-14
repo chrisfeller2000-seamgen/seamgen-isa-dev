@@ -47,7 +47,7 @@ const CHECK_REASONS = {
   disabled: 'document fetching is turned off',
   unscored: "the AI scoring didn't finish",
   noDeadline: "the due date couldn't be confirmed from the RFP",
-  agency: 'needs an answer from the agency before it can be scored',
+  agency: "looks like a product buy, so it needs the agency's answer on a custom build first"
 };
 const TIER_ORDER = { strong: 0, worth: 1, check: 2, screened: 3 };
 const TIER_DECISIONS = { strong: 'Strong pursue', worth: 'Worth a look', check: "Couldn't check yet", screened: 'Screened out' };
@@ -328,6 +328,11 @@ function placement({ preliminary, final, documentStatus, hubspotDuplicate }) {
     return check(documentStatus === 'fetch-disabled' ? 'disabled' : 'documents');
   }
   if (final.recommendation === 'Needs documents') return check('documents');
+  // A product buy is never a pick (Jake's Gates 2 and 2a). When the documents show one, the
+  // scorer takes the ask-the-agency route, and that question is the next step. October 14:
+  // Raleigh's fire records system, an existing-product install, showed as Worth a look at 71
+  // because a "Needs review" with a could-reach score counted as a pick.
+  if (final.conditional || final.judgments?.conditional) return check('agency');
   // Never a pick until someone confirms the date (deadline spec).
   if (final.recommendation === 'Deadline needs review') return check('noDeadline');
   if (hubspotDuplicate) return screened('hubspot');
@@ -352,7 +357,10 @@ export function reportEntry({ candidate, preliminary, final = null, documentStat
   const budget = budgetOf(result.value);
   const listing = publicUrl(candidate?.sourceUrl || frontmatter.source_url);
   const posting = publicUrl(candidate?.portalUrl || frontmatter.solicitation_url);
-  const conditional = final?.recommendation === 'Conditional — Ask the Agency' ? firstSentence(final.conditional?.question) : '';
+  // The question to send the agency, and the day its question window closes.
+  const asked = place.reason === 'agency' ? final?.conditional || final?.judgments?.conditional || prelim.conditional || prelim.judgments?.conditional : null;
+  const conditional = asked ? firstSentence(asked.question) : '';
+  const askBy = asked && parseDeadlineDate(asked.qaDueDate).status === 'valid' ? parseDeadlineDate(asked.qaDueDate).date : null;
   const flags = result.flags || [];
   return {
     slug: candidate?.slug || '',
@@ -377,6 +385,7 @@ export function reportEntry({ candidate, preliminary, final = null, documentStat
     blockers: place.tier === 'strong' || place.tier === 'worth' ? blockersOf(final) : [],
     questions,
     agencyQuestion: conditional || null,
+    agencyQuestionBy: conditional ? askBy : null,
     notes: flags.map(flag => firstSentence(flag.reason)).filter(Boolean).slice(0, 2),
     sensitive: firstSentence(flags.find(flag => flag.type === 'sensitive-industry')?.reason) || null,
     deadline: deadlineOf(result.timeline),
@@ -398,9 +407,11 @@ export function plainOutcome(entry) {
   };
   const picked = entry.tier === 'strong' || entry.tier === 'worth';
   const why = picked ? (entry.blockers || []).slice(0, 2).map(item => sentence(item.text)).join(' ') || 'No blockers found.'
-    : entry.tier === 'check' ? sentence(CHECK_REASONS[entry.reason])
+    : entry.tier === 'check' ? `${sentence(CHECK_REASONS[entry.reason])}${askLine(entry)}`
       : sentence(entry.reasonDetail) || sentence(REASONS[entry.reason]?.heading);
-  return { decision: TIER_DECISIONS[entry.tier] || entry.tier, why };
+  // An RFP waiting on the agency has a different next step from one we couldn't read.
+  const decision = entry.reason === 'agency' ? 'Ask the agency first' : TIER_DECISIONS[entry.tier] || entry.tier;
+  return { decision, why };
 }
 
 /** The results file: every entry, sorted by tier and then rank score, plus the week's counts. */
@@ -663,12 +674,31 @@ function closestMiss(results) {
   return { name: shortName(best.title), score: best.rankScore, why };
 }
 
+// Scores move about 5 points between runs (Jessica's review, October 14), so an RFP at 70 or
+// more that wasn't picked is one run away from it. The weekly message names up to three so
+// someone can ask for a closer look. "Ask the agency first" RFPs need a question, not a look.
+const CLOSE_CALL_SCORE = 70;
+function closeCalls(results, closest) {
+  return results.entries
+    .filter(entry => ['worth', 'check'].includes(entry.tier) && entry.reason !== 'agency' && Number.isFinite(entry.rankScore) && entry.rankScore >= CLOSE_CALL_SCORE)
+    .sort((a, b) => b.rankScore - a.rankScore)
+    .map(entry => ({ name: shortName(entry.title), score: entry.rankScore }))
+    .filter(call => !(closest && call.name === closest.name))
+    .slice(0, 3);
+}
+
+// Added by code after the message, so ISA's checked wording never has to carry it.
+function closeCallsLine(facts) {
+  if (!facts.closeCalls?.length) return '';
+  return `Close calls this week: ${facts.closeCalls.map(call => `**${call.name}** (${call.score})`).join(', ')}. Reply here if you want a closer look at one.`;
+}
+
 /**
  * Everything the Telegram summary may say. `email` is { status, sentences }: status is
  * 'sent', 'preview', 'failed' or 'none', and the names come from the email when it has them.
  */
 export function telegramFacts(results, pursue, email = { status: 'none' }) {
-  return {
+  const facts = {
     total: results.total,
     email: email.status,
     picks: pursue.picks.map((pick, index) => ({
@@ -680,6 +710,7 @@ export function telegramFacts(results, pursue, email = { status: 'none' }) {
     })),
     closest: pursue.picks.length ? null : closestMiss(results),
   };
+  return { ...facts, closeCalls: closeCalls(results, facts.closest) };
 }
 
 /** The code-built Telegram summary: the only version for failed and quiet weeks. */
@@ -759,11 +790,14 @@ function telegramWriterPrompt(vibe) {
  * quiet weeks always use the code-built text. Returns { text, source, reason }.
  */
 export async function writeTelegramMessage(facts, complete, { vibe = DEFAULT_VIBE, timeoutMs = 120000 } = {}) {
-  if (!['sent', 'preview'].includes(facts.email)) return { text: renderTelegramFallback(facts), source: 'code', reason: null };
-  const read = draft => ({ ...checkTelegramDraft(draft, facts), value: draft });
-  const written = await writeChecked({ complete, systemPrompt: telegramWriterPrompt(vibe), facts, read,
-    fallback: () => renderTelegramFallback(facts), timeoutMs });
-  return { text: written.value, source: written.source, reason: written.reason };
+  const withCloseCalls = text => [text, closeCallsLine(facts)].filter(Boolean).join('\n\n');
+  if (!['sent', 'preview'].includes(facts.email)) return { text: withCloseCalls(renderTelegramFallback(facts)), source: 'code', reason: null };
+  // ISA writes and is checked on the facts without the close calls; code adds that line.
+  const { closeCalls: _, ...writerFacts } = facts;
+  const read = draft => ({ ...checkTelegramDraft(draft, writerFacts), value: draft });
+  const written = await writeChecked({ complete, systemPrompt: telegramWriterPrompt(vibe), facts: writerFacts, read,
+    fallback: () => renderTelegramFallback(writerFacts), timeoutMs });
+  return { text: withCloseCalls(written.value), source: written.source, reason: written.reason };
 }
 
 /** ISA's voice line from IDENTITY.md, e.g. "**Vibe:** Warm, direct, commercially sharp". */
@@ -810,6 +844,13 @@ function summaryLine(results) {
 }
 
 /** The week's full record as Markdown, for the report folder and ISA's chat answers. */
+// The agency question for an "ask the agency first" RFP, with its deadline when known.
+function askLine(entry) {
+  if (!entry.agencyQuestion) return '';
+  const by = entry.agencyQuestionBy ? ` (questions due ${formatDay(`${entry.agencyQuestionBy}T12:00:00Z`, 'UTC')})` : '';
+  return ` Question for the agency${by}: ${entry.agencyQuestion}`;
+}
+
 export function renderMarkdown(results) {
   const link = entry => linksOf(entry).map(([label, url]) => `[${label}](${url})`).join(' · ');
   const card = entry => [
@@ -834,7 +875,7 @@ export function renderMarkdown(results) {
     '## Strong pursue', '', ...(tier('strong').length ? tier('strong').flatMap(card) : ['None this week.', '']),
     '## Worth a look', '', ...(tier('worth').length ? tier('worth').flatMap(card) : ['None this week.', '']),
     "## Couldn't check yet", '',
-    ...listOr(tier('check').map(entry => `- ${entry.title}${placeOf(entry)}: ${CHECK_REASONS[entry.reason]}. Due: ${dueLabel(entry)}. ${link(entry)}`.trim())),
+    ...listOr(tier('check').map(entry => `- ${entry.title}${placeOf(entry)}: ${CHECK_REASONS[entry.reason]}.${askLine(entry)} Due: ${dueLabel(entry)}. ${link(entry)}`.trim())),
     '## Screened out', '',
     ...listOr(screenedGroups(results).flatMap(([reason, entries]) => [`**${REASONS[reason].heading} (${entries.length})**`, '',
       ...entries.map(entry => `- ${entry.title}${placeOf(entry)}. ${link(entry)}`.trim()), '']).slice(0, -1)),

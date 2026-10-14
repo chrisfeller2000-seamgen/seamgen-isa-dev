@@ -28,7 +28,7 @@ const CATEGORY_MAX = {
   ...Object.fromEntries(Object.entries(CATEGORY_BANDS).map(([key, bands]) => [key, Math.max(...Object.values(bands).map(range => range[1]))])),
   timeline: timelinePoints(365),
 };
-const DECISION_ORDER = ['Strong pursue', 'Worth a look', "Couldn't check yet", 'Screened out', 'Skipped before scoring'];
+const DECISION_ORDER = ['Strong pursue', 'Worth a look', 'Ask the agency first', "Couldn't check yet", 'Screened out', 'Skipped before scoring'];
 
 const clean = value => String(value ?? '').replace(/\s+/g, ' ').trim();
 const finite = value => (Number.isFinite(value) ? value : null);

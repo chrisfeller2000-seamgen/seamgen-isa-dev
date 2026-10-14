@@ -115,7 +115,13 @@ const SYSTEM_RULES = [
   'Claiming Seamgen currently holds a credential needs a current company record; a requirement Seamgen clearly cannot meet is a Gate 6 failure, not unknown.',
   'A known gate failure stops weighted scoring; omit categories rather than fabricate them on that route.',
   'Full-text wired analysis needs both tells and counter-evidence; absent research is Insufficient evidence.',
-  "Apply the actual requirement's band: optional AI is potential (3–5), a named noncentral AI component is component (6–9), and standard basic security/accessibility without a specified matched regime is standard compliance (3–5).",
+  "Apply the actual requirement's band: optional AI is potential (3–5), and a named noncentral AI component is component (6–9).",
+  // Jake's Category 6 lists Section 508 and ADA (and HIPAA, GDPR, NIST) as demonstrated, and
+  // scored a website accessibility policy 8/10. Until October 14 this prompt sent accessibility
+  // without a named standard to 3–5: Madison County's accessible website scored 4.
+  "Compliance follows the policy's list of Seamgen's demonstrated compliance experience: a required accessibility standard (Section 508, ADA or WCAG) or a listed regime (HIPAA, GDPR, NIST 800, FISMA, FITARA) is demonstrated (10), citing the company or case-study excerpt that shows the delivery; accessibility required without a named standard is adjacent at 8–9, and a regime similar to a listed one is adjacent (6–9); standard (3–5) is only for generic requirements with no regime, such as basic data security or standard state IT policies.",
+  // Jake gave 8–9 to a budget range straddling the sweet spot's edge, not one band's points.
+  'deal: when the project value is a range that crosses a size-band edge, score it in the viable band (8–9) as the policy did; the estimate stays one number inside the range.',
   'Do not inflate a category to cross a decision threshold.',
   'Preserve uncertainty.',
   'Normative rules beat stale worked examples.',

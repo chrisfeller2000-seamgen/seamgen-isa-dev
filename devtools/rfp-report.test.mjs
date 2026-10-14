@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {
-  MAIL_SYNC_PURSUE_SUBJECT, buildResults, checkPursueSentences, checkTelegramDraft, needOf, pursueFacts, pursueSentencesFallback,
+  MAIL_SYNC_PURSUE_SUBJECT, buildResults, checkPursueSentences, checkTelegramDraft, needOf, plainOutcome, pursueFacts, pursueSentencesFallback,
   renderMarkdown, renderPursueEmail, renderTelegramFallback, reportEntry, telegramFacts, vibeFrom, writePursueEmail, writeTelegramMessage,
 } from '../workspace/scripts/rfp-report.mjs';
 import { deliverPursueUpdate, readPortalCandidate, reportWeek } from '../workspace/scripts/weekly-rfp-pursue-decision.mjs';
@@ -334,11 +334,18 @@ test("the Telegram draft checks reject changed facts, wrong links, and anything 
   assert.equal(checkTelegramDraft(good, withBlocker).reason, 'The draft dropped a blocker.');
 
   const casual = good.replace("Sent this week's pursue email: 1 RFP.", "Just sent this week's pursue email to the team, 1 RFP in it.");
-  assert.deepEqual(await writeTelegramMessage(facts, async () => ({ text: casual })), { text: casual, source: 'isa', reason: null });
+  // Code adds the close calls (70+, not picked) after ISA's checked message.
+  const closeCalls = 'Close calls this week: **Utility management software** (75). Reply here if you want a closer look at one.';
+  assert.deepEqual(facts.closeCalls, [{ name: 'Utility management software', score: 75 }]);
+  assert.deepEqual(await writeTelegramMessage(facts, async () => ({ text: casual })), { text: `${casual}\n\n${closeCalls}`, source: 'isa', reason: null });
   // Failed and quiet weeks never ask the model.
   const quietFacts = telegramFacts(results, pursue, { status: 'failed' });
   assert.deepEqual(await writeTelegramMessage(quietFacts, async () => { throw new Error('should not be called'); }),
-    { text: renderTelegramFallback(quietFacts), source: 'code', reason: null });
+    { text: `${renderTelegramFallback(quietFacts)}\n\n${closeCalls}`, source: 'code', reason: null });
+  // A quiet week already names its closest RFP, so the close calls leave it out.
+  const quiet = telegramFacts(results, { picks: [] }, { status: 'none' });
+  assert.equal(quiet.closest.name, 'Utility management software');
+  assert.deepEqual(quiet.closeCalls, []);
 });
 
 test('delivery: one email to the recipients, then Telegram; preview, re-runs and failures send what they should', async () => {
@@ -464,4 +471,25 @@ test("what the buyer wants comes from HigherGov's summary, else its description,
   // An empty summary used to return the next heading as what the buyer wants.
   assert.equal(needOf({ body: body('', 'The county needs a GIS program manager. Details follow.') }), 'The county needs a GIS program manager.');
   assert.equal(needOf({ body: body('', ''), frontmatter: {} }), '');
+});
+
+test("a product buy found in the documents is never a pick: it asks the agency first", () => {
+  // Raleigh's fire records system, October 14: an existing-product install with current-install
+  // obligations, references unconfirmed, and a could-reach score of 71. It showed as Worth a look.
+  const conditional = { rule: '2a', question: 'Would a purpose-built records system without existing fire-department installs qualify?',
+    qaStatus: 'open', qaDueDate: '2026-10-30', commercialOnly: false, evidence: cited };
+  const raleigh = reportEntry({ candidate: candidate('fire-rms', { title: 'Fire records management system', issuer: 'City of Example' }), preliminary: preliminary(66),
+    final: result({ recommendation: 'Needs review', potential: 71, judgment: { conditional },
+      gates: { gate2: { pass: null, reason: 'Existing-product implementation and configuration, not a material custom build.' },
+        gate6: { pass: null, reason: 'Three recent references remain unverified.' } } }), documentStatus: 'full-text' });
+  assert.deepEqual([raleigh.tier, raleigh.reason], ['check', 'agency']);
+  assert.deepEqual([raleigh.agencyQuestion, raleigh.agencyQuestionBy], [conditional.question, '2026-10-30']);
+  const results = weekResults([strongPick(), raleigh]);
+  assert.match(renderMarkdown(results), /- Fire records management system — City of Example, CA: looks like a product buy, so it needs the agency's answer on a custom build first\. Question for the agency \(questions due Oct 30\): Would a purpose-built/);
+  assert.equal(plainOutcome(raleigh).decision, 'Ask the agency first');
+  assert.match(plainOutcome(raleigh).why, /^Looks like a product buy.*Question for the agency \(questions due Oct 30\)/);
+  // The same when the scorer already called it Conditional — Ask the Agency.
+  const asked = reportEntry({ candidate: candidate('asked'), preliminary: preliminary(66),
+    final: result({ recommendation: 'Conditional — Ask the Agency', potential: 71, extra: { conditional } }), documentStatus: 'full-text' });
+  assert.deepEqual([asked.tier, asked.reason], ['check', 'agency']);
 });

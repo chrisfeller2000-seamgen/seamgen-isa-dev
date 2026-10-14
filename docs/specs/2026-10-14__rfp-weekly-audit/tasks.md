@@ -52,6 +52,13 @@
     - PR #20, commit `7670f41`, a guarded upload of 4 scripts (`rfp-audit`, `rfp-report`, `rfp-scoring-judgment`, `weekly-rfp-pursue-decision`);
     - no VM drift beforehand, the post-upload snapshot matched, all 4 import on the VM, and the crontab is unchanged;
     - rollback: `~/.openclaw/workspace/backups/dev-deploy-2026-10-14T18-43-10-098Z-7670f41`.
+- [x] Jessica's review against Jake's system (October 14, branch `fix/rfp-jake-calibration`). Chris chose these four, and declined the listing-stage competitive deduction, the 75 document cutoff and the 204-listing comparison:
+  1. **Compliance** from Jake's Category 6 list: accessibility is demonstrated with a named standard and 8–9 without one.
+  2. **Budget ranges** crossing a band edge may use any band they touch.
+  3. **Product buys found in the documents are never picks.** The report shows "Ask the agency first" with the question and the questions-due date.
+  4. **Close calls** (70+, not picked) are added to the Telegram message by code.
+  - `npm test` (172) and `npm run check` pass, and each new rule's test fails without it.
+  - Raleigh's real saved result now places as "Ask the agency first" (questions due October 30) instead of Worth a look.
 - [ ] After Friday October 16:
   - the audit file's line count equals the report's entries;
   - `cron.log` shows any "asking once more" lines and their outcome;
