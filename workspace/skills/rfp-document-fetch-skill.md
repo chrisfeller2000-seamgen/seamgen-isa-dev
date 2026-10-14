@@ -1,258 +1,448 @@
 ---
-name: rfp-document-refresh
-purpose: Re-check the listings of RFPs currently being built, catch addenda and Q&A answers posted since the last fetch, file them, and tell Jake what actually changed — especially if a deadline moved.
-audience: This skill is written to be read by both Claude (who runs the re-check) and a human teammate (who reads the change report and acts on it).
-version: 1.6 — July 2026
+name: rfp-document-fetch
+purpose: Pull an opportunity's complete set of agency source documents into its RFP folder using the Chrome browser bridge, then re-score the RFP on the full text instead of the metadata summary.
+audience: This skill is written to be read by both Claude (who drives the browser and files the documents) and a human teammate (who reads it to understand what was fetched and why something was skipped).
+version: 1.9 — October 2026
 owner: Jake (Seamgen)
 ---
 
-# RFP Document Refresh Skill
+# RFP Document Fetch Skill
 
 ## What this skill does
 
-**Agencies amend RFPs by posting new documents to the same listing page.** A deadline extension, a scope change, the answers to every vendor's questions — these don't arrive as an email. They appear as `Addendum_2.pdf` on a page nobody thought to re-open.
+HigherGov's API gives Seamgen a **paragraph summary** of each opportunity, not the solicitation itself. Every candidate the intake writes is stamped `scoring_confidence: metadata-only`, and the scoring rubric is explicit that this weakens Gate 2 (custom vs. COTS), Gate 4 (submittable), Gate 5 (deal size) and Category 1 (case-study match — 25 of the 100 points). A metadata-only score is a provisional score.
 
-That makes a fetched document set quietly perishable. The `resources/` folder that was complete on Monday can be missing the amendment that moved Friday's deadline.
+This skill closes that gap. It uses the Chrome browser bridge to collect **every document the agency published** — the solicitation, exhibits, appendices, addenda, and Q&A — files them in the RFP's `resources/` folder, and hands the full text to the scoring skill for a real score.
 
-This skill re-checks the listings for RFPs currently being built, downloads whatever is new, reads it, and reports **what changed** — not just that something did.
+It produces three things:
+
+1. **The agency's documents on disk**, in the right folder.
+2. **A document manifest** recording what was pulled and how many documents existed at the time.
+3. **A full-text score** that replaces the provisional metadata one.
 
 ## When to use it
 
-Run it on demand against everything in **`RFPs/3-building/`** — the RFPs where a proposal is actively being written.
+Run it when an opportunity scores **75 or above (Strong Pursue)** on the metadata pass. Below that, don't — the documents aren't worth collecting for an RFP that isn't being pursued.
 
-Good moments to run it:
-- At the start of a working session on a proposal.
-- Before a review meeting with Peter or Marianne.
-- Right after a Q&A deadline passes (that's when answers get posted).
-- Before submission — the last check that nothing moved.
+**For ISA the trigger is 50+, not 75+.** ISA's Friday job fetches through the HigherGov API at a preliminary score of 50 or above (`skills/rfp-preliminary-scoring-skill.md` v1.1). The 75+ rule exists to ration the slow browser-driven fetch described in this skill. The decision bands are unchanged: 75+ is still Strong Pursue.
 
-**Scope note (widened July 27, 2026).** This now watches **`RFPs/2-intermediate-stage/` and `RFPs/3-building/`** — every RFP we are actively working, not only the ones being written.
+Also run it whenever an RFP is being pursued but its `resources/` folder is thin or empty (an RFP that arrived by forward, or one fetched before this skill existed).
 
-It used to watch the building tier alone, and the v1.0 note predicted the consequence: *"an addendum can land on one of those unseen until it is promoted. If that gap ever bites, widening this skill to cover tier 2 is a one-line change."* **It bit within a month.** SW Wisconsin (2627-09) sat in tier 2 while its Q&A addendum posted on DemandStar, unseen — and the RFP's own schedule said that addendum was due four days earlier than it actually appeared, so even a diligent reader working from the printed timeline would have missed it. Its meeting brief ended up carrying an `[UNKNOWN]` blocker admitting we might be reading a superseded document set.
-
-Tier 1 (`1-pre-submission/`) stays out of scope. Those carry metadata-only scores and may never be pursued; watching them is volume work the HigherGov intake already covers.
+Do **not** use it to bulk-collect documents across the whole saved search. The API is the channel for volume; this skill touches only opportunities Seamgen is actually pursuing. Bulk-scraping a vendor's site is both unnecessary and a terms-of-use risk.
 
 ## Before you start
 
-Same prerequisites as `skills/rfp-document-fetch-skill.md`: the browser bridge live, Jake signed in to HigherGov in it, and the whole run completed in one session because document links expire in about an hour.
-
-Each RFP also needs a **`resources/_document-manifest.md`** — the baseline this skill diffs against. If one is missing, run the fetch skill first to establish it; without a manifest there is nothing to compare to, and "is this new?" becomes unanswerable.
+- **The browser bridge must be live.** It launches its own Chrome profile at `C:\Users\<operator-windows-user>\.cache\chrome-devtools-mcp\chrome-profile` — currently `C:\Users\Jg125\...` — separate from the operator's everyday Chrome, but persistent, so logins survive between sessions. **Resolve this path against the current Windows user, never a name copied from this file**; it read `C:\Users\jolik\...` until 2026-09-22, long after that profile stopped existing.
+- **Jake must be signed in to HigherGov** in that browser. If a page redirects to `/signin/`, stop and ask him to sign in; never ask for or handle credentials yourself.
+- **Finish in one session.** Document links expire in about an hour (see "Why the links expire" below), so finding and downloading can't be split across days.
+- **If you are ISA on the VM**, the browser bridge described here may not be what you have. However the documents are obtained, Steps 7–9 and "Keeping the originals" below apply unchanged.
 
 ---
 
 ## The procedure
 
-Repeat for each RFP folder in `RFPs/2-intermediate-stage/` and `RFPs/3-building/`.
+### Step 1 — Find the opportunity
 
-### Step 1 — Read the baseline
+If the RFP came through the intake, its candidate file has everything needed:
 
-Open `RFPs/3-building/<rfp-slug>/resources/_document-manifest.md` and note:
-- the file list,
-- the **Docs count at last fetch**,
-- the date of the last fetch.
+```
+pipeline/candidates/<slug>/candidate.md
+```
 
-### Step 2 — Re-open the HigherGov listing
+Read two fields from its frontmatter:
+- **`source_url`** — the HigherGov opportunity page.
+- **`solicitation_url`** — the agency's own listing (Step 6).
 
-Navigate to the `HigherGov page` recorded in the manifest, and read the current **Docs** count from the section headers.
+If there is no candidate file, find it from the saved search — **and check both halves**:
 
-**A changed count is the fastest signal there is.** Docs 2 → Docs 4 means two new documents, before reading a single file.
-
-But don't rely on the count alone — a replaced document can leave the count unchanged. Compare the actual **file list** against the manifest.
-
-### Step 3 — Diff
-
-Sort what you find into three buckets:
-
-- **New** — on the page, not in the manifest.
-- **Changed** — same name, different size (a re-issued exhibit).
-- **Unchanged** — ignore, don't re-download.
-
-### Step 4 — Work the agency's portal (this skill owns it)
-
-Follow the **"Open"** button in the Overview section through to the agency's own listing, and diff that as well.
-
-**This is a first-class part of this skill, not an optional extra.** The fetch skill deliberately only *records* the portal's name and URL — chasing access during scoring is work spent in the wrong order, on an opportunity that may not survive. By the building stage that calculus flips: the opportunity has been accepted as worth building, so **getting in is now worth the effort**, including asking **Tina** to set up a vendor account (portal credentials live in Secret Server, never in this folder).
-
-**HigherGov is a mirror and it can lag.** Yonkers' Q&A answers issue as a formal addendum on **BidNet Direct / Empire State Purchasing Group**; an RFP watched only on HigherGov can miss them entirely. The manifest's `Agency portal:` field already names the site and holds the link — that's what the fetch skill recorded it for.
-
-**Check the Procurement portal accounts table in `reference-team-and-signature.md` first.** It is the single source of truth for which portals Seamgen can already reach, and it is what stops this step raising an account request for an account we hold.
-
-#### DemandStar (account held)
-
-**DemandStar is a small share of the pipeline by volume — 11 of 512 candidates, 2.1%** — but it is disproportionately worth checking, because for several agencies it *is* the addendum channel rather than a mirror, and because we hold the account. SW Wisconsin's RFP says so outright: > *"All addenda will be supplied to Proposers of record via the College's e-bidding third party provider, Onvia DemandStar."*
-
-0. **Start from the Watch list, not from individual bids.** Sign in, go to **Bids**, and filter by **Watched Bids**. Every RFP we are tracking appears in one view, which is faster than visiting bid pages one at a time and avoids the direct-URL session drop below. Bids are put on Watch when they reach `2-intermediate-stage/` — see "Watching a bid" below.
-1. Open each watched bid **by clicking it from that list**. (The bid ID is in the candidate file's `solicitation_url` if you need to confirm identity: `https://www.demandstar.com/app/suppliers/bids/<bid-id>/details`.)
-2. Read the **Documents** table — filename, type (Addendum / Bid Document / Attachment), **Date Modified**, status — and diff it against the manifest.
-3. **Trust the portal's list over the RFP's printed schedule.** On 2627-09 the RFP said the Q&A addendum would post July 23; DemandStar shows it dated July 27. The schedule is a plan, the portal is the record.
-4. Read the **Due Date** shown on the bid page and compare it against `key-dates_<slug>.md`. **Where the portal and the solicitation disagree, report both and resolve it with the agency — do not silently pick one.** 2627-09 shows `08/10/2026 1:00 AM Central` on DemandStar against *"1:00 p.m."* in the RFP; a submission timed to the wrong one is late with no remedy.
-5. Note whether we appear as a **proposer of record** — that status is what makes future addenda arrive by email rather than requiring this check.
-
-Signing in is not a blocker here: the account exists and Jake (or Marianne, whose name it is in) signs in once in the bridge window. **Do not route a DemandStar sign-in to Tina.**
-
-**⚠ Two mechanics learned the hard way on 2026-07-27, both of which will waste a session if ignored.**
-
-- **Sessions expire between visits — check before assuming, and never sign in yourself.** On 2026-07-28 the bridge landed on the login form with empty fields; that is Jake's action, not ours, and it stops the run until he does it. Signed in, the header shows the account holder's name (**Marianne Faro**) — a cheap way to confirm.
-  - **⚠ Correction, 2026-07-28.** v1.5 recorded that *"the session does not survive direct URL navigation… treat a typed URL as a session-ender."* **That is too strong.** With a live session, navigating straight to `https://www.demandstar.com/app/suppliers/bids/<id>/details` worked fine and stayed signed in. The original failure was almost certainly an **expired session**, or the older `/app/limited/` path. Clicking through the app is still the safer default, but a direct `/app/suppliers/...` URL is a legitimate fallback when search can't find a bid — which is exactly what recovered SW Wisconsin.
-- **Bid names on the portal often differ from the RFP's filename — search accordingly.** SW Wisconsin's document is *"RFP 2627-09 Web Design & Development"*, but the bid is listed as **"Website Design, Development, Hosting Solution, and Content Management."** A bid-name search for "Web Design" returns **nothing**. Search a distinctive fragment, the agency, or fall back to the bid ID from the manifest.
-- **The Bid Status filter is single-select and defaults to Active.** A watched bid that has closed disappears from the default view — switch the status to find it. That is how the **USM-MDSG** bid surfaced, sitting at *Under Evaluation*.
-- **Documents cost money. Monitoring does not.** Clicking a document name leads to a **purchase page**: *"You will be charged a nominal fee of $5.00. Once you purchase this Bid Package by using Place Order option there will be no cost for subsequent document downloads associated with this Bid."* So it is **$5 once per bid**, then that bid's documents are free forever. **Never click "Place Order."** Report the cost and let Jake decide — his 2026-07-27 decision authorised accepting *planholder visibility*, not **spending money**, and "never click anything that commits Seamgen" governs a paid transaction. Clicking **Cancel** backs out cleanly. *(Seamgen's billing address is on file but no payment method is set, so an order would need one added — another reason this is Jake's or Marianne's action, not ours.)*
-
-**This split is what makes the free tier worth running on every pass.** Without spending anything you can read the **full document list with filenames, file sizes, types and Date Modified**, the **due date as the portal enforces it**, the **planholder names and count**, and whether a **pre-bid conference** exists. That is the entire monitoring job — *has a new addendum appeared, and has the deadline moved* — and it is exactly what was missed on SW Wisconsin. The $5 buys only the bytes.
-
-**Useful side-effect worth capturing while you are in there:** the signed-in bid page lists **planholders by name** — 48 firms on 2627-09. That is a competitor list we have no other source for, and it belongs in the meeting brief's Blockers section when the field is crowded or a known incumbent appears.
-
-##### Watching a bid
-
-**Watching is free, commits nothing, and does not put Seamgen's name on any public list.** Watchers appear only as a count; planholders appear by name. That distinction is why Watch is the default and ordering is not.
-
-**Put a bid on Watch when its RFP reaches `2-intermediate-stage/`.** From the bid page, use the **Watch** control; confirm it by returning to Bids → **Watched Bids** and checking the bid is listed. Record it in the RFP's `resources/_document-manifest.md` (`DemandStar watch: ACTIVE — set YYYY-MM-DD`).
-
-**⚠ Do not depend on DemandStar's email alerts.** The account is in **Marianne Faro's** name, so any notification goes to her inbox, not Jake's. **The watch list read on each refresh run is the mechanism; the email is a bonus.** A run that skips the portal because "we'd have been emailed" is a run that misses the addendum.
-
-##### The purchase gate — what to do when a new document appears
-
-Monitoring is free; the bytes are not. When the diff shows something new, follow this exactly.
-
-1. **Report before doing anything else.** Name the bid, the exact **filename, type, size and Date Modified**, and say what it probably is — a document typed *Addendum* is likely material (scope, dates, Q&A answers), one typed *Attachment* is likely boilerplate. State that the cost is **$5 once for the whole bid package**, not per document, and that it makes every future document on that bid free.
-2. **Stop there.** Do **not** open the order page "so it's ready." Do not treat reporting as implied permission.
-3. **Wait for Jake to confirm that specific purchase, on that specific bid.** A general "yes to buying documents when needed" is **not** authorisation for any particular order. Neither is his 2026-07-27 decision, which covered planholder visibility and explicitly not spend.
-4. **Only after a named per-bid yes**, place the order. Jake's 2026-07-28 decision authorises clicking **Place Order** once he has said yes to that bid.
-5. **Record the spend** in the manifest's change log — date, bid, amount, what it bought, and who authorised it. That is the audit trail.
-
-**Two standing blocks:**
-
-- **No payment method is on file.** Seamgen's billing address is stored but no card is set, so the first purchase needs one added — **Jake's or Marianne's action, not ours**, regardless of authorisation.
-- **SW Wisconsin (2627-09) is a standing no.** Do not propose buying its package while the **$5M cyber-liability requirement** is unresolved; it is redundant spend on a bid we probably cannot make. If that blocker clears, it becomes a fresh decision, not a resumed one.
-
-If a portal genuinely blocks the way, apply the **escalation ladder in `skills/rfp-document-fetch-skill.md`** — sign-in needed, bot challenge, registration required, paywall. **Never work around a barrier.** Report a blocked portal *immediately* rather than at the end of the run: this is exactly the window where a missed addendum does real damage, and an account request has lead time.
-
-**Pull documents incrementally.** The browser bridge jams after roughly five downloads, when the native Windows file-picker sticks open and blocks Chrome — a hung `take_screenshot` is the tell, and only Jake can clear it. Take the new and changed files first; if the set is large, expect to stop and hand off.
-
-### Step 5 — Download what's new
-
-Into the same `resources/` folder, following the fetch skill's Step 5 (read the real file address from the network request list; never write the signed address to disk).
-
-### Step 6 — Read the new documents and extract what changed
-
-This is the part that matters, and it can't be skipped or skimmed. Downloading an addendum without reading it just moves the problem onto Jake's desk.
-
-For each new document, pull out:
-
-| Look for | Because |
+| Half | URL |
 |---|---|
-| **Proposal due date** | The single most consequential change. Flag it first, every time. |
-| **Questions / Q&A due date** | Often the nearest deadline, and easy to miss. |
-| **Scope changes** | Added, removed, or reworded requirements. |
-| **New mandatory forms** | Anything sign-and-return feeds the submission checklist. |
-| **Q&A answers** | Other vendors' questions reveal how the agency is thinking, and sometimes reshape the requirement. |
-| **Evaluation-criteria changes** | Re-weighted scoring changes what the proposal should emphasize. |
-| **Cancellation or postponement** | Rare, decisive, and worth catching the same day. |
+| State / Local / Education | `https://www.highergov.com/sl/contract-opportunity/?searchID=Jim1JjnCbVl5BUJilSUBo` |
+| Federal | `https://www.highergov.com/contract-opportunity/?searchID=Jim1JjnCbVl5BUJilSUBo` |
 
-Quote the document and cite the section or page — the same discipline the engineering brief uses. **Do not paraphrase a date.** If the addendum says "October 3, 2026 at 4:00 PM PST," write that, not "early October."
+**This matters.** The saved search ("RFP Playbook") is registered as a *Federal* search, so the plain link opens the federal half — which is mostly license renewals, network hardware, and defense IT. Seamgen's actual scope lives on the **State | Local** side. Same search ID, different path. Checking only the default half will quietly miss almost everything relevant.
 
-### Step 7 — Update the RFP's records
+### Step 2 — Open the opportunity page
 
-- **`key-dates_<rfp-slug>.md`** — if any date moved, update it and cite the new source, matching the existing format (`Confirmed from [document], [page]`). Keep the superseded date visible with a strikethrough or a "was:" note so the change is legible rather than silent. **Then re-run `skills/rfp-calendar-logging-skill.md`** so the moved date updates the calendar event (it reconciles against the sync-block ledger in this same note, so it moves the existing event rather than making a duplicate). A due date that moves on disk but not on the calendar is the same silent-staleness failure this skill exists to prevent, one layer out.
-- **`resources/_document-manifest.md`** — add the new files to the table and append a dated line to the change log:
-  ```
-  - **2026-07-21** — refresh: +Addendum_2.pdf (due date moved Aug 7 → Aug 21), +QA_Responses.pdf. Docs count 2 → 4.
-  ```
-- **Downstream deliverables** — if a new mandatory form appeared, say which existing deliverable is now stale (usually the submission checklist, sometimes the proposal deck). Don't silently regenerate them; tell Jake what needs rebuilding and let him decide.
-- **The RFP's Google Drive folder** — push every newly downloaded document into it with `.\tools\Sync-RfpToDrive.ps1 -Slug <rfp-slug>`, and say in the report that you did. The folder is under `Sales (shared drive) > Favorable RFP's`; its URL is on the manifest's `Drive folder:` line. The script copies the whole `resources/` folder and skips what's already there, so re-running it after a refresh is safe and only moves the new files.
+Navigate to `source_url` in the bridge browser.
 
-**Why this matters more here than at fetch time.** The Drive folder is what Peter and Marianne read from (it's the link in the pursue email, `rfp-email-pursue` v1.6). If a refresh pulls an addendum that moves the due date and it lands only on disk, leadership is reading a superseded document set from a link that looks current — with no signal that anything changed. That is precisely the silent-staleness failure this skill exists to prevent, reintroduced one layer out.
+### Step 3 — Read the Docs count
 
-If the folder has no `Drive folder:` line (an RFP promoted before `rfp-document-fetch` v1.3), create the folder now per that skill's Step 12 and record it.
+Every opportunity page carries **seven section headers**:
 
-### Step 8 — Report
+**Description · Overview · Contacts · Docs · Assistant · Classifications · Similar**
 
-Deadline changes first. Always.
+The **Docs** header shows a count badge (e.g. "Docs 2"). **Write that number down — it is the expected file total**, and Step 7 checks the downloads against it.
+
+### Step 4 — Extract the document links
+
+Pull the links out of the Docs section. Each one points to a HigherGov viewer page, not a file:
+
+```
+https://www.highergov.com/sl/document/<document-slug>/
+```
+
+**⚠ The documents list is a paginated table — expand it first, or you will silently miss documents.** The Docs section renders as a DataTable (`table#datatable_document_search`) showing only the first 10 rows. The remaining links are simply not in the DOM. Before enumerating, set its page-length control to 100:
+
+```js
+const sel = document.querySelector('select[name="datatable_document_search_length"]');
+sel.value = '100';
+sel.dispatchEvent(new Event('change', { bubbles: true }));
+// wait ~3-4s for the table to redraw, then collect the links
+```
+
+**Then check your count against the Docs badge from Step 3.** They must match. On the Kansas City EHR opportunity the badge read **Docs 16** while the unexpanded page exposed only **5** links — fetching those 5 and reporting success would have looked complete and been wrong.
+
+**Extract links only. Never take a full-page snapshot** — a HigherGov page snapshot ran to 133,000 characters, which is unusable and buries the links that matter.
+
+### Step 4b — Decide how much of the set to pull now
+
+Document sets vary enormously — one opportunity carried **16 files**, the next carried **1**. A large set is mostly boilerplate: non-collusion affidavits, sustainability forms, insurance certificates, pricing worksheets.
+
+**When fetching in bulk to decide bid/no-bid, pull the scoring documents first:**
+
+- the solicitation itself,
+- scope of work,
+- functional/technical requirements matrices,
+- instructions and conditions (submission rules, evaluation criteria).
+
+Those carry everything the rubric's gates and categories actually read. **Then pull the complete package only for candidates that survive the re-score** — there's no value in downloading a sustainability affidavit for an RFP about to be declined.
+
+**Say what you deferred.** List the not-yet-fetched files in the manifest's `## Not retrieved` with the reason "deferred — boilerplate, pull on survival". Deferring is fine; leaving it invisible is not.
+
+**When fetching for a single RFP that's already being pursued, take everything** (Step 6 onward assumes the full set).
+
+### Step 5 — Download each document
+
+**Use HigherGov's own `downloadDocument` endpoint — it works for every file type and needs no viewer.** Each download button on the page carries the document's `resource_id` as its `id` and its type as its `slot`, and the site's own handler is:
+
+```js
+function downloadDocument(resource_id, type) {
+  $.post("/download_document/", {resource_id, type, csrfmiddlewaretoken: csrf}, url => downloadUsingAnchorElementAws(url))
+}
+```
+
+So, in the page context: POST `resource_id` + `slot` + `csrf` to `/download_document/`, receive the signed S3 URL, `fetch` it, and save the blob via an anchor with `download` set. Do the whole thing **inside the page** and return only the filename, byte count and magic bytes — that way the signed address never crosses into a tool result or the transcript.
+
+**The opportunity page exposes every document's `resource_id`**, so a whole set can be pulled without visiting each viewer page — collect them from the Docs table rows (`button[onclick*="downloadDocument"]`, paired with the row's `a[href*="/document/"]` for the filename) after expanding the table per Step 4.
+
+**Read the file from the S3 resource entry, not the Adobe viewer.** PDFs render in an Adobe viewer that fetches from `gemini-dl-docs-sl.s3.amazonaws.com`, but **non-PDFs do not** — `.xlsx` and `.docx` route through the Office web viewer (`view.officeapps.live.com`) instead, so a recipe that scrapes the Adobe frame silently fails on every Office attachment. The `downloadDocument` endpoint above avoids the distinction entirely.
+
+**⚠ Chrome allows only ONE download per page load.** After the first, Chrome's "allow multiple automatic downloads" gate blocks the rest **silently** — no error, no file, and the in-page script still reports success because the `fetch` and the anchor click both succeed. A batch loop looks like it worked and delivers one file. **Reload or re-navigate before each download, and verify each file landed on disk before starting the next.** This is the same class of silent-truncation failure as the paginated Docs table in Step 4.
+
+Chrome saves to the operator's normal Downloads folder (`%USERPROFILE%\Downloads`), not into the repo — **move each file into the RFP's `resources/` folder** as part of the same step, and treat a file that never appeared there as a failed download rather than a completed one.
+
+**Wherever a file first lands, it is not fetched until it is in `resources/`.** That holds for ISA on the VM as much as for the operator's Downloads folder: a document saved to `/tmp`, the home folder or `.scratchpad/` goes into the RFP's `resources/` folder before it is opened or read, and is never left there as the only copy.
+
+Keep the agency's own filename where it's meaningful (`RFP-561_Solicitation.pdf`, `Addendum_2.pdf`). Rename only when the source name is useless (`download.pdf`, `attachment`).
+
+**Why the links expire.** The S3 address is a *signed* link valid for roughly an hour, and its query string contains an `AWSAccessKeyId` and a `Signature`. Two consequences, both non-negotiable:
+
+- **Download in the same session you found it.** A stale link fails.
+- **Never write that address anywhere.** Not into the manifest, not into a candidate file, not into a deliverable, not into chat. It carries credentials, exactly like the HigherGov API key that `Assert-NoSecret` already guards. Record the **filename and the document-page slug** instead.
+
+### Step 6 — Record the original source. Chase it only where we already hold an account.
+
+HigherGov is a mirror, not the origin. The **Overview** section has an **"Open"** button linking to the agency's own listing (it matches `solicitation_url` in the candidate file, and opens in a new tab).
+
+**Always capture it.** Specifically:
+
+1. Read the "Open" button's URL.
+2. Identify the site by name — DemandStar, BidNet Direct, OpenGov Procurement, MyFloridaMarketPlace, PlanetBids, and so on.
+3. Write both into the manifest's `Agency portal:` field (Step 9).
+
+**Then check one thing before deciding whether to open it: the Procurement portal accounts table in `reference-team-and-signature.md`.**
+
+| Portal status in the inventory | What to do now |
+|---|---|
+| **Account held** (e.g. **DemandStar**, HigherGov) | **Open it and diff it.** Compare the portal's document list against what HigherGov served. Pull anything HigherGov is missing, and record the portal as the source in the manifest table. No account work is required, so none of the reasoning below applies. |
+| **No account**, or **unknown** | **Record and move on.** Do not log in, register, or attempt downloads. A locked portal is a **line in the manifest, not an interruption** — record it under `## Not retrieved` and carry on. |
+
+**Why the no-account case stays deferred.** The documents HigherGov lists are enough for the first and second scoring, provided the actual RFP is among them (Step 7). Chasing portal *access* — account requests, registration, credentials — is real work with real turnaround, and spending it on an opportunity that may not survive scoring is backwards. That work belongs to the **building stage**, and it is owned by `skills/rfp-document-refresh-skill.md`.
+
+**Why the account-held case is different.** That reasoning is about turnaround, and where the account already exists there is none — it costs a page load. The original rule was written before Seamgen's portal accounts were written down anywhere; when they finally were (`reference-team-and-signature.md` v1.3, July 2026), it turned out two meeting briefs had been carrying a `[HARD] DemandStar registration` blocker for an account we already held. **Consult the inventory rather than assuming a portal is shut.**
+
+**HigherGov lags, and that is the point of looking.** On SW Wisconsin (2627-09), DemandStar held a Q&A addendum that HigherGov never served — plus five sign-and-return forms and a due date twelve hours off the solicitation's. Where we hold the account, the portal is the authoritative list, regardless of how much of the pipeline that portal represents.
+
+**The link still matters now, even unfollowed.** A portal that's locked today may be open next week, and the meeting brief displays the original posting site by name and link (`skills/rfp-meeting-brief-skill.md` v1.9). Recording the address in the manifest keeps it findable instead of buried in a chat message.
+
+### Step 7 — Confirm the actual RFP is present
+
+**A document set is not automatically a solicitation.** HigherGov sometimes lists only ancillary files — a contract form, an insurance certificate, a wage schedule, an exhibit — with no RFP behind them.
+
+**What counts as the RFP:** the document carrying the **scope of work, submission requirements, and evaluation criteria** — the thing a proposal actually responds to. It may be titled "Solicitation," "RFP," "Request for Proposals," "Scope of Work," or similar.
+
+**What does not count on its own:** standard contract forms, W-9s, insurance certificates, wage determinations, vendor-registration paperwork, exhibits, appendices, or Q&A files. These are supporting material. A folder holding only these has no RFP in it.
+
+#### 7a — Before declaring the RFP absent, check whether what you have is a *portal summary*
+
+**Some agency portals publish a one- or two-page "event summary" instead of the solicitation, and HigherGov serves that summary as the document.** It reads like a cover sheet: title, open/close dates, contacts, a paragraph of description — and then a section listing the real package, typically headed **"Buyer Attachments,"** "Solicitation Documents," "Event Attachments," or similar. Jaggaer / SciQuest (`bids.sciquest.com`) does this; treat any portal as capable of it.
+
+**Those filenames are usually live hyperlinks, and the endpoint behind them is often open.** On Texas State (2026-09-09) the summary's eight Buyer Attachments were links to `bids01.jaggaer.com/apps/Router/PublicEventDownload`, which returned every file — including the actual RFP — with **no login**. The first pass recorded that opportunity as "RFP absent, portal access required" and left a provisional score standing. It was wrong, and the real RFP moved the score.
+
+**So, when the only document is a summary:**
+
+1. **Extract the links from the PDF itself**, not just its visible text — a filename list rendered on the page is frequently an annotation whose URI lives in the file structure. Read the PDF's URI annotations and decompressed streams. If a listed attachment has no link anywhere in the file, *then* it is genuinely portal-only.
+2. **Try the links before concluding anything.** Use a GET with a normal browser `User-Agent` and a `Referer` from the portal's own domain.
+3. **Do not read a single failure as proof of a wall.** A `403` to a `HEAD` request means the method or the agent was refused, not that you need an account — the same probe as a `GET` with browser headers returned `200`. **This is Rule 11 in miniature: a portal that ignores your request shape looks identical to one that is locked.** Establish which before writing either into a manifest.
+4. **Downloading through an open endpoint is permitted** — it is the escalation ladder's first row ("documents openly downloadable → pull them"), and it involves no account, no form, and no terms. A sign-in wall, a bot challenge, a registration form or a paywall still stops and notifies, exactly as before.
+5. **Verify each file** (`%PDF-`, `PK` for Office formats) per Step 8, and record the source as the portal endpoint in the manifest's `From` column — never the URL itself if it carries a token.
+
+**Only after 7a comes back empty is the RFP genuinely absent.** Record in the manifest *which* of the two situations you found: `RFP document present: NO — summary only, attachments are portal-gated` reads very differently from `NO — no solicitation published`, and the second is the only one that justifies leaving a metadata-only score alone.
+
+- **If the RFP is present** → continue to Step 8.
+- **If the RFP is absent** → **stop before scoring**, and:
+  1. Create (or use) `RFPs/1-pre-submission/<rfp-slug>/resources/` as the destination.
+  2. File whatever ancillary documents *were* retrieved — they're still useful.
+  3. Write the manifest with an explicit `## Not retrieved` entry naming **the solicitation itself** as missing.
+  4. **Notify Jake by opportunity name**, giving the HigherGov link, the original posting site and link, and a one-line "drop the RFP here: [path]".
+  5. **Leave the score at `metadata-only`.**
+
+**Never produce a full-text score from ancillary documents.** A score built on a contract form and an insurance certificate would carry the confidence of a real read with none of the substance, which is worse than an honest provisional score.
+
+### Step 8 — Verify what you got
+
+Before filing anything, check three things and report them:
+
+1. **Count** — does the number of downloaded files match the Docs badge from Step 3? If not, say which are missing and why.
+2. **Integrity** — does every PDF actually begin with `%PDF-`? A 2 KB "file" that's really an HTML error page is a silent failure.
+3. **Inventory** — list each filename and its size.
+
+### Step 9 — Write the document manifest
+
+Create `resources/_document-manifest.md` in the RFP folder. **This is required, not optional** — the refresh skill (`skills/rfp-document-refresh-skill.md`) diffs against it to detect new addenda, and without it that skill has no baseline.
+
+```markdown
+# Document manifest — [RFP title]
+
+Source (found via): [platform]
+HigherGov page: [source_url]
+Agency portal: [site name] — [solicitation_url]   (or "none listed")
+Portal account: YES / NO / UNKNOWN — [per reference-team-and-signature.md; if NO, who would own setting one up]
+Proposer of record: YES / NO / UNKNOWN — [this is what makes addenda arrive by email]
+Submission method: [portal / email / physical — and the address or portal name]
+Drive folder: [Favorable RFP's subfolder URL]   (or "not yet created")
+Last fetched: YYYY-MM-DD
+Docs count on HigherGov at fetch: [n]
+Docs count on agency portal at fetch: [n, or "not checked — no account"]
+RFP document present: YES / NO — [which file is the solicitation]
+
+| File | Size | From | Fetched |
+|---|---|---|---|
+| RFP-561_Solicitation.pdf | 457 KB | HigherGov (doc slug: `rfp-561-solicitation-pdf-abc123`) | 2026-07-21 |
+| Addendum_1.pdf | 88 KB | BidNet (agency portal) | 2026-07-21 |
+
+## Not retrieved
+- [Any document that could not be fetched, and the specific reason.]
+
+## Change log
+- **2026-07-21** — initial fetch, 2 documents.
+```
+
+Never put a signed S3 address in this file.
+
+### Step 10 — Re-score on the full text
+
+Run `skills/rfp-scoring-skill.md` against the actual documents and tag the result **`scoring_confidence: full-text`**.
+
+Expect the score to move. Metadata summaries routinely omit the due time, the contact, set-aside requirements, and the true scope — all of which feed gates and categories. A full-text score is the real one; the metadata score was a filter.
+
+### Step 11 — File it, or kill it
+
+- **Score holds at 50+** → keep the RFP folder and promote it to `RFPs/2-intermediate-stage/<rfp-slug>/` (documents in hand, re-scored on full text — that's exactly what tier 2 means).
+- **Full text kills it** → draft the no-bid (`skills/rfp-email-nobid-skill.md`) and **purge the downloaded documents**. This is the standing download-once → cache → purge-after-no-bid policy; dead RFPs don't keep 40 MB of PDFs on disk. This purge is the **only** time an RFP's documents are removed, and it follows a no-bid decision; it is never part of tidying up after a task (see "Keeping the originals").
+
+Either way, tell Jake what the documents changed about the score. "It stayed a Strong Pursue" is a useful result; "the full text revealed a mandatory on-site requirement" is a more useful one.
+
+### Step 12 — Mirror the documents to Google Drive
+
+**Only when Step 11 promoted the RFP to `2-intermediate-stage/`.** A killed RFP gets no Drive folder, the same way it gets no local folder.
+
+**ISA cannot do this step.** `Sync-RfpToDrive.ps1` runs on the operator's Windows machine, and ISA on the VM cannot upload to the shared Drive. When ISA runs this skill it skips the transfer, leaves the manifest's `Drive folder:` line as it found it, and says in its report that a person still has to move the files. It never says a document is in Drive when it is not, and never gives a path on its own disk as a link, because nobody else can open one. When someone asks ISA for a document, it attaches the file from `resources/` in the chat.
+
+Promotion to intermediate stage is what earns an RFP a folder under **`Sales (shared drive) > Favorable RFP's`** (parent ID `1FgeVVURDnS-JyQTyapa7pCl3BN4_PmaW`). This exists so Peter and Marianne can read the solicitation from a link instead of navigating HigherGov, which they've said they don't want to do — and it's the link the pursue email carries (`rfp-email-pursue` v1.6). It's on the **Sales shared drive** so the files belong to the team rather than to one person's account; an abandoned empty folder of the same name sits in Jake's My Drive, so **resolve by ID, not by name**.
+
+1. **Create the subfolder.** Name it the local `<rfp-slug>` verbatim, minus any leading `(NN) ` score prefix — internal scores shouldn't be the first thing leadership reads off a folder name.
+2. **Copy in the contents of `resources/` — and nothing else.** The agency's documents only. Scoring PDFs, meeting briefs, engineering briefs and key-dates notes stay local. This is the same separation Rule 10 draws on disk, and the reason the RFP folder has a `resources/` subfolder at all.
+3. **Write the `Drive folder:` line** into `resources/_document-manifest.md`, alongside `HigherGov page:` and `Agency portal:` (Step 9).
+4. **Report the folder link** to Jake with the score result.
+
+**Transfer the files with `tools/Sync-RfpToDrive.ps1`:**
+
+```powershell
+.\tools\Sync-RfpToDrive.ps1 -Slug <rfp-slug>
+```
+
+It finds the RFP's folder in whatever tier it currently sits in, copies `resources/` (excluding the manifest), and verifies the counts. `-WhatIf` previews.
+
+**Do not upload through the Drive connector** — it routes file bytes through Claude's context and is not viable at RFP scale (LADBS alone is 43 MB). **Do not use the browser bridge for this either**: it uploads one file per tool call and jams after roughly five, when the native Windows file-picker sticks open and blocks Chrome; a hung `take_screenshot` is the tell, and only Jake can clear it. That path is a last resort for a single small file, not a transfer mechanism.
+
+If the transfer can't run at all, **still create the folder and record its link**, then tell Jake the files need moving. An empty folder with a known link is recoverable; a missing folder silently breaks the pursue email.
+
+**Access is not automatic.** The Drive connector cannot set permissions. Jake shares the parent `Favorable RFP's` folder with Peter and Marianne once, by hand, and subfolders inherit it. If that hasn't happened yet, say so rather than handing over a link that returns "Request access."
+
+### Step 13 — Log the deadlines to the calendar
+
+Now that the RFP is in `2-intermediate-stage/` and its dates are confirmed on the full text, run **`skills/rfp-calendar-logging-skill.md`** to put its action-item deadlines — Q&A due, pre-proposal conference (+ a register-by alert), proposal due — on the "Seamgen RFPs" Google Calendar. That skill authors the `key-dates_<rfp-slug>.md` note as it goes. This is the moment the dates become trustworthy enough to schedule; before promotion the score was metadata-only and its dates weren't.
 
 ---
 
-## Output format
+## Keeping the originals
 
-```
-DOCUMENT REFRESH — [date]
-=========================
+The documents this skill files are the **originals**: the files exactly as the agency published them, or as a teammate sent them. Text extracted from them, HTML renders, saved page copies and logs are **working files**.
 
-Checked: [n] RFPs in 3-building/
+- Originals live in the RFP's `resources/` folder. Read them from there, and don't work from a second copy somewhere else.
+- Working files go in `.scratchpad/` or `/tmp`, never in `resources/`.
+- **Cleaning up after a task removes only working files created in that task. It never trashes or deletes anything inside a `resources/` folder.** Before removing anything, list it and check that no original, and no only copy of anything, is on the list.
+- The one exception is the no-bid purge in Step 11, which is a decision about the RFP, not tidying.
 
-⚠ DEADLINE CHANGES
-------------------
-- [RFP title]: Proposal due [old] → [NEW] — per [document], [section/page]
-- [RFP title]: Questions due [old] → [NEW] — per [document], [section/page]
-  (or "None")
+**Why this is written down.** On October 7, 2026 ISA downloaded the California Monitoring Program RFQ to `/tmp`, built the meeting brief from it, and trashed its working files afterwards. The RFQ was among them and was the only copy. It was found in Trash three days later, when someone asked where it was saved. An original that only exists in a temp location looks like scratch and gets cleaned up as scratch.
 
-NEW DOCUMENTS
--------------
-[RFP title] — Docs [old count] → [new count]
-  + [filename] ([size]) — [one line: what it is]
-  + [filename] ([size]) — [one line: what it is]
+---
 
-WHAT CHANGED
-------------
-[RFP title]
-  - [Scope/requirement/criteria change, with a verbatim quote + §/page]
-  - [Q&A answer worth knowing, quoted]
+## The agency-portal escalation ladder
 
-NO CHANGE
----------
-- [RFP title] — Docs still [n], nothing new since [date]
+**When this applies:** only when the agency portal is actually being *worked* — that is, during the **building stage**, via `skills/rfp-document-refresh-skill.md`. It is kept here because both skills share it.
 
-NEEDS YOUR ACTION
------------------
-- [Blocked portal, stale deliverable, or time-critical item — or "none"]
-```
+**It does not fire during scoring.** At fetch time the portal is recorded, not opened (Step 6). A portal discovered to be locked while scoring is a line in the manifest's `## Not retrieved`, **not** an interrupt and not an action item for Jake. Raising an account-setup request for an opportunity that hasn't survived scoring yet is work spent in the wrong order.
 
-**Report the no-change case explicitly.** "Checked, nothing new" is a real result and it's what makes the report trustworthy. A refresh that only ever speaks up when something changed leaves Jake unable to tell "all clear" from "didn't run."
+Once the ladder does apply, classify what you hit and either proceed or stop. **Never work around a barrier.**
+
+| What you find | What to do |
+|---|---|
+| Documents openly downloadable | Pull them into `resources/`, note the portal in the manifest. Proceed. |
+| **Sign-in required** on a portal **the inventory records as held** — check the **Procurement portal accounts** table in `reference-team-and-signature.md`, which is the single source of truth for this and includes **DemandStar** | Not a blocker. Tell Jake which portal needs signing into in the bridge browser. He signs in once, the session persists across sessions, and the fetch resumes. **Do not route this to Tina** — there is no account to set up. |
+| **Bot / security challenge** (e.g. Cloudflare "verify you are not a bot") | **Stop. Do not attempt to bypass it** — it is an explicit anti-automation control, and defeating it is not something this system does. Notify Jake to pull those documents manually, or to clear the check himself in the bridge window. |
+| **Account registration required** (new vendor account, registration forms, W-9 up front) | Stop and notify. Route to **Tina**, who owns vendor and portal account setup, with **Nick** for financial-responsibility items. Credentials go to Secret Server — never into this folder. |
+| **Paywall**, or documents released only on written request | Stop and notify, quoting the portal's stated process verbatim. |
+
+Every stop produces the same message, and it is short:
+
+> **[RFP title] — documents need your action.**
+> Portal: [name + link]
+> Blocked by: [one line — what the barrier is]
+> Needed: [the specific next step, and who owns it]
+> Deadline pressure: [the relevant date, if one is near]
+
+**Silence is never an acceptable outcome.** An unfetchable document set gets reported, not skipped. A fetch that quietly returns three of five documents and lets Jake believe he has everything is worse than one that stops and says so.
 
 ---
 
 ## Guardrails
 
-Identical to the fetch skill, and they carry the same weight:
+- **Read-only browsing.** Navigate, read, download. Never submit a form, register an account, accept terms, or click anything that commits Seamgen — without asking Jake first.
+- **Downloading on a portal we hold is permitted, including where it lists us publicly.** Jake's decision, 2026-07-27: on portals in the inventory, pull documents freely even though doing so typically adds Seamgen to the agency's planholder list, which competitors can see. Appearing on a list for a bid we are genuinely considering is not a cost worth a round trip. **This does not extend to anything else** — form submission, new-account registration and accepting terms all still stop and ask.
+- **Never spend money without a named, per-bid confirmation from Jake.** *Free* downloading is authorised above; **paid** access is not, and the two look identical until a price appears. Some portals charge for a bid package — DemandStar is **$5 once per bid** — and a general "yes to buying documents" authorises **no specific order**. Report what appeared and what it costs, stop, and wait for a yes on that bid. The full procedure lives in `skills/rfp-document-refresh-skill.md` → "The purchase gate."
+- **Never persist signed URLs.** They carry AWS credentials.
+- **Never handle credentials.** Jake signs in; you don't ask for passwords, and you don't screenshot a login screen.
+- **Targeted, not bulk.** Only opportunities actually being pursued.
+- **Same-session fetch.** Signed links expire in about an hour.
 
-- **Read-only browsing.** Never submit a form, register, or accept terms without asking.
-- **Never spend money without a named, per-bid confirmation from Jake.** A general "yes to buying documents" authorises **no specific order**. Watching is free and is the default; ordering is a separate decision, taken once, per bid, out loud. See "The purchase gate" above.
-- **Never persist signed URLs** — they carry AWS credentials.
-- **Never handle credentials.** Jake signs in.
-- **Never bypass a bot challenge.**
-- **Never paraphrase a date or a requirement.** Quote it, cite it.
+---
+
+## Output format
+
+Report in chat, before filing:
+
+```
+DOCUMENT FETCH — [RFP title]
+============================
+
+Source (found via): [platform]
+HigherGov page: [url]
+Original posting: [site name] — [url]   (recorded, not opened)
+Docs count on HigherGov: [n]
+
+RETRIEVED
+---------
+- [filename] — [size] — [from: HigherGov / agency portal]
+- ...
+
+NOT RETRIEVED
+-------------
+- [filename or description] — [specific reason]
+
+VERIFICATION
+------------
+File count vs Docs badge: [n of n]
+All files valid: YES / NO — [detail]
+RFP document present: YES — [filename] / NO — see below
+
+WHAT THE DOCUMENTS CHANGED
+--------------------------
+- [Dates, contacts, scope, or requirements the metadata didn't have]
+- [Anything that moves a gate or a scoring category]
+
+NEEDS YOUR ACTION
+-----------------
+- [Blocked portals, missing logins, time-critical items — or "none"]
+```
+
+Then run the scoring skill and report the full-text score separately.
+
+---
+
+## A note on the API alternative
+
+This skill uses the browser because it needs no new code and it can reach agency portals, which the API cannot. But HigherGov's API can also serve documents — and more cheaply:
+
+- `download_url` returns the PDFs from S3 with **no API key and zero quota cost** (verified byte-exact during the July 2026 probes).
+- `text_extract` returns the real full solicitation text (538,829 characters on the tested record).
+- `pipeline/state.json` already carries an empty `documentsPending[]` array waiting for it.
+
+What's missing is the PowerShell — `Get-HGDocuments` and `ConvertTo-HGAttachment`, specified as Phase 4 in `future-edits.md`. When Seamgen's volume justifies building it, the API becomes the primary path for HigherGov-hosted documents and this browser recipe stays as the fallback for agency portals and for the roughly 1-in-5 opportunities the API returns nothing usable for. **Building it requires Jake's approval** — it's new code, and this folder is a document library, not an engineering project.
 
 ---
 
 ## Notes and edit history
 
-**v1.6 — July 28, 2026, Jake + Claude.** Wired DemandStar's free **Watch** feature into the run, and wrote down the **purchase gate**.
+**v1.9 — October 12, 2026.** Two things, both from the California Monitoring Program incident.
 
-**Jake's decision (2026-07-27/28):** use Watch to detect new documents; **never purchase until he has been told exactly what appeared and has explicitly confirmed that specific purchase.** Case by case. Watching is free, commits nothing, and — unlike ordering — puts no name on a public list, since watchers show only as a count while planholders show by name.
+**(1) This skill is back in ISA's workspace.** ISA's copy of `rfp-document-fetch-skill.md` had held the text of the **refresh** skill since at least the first import of its workspace into the development repo, so ISA had no fetch procedure and nothing telling it where a downloaded RFP belongs. The text below v1.9 is the operator library's v1.8, unchanged.
 
-Step 4 now **starts from Bids → Watched Bids** rather than visiting bid pages individually: one view, and it sidesteps the direct-URL session drop. Bids go on Watch when their RFP reaches `2-intermediate-stage/`, recorded in the manifest. **A routing caveat that matters:** the account is in **Marianne's** name, so DemandStar's email alerts reach her, not Jake — the watch list read on each run is the mechanism, the email is a bonus, and a run skipped because "we'd have been emailed" is a run that misses the addendum.
+**(2) Originals are kept, and cleanup can't touch them.** On October 7 ISA downloaded the RFQ to `/tmp`, built the meeting brief, and trashed its working files with the RFQ among them. New section **"Keeping the originals"** separates originals from working files and limits cleanup to working files created in the task; Step 5 now says a file isn't fetched until it is in `resources/`, wherever it first landed; Step 11 names the no-bid purge as the only time documents are removed.
 
-The **purchase gate** is a five-step procedure — report the exact filename/type/size/date and what it probably is, **stop**, wait for a named per-bid yes, only then order, then log the spend in the manifest. Two standing blocks recorded: **no payment method is on file** (Jake's or Marianne's action), and **SW Wisconsin is a standing no** while its $5M cyber-liability blocker is open. The guardrail list gains the rule in its own words: *a general "yes to buying documents" authorises no specific order.*
+Also added, because ISA runs on a Linux VM and this skill was written for the operator's Windows session: a line in "Before you start" saying the filing rules apply however ISA obtains the documents, and a note in **Step 12** that ISA cannot upload to the shared Drive — it skips the transfer, says so, and attaches the file in chat when someone asks for a document. "When to use it" now states that ISA's trigger is 50+, matching `skills/rfp-preliminary-scoring-skill.md` v1.1 and the Friday job, while the 75+ rule stays for the browser-driven fetch. `skills/rfp-meeting-brief-skill.md` → v2.4 in the same change.
 
-**Also corrected a factual error of mine:** v1.5 said DemandStar "carries the largest share of this pipeline — the majority of `RFP-pipeline/candidates/` solicitation URLs." **Wrong.** It is **11 of 512 (2.1%)**, joint 11th behind SAM.gov (74) and BidNet Direct (42); the claim generalised from "11 entries" without checking the denominator. The reason to check DemandStar was never volume — it is that we hold the account and for several agencies it *is* the addendum channel.
+**v1.8 — September 22, 2026, Jessica + Claude.** Corrected two things that broke a live six-RFP fetch, both of them mechanics rather than judgement.
 
-**v1.5 — July 27, 2026, Jake + Claude.** Two changes, both prompted by the same failure.
+**(1) The bridge profile path pointed at a user who no longer exists.** "Before you start" hard-coded `C:\Users\jolik\.cache\chrome-devtools-mcp\chrome-profile` — Jake's Windows account, gone since the August operator handover. The real profile is `C:\Users\Jg125\...`. The line now says to resolve the path against the *current* Windows user and carries the incident, because the same staleness will recur at the next handover. This is the `tools/README.md` rclone-line problem in a second place: a path written once as a fact, still read as one after it stopped being true.
 
-**(1) Scope widened to `2-intermediate-stage/` as well as `3-building/`.** The v1.0 scope note predicted exactly this — *"an addendum can land on one of those unseen until it is promoted. If that gap ever bites, widening this skill to cover tier 2 is a one-line change"* — and it bit within a month. SW Wisconsin (2627-09) sat in tier 2 while its Q&A addendum posted, and its meeting brief ended up carrying an `[UNKNOWN]` blocker admitting the document set might be superseded. Tier 1 stays out of scope deliberately: metadata-only scores, may never be pursued, and the HigherGov intake already covers that volume.
+**(2) Step 5's download recipe only worked for PDFs, and batching it silently lost files.** Three findings from the 2026-09-22 run, all now written into Step 5:
 
-**(2) A DemandStar procedure in Step 4, because we have an account and this skill didn't know.** DemandStar appeared **zero times** in this skill or the fetch skill, while two meeting briefs simultaneously carried a `[HARD] DemandStar registration` blocker for an account Seamgen already held. Step 4 now consults the **Procurement portal accounts** table in `reference-team-and-signature.md` first, and says explicitly not to route a DemandStar sign-in to Tina.
+- **Use HigherGov's own `downloadDocument` endpoint.** POST `resource_id` + `slot` + `csrf` to `/download_document/`, fetch the returned signed URL, save the blob from inside the page. It is type-agnostic and never exposes the signed address to a tool result.
+- **The Adobe-viewer recipe fails on Office files.** PDFs render through Adobe and fetch from `gemini-dl-docs-sl.s3.amazonaws.com`; `.xlsx` and `.docx` go through `view.officeapps.live.com` instead, so scraping the Adobe frame returns nothing for them. On Aurora that would have quietly dropped `Attachment A - Cost Proposal.xlsx`, which is the cost form.
+- **Chrome permits one download per page load.** The second and later downloads in a loop are blocked **silently** — the in-page script still reports success, because the fetch and the anchor click both genuinely succeed. A five-file batch on the MA Trial Court set delivered one file and reported five. Reload before each download and confirm the file reached disk. Same failure shape as the paginated Docs table in Step 4: a result that looks complete and isn't.
 
-**Three things the first live run taught, now written into the step.** The portal's document list beat the RFP's own schedule — 2627-09's addendum was published four days after the printed date, so **the portal is the record and the schedule is only a plan**. The portal's **due date can disagree with the solicitation** — DemandStar showed `08/10/2026 1:00 AM Central` against the RFP's *"1:00 p.m."*, and the step now requires reporting both rather than silently picking one, because a submission timed to the wrong value is late with no remedy. And **proposer-of-record status** is worth recording, since that is what makes future addenda arrive by email instead of needing this check at all.
+Also recorded: the **opportunity page exposes every document's `resource_id`**, so a whole set can be enumerated and pulled without opening each viewer page; and Chrome saves to `%USERPROFILE%\Downloads`, so moving each file into `resources/` is part of the step, and a file that never arrived there is a failed download, not a finished one.
 
-Also carried over: the browser bridge jams after roughly five downloads when the native file-picker sticks, so documents are pulled incrementally. `skills/rfp-document-fetch-skill.md` → v1.6 in the same session; the escalation ladder still lives there and is referenced, not duplicated.
+**v1.7 — September 9, 2026, Jessica + Claude.** **Added Step 7a — "before declaring the RFP absent, check whether what you have is a *portal summary*."** Caught by Jessica during the first full-text pass on a nine-RFP batch, and the miss was hers to spot because nothing in the skill covered it.
 
-**v1.4 — July 24, 2026, Jake + Claude.** Step 7's key-dates bullet now **hands off to `skills/rfp-calendar-logging-skill.md`** — after a moved date is written into `key-dates_<rfp-slug>.md`, re-run the calendar skill so the calendar event moves with it. That skill reconciles against a sync-block ledger kept in the same note, so it updates the existing event rather than duplicating. Added because the new calendar skill (CLAUDE.md v1.28, recipe #15) makes the RFP's deadlines live on Jake's "Seamgen RFPs" calendar — and a due date that moves on disk but not on the calendar is exactly the silent-staleness failure this refresh skill exists to prevent, one layer further out (the same reasoning that added the Drive push in v1.2).
+**What happened.** Two of the nine (Texas State, SJSU) returned exactly one HigherGov document apiece: a Jaggaer/SciQuest **event summary** — a cover sheet of dates, contacts and a description paragraph. Step 7 as written says a summary is not a solicitation, which is true, so both were recorded *"RFP absent — behind the portal"* and left at their provisional metadata scores. But the Texas State summary carried a **Buyer Attachments** section, and those eight filenames were **live hyperlinks** to `bids01.jaggaer.com/apps/Router/PublicEventDownload`. The endpoint is open. All eight came down with no login — including the actual RFP, which re-scored the opportunity **77 → 80** and made it the highest-scoring live item in the batch. SJSU's summary, checked the same way, genuinely has no attachment links, so that one was correctly blocked; the two cases are indistinguishable without the check, which is the whole reason 7a exists.
 
-**v1.3 — July 22, 2026, Jake + Claude.** The Drive push in Step 7 now names the actual mechanism — **`tools/Sync-RfpToDrive.ps1`** (rclone) — instead of leaving "push it into the folder" as an instruction with no working method behind it. Because the script copies the whole `resources/` folder and skips files already present, re-running it after a refresh is safe and moves only the new addenda. Matches `rfp-document-fetch` v1.4.
+**The reasoning failure is the part worth keeping.** The first pass asserted "the documents are behind Jaggaer" **without ever trying a link** — a cause named, not verified, then written into a manifest for the next reader to act on. Worse, the first probe was a PowerShell `HEAD` request that returned **403**, which read as confirmation; a `GET` with a browser `User-Agent` returned **200**. That is **Rule 11 in miniature**: a server refusing your request *shape* is indistinguishable from a server refusing your *identity*, and only checking tells you which. 7a therefore says in order: extract links from the PDF structure (not just its rendered text), try them with browser headers, and never let one failure mode stand as proof of a wall.
 
-**v1.2 — July 22, 2026, Jake + Claude.** Step 7 now also **pushes newly downloaded documents into the RFP's Google Drive folder**, and Step 8 reports that it did. Added because `rfp-document-fetch` v1.3 started mirroring each intermediate-stage RFP's `resources/` to `My Drive > RFP Process Documents > Favorable RFP's`, and that mirror is what the pursue email links to (`rfp-email-pursue` v1.6) — so it's what Peter and Marianne actually read. Without this step an addendum that moves a due date would land on disk only, leaving leadership reading a superseded set from a link that looks current: the same silent-staleness failure this skill was built to prevent, one layer further out. Also covers the backfill case — an RFP promoted before fetch v1.3 has no `Drive folder:` manifest line, so the refresh creates the folder per fetch Step 12 rather than skipping.
+**Also tightened:** the manifest must now distinguish `RFP document present: NO — summary only, attachments are portal-gated` from `NO — no solicitation published`, because only the second justifies leaving a metadata-only score in place. The escalation ladder is **unchanged** — 7a explicitly routes through its existing first row ("documents openly downloadable → pull them"), and sign-in walls, bot challenges, registration forms and paywalls all still stop and notify.
 
-**v1.1 — July 21, 2026, Jake + Claude.** This skill now **owns agency-portal retrieval outright**. `skills/rfp-document-fetch-skill.md` v1.1 stopped chasing the originating site during scoring — it only records the portal's name and URL — after the first Yonkers run turned a locked BidNet listing into a same-day account request for an opportunity that hadn't finished scoring. Step 4 is rewritten to say plainly that the portal is worked *here*, in the building stage, where the opportunity has already been accepted as worth building and an account request (via **Tina**) is worth its lead time. The escalation ladder still lives in the fetch skill and is referenced, not duplicated.
+**v1.6 — July 27, 2026, Jake + Claude.** **Taught this skill that Seamgen already has portal accounts.** It didn't know, and the cost was concrete: on 2026-07-27 two meeting briefs (Suwannee, SW Wisconsin) each carried a `[HARD] DemandStar registration` blocker owned by Tina — **for an account Seamgen already held**. The skill as written would have reproduced that every time, because the escalation ladder's sign-in row hard-coded a list of portals (*"OpenGov, RAMP, CA eProcure, PlanetBids, County of San Diego"*) that **omitted DemandStar**, so a DemandStar sign-in wall fell through to the *"Account registration required"* row and its "stop and route to Tina" instruction.
 
-**v1.0 — July 21, 2026, Jake + Claude.** First version, written alongside `skills/rfp-document-fetch-skill.md` on the day the Chrome browser bridge went live. Prompted by Jake's observation that **new documents on the listing page are the mechanism by which agencies push back dates, amend scope, and publish Q&A** — so a document set silently perishes and needs re-checking. Diffs against the `_document-manifest.md` the fetch skill writes. Scoped to `RFPs/3-building/` only by Jake's decision; tier 2 is knowingly unwatched (noted as a gap). Uses the fetch skill's escalation ladder for agency portals rather than duplicating it.
+**Four changes.** (1) The ladder's sign-in row no longer carries its own list — it points at the **Procurement portal accounts** table in `reference-team-and-signature.md` (v1.3), which exists precisely to answer "do we have an account here?", and it says explicitly *do not route this to Tina* when the answer is yes. A hard-coded list in a skill file drifts; a single source doesn't. (2) **Step 6** becomes conditional: still *record, don't chase* where we have no account, but **open and diff the portal where we do** — costing a page load rather than an account request. (3) The **manifest template** gains `Portal account:`, `Proposer of record:`, `Submission method:` and a portal docs-count, so account status reaches Gate 4 and the meeting briefs instead of being re-derived each time; the Suwannee manifest had already improvised this as a parenthetical. (4) A **guardrail** records Jake's decision that downloading on portals we hold is permitted **even though it typically lists Seamgen publicly on the agency's planholder list** — while form submission, new-account registration and accepting terms still stop and ask.
+
+**What deliberately did not change.** The **bot/security-challenge** row and the **account-registration** row are untouched in wording and still stop; both are incident-derived (the Cloudflare challenge on OpenGov via Milpitas, and the Yonkers/BidNet escalation *during scoring*). The stage-gate reasoning is also intact and now stated more precisely: it was always an argument about **turnaround**, and where an account already exists there is none. Adding DemandStar removes a false positive rather than softening a stop.
+
+**Why it mattered immediately.** DemandStar hosts **both** of the live DemandStar-submitted intermediate-stage RFPs and appeared **zero times** in this skill or the refresh skill. *(Volume correction, 2026-07-28: the v1.6 note originally called DemandStar "the highest-volume portal in this pipeline." That was wrong — it is **11 of 512 candidates, 2.1%**, ranking joint 11th behind SAM.gov at 74 and BidNet Direct at 42. The error was generalising from "11 entries" without checking what 11 was a share of. What made the change urgent was never volume; it was that we hold the account and the portal is the addendum channel.)* On the first live check it was holding a **Q&A addendum for SW Wisconsin 2627-09 that HigherGov never served**, dated four days after the RFP's own published schedule said it would post. `skills/rfp-document-refresh-skill.md` → v1.5 in the same session.
+
+**v1.5 — July 24, 2026, Jake + Claude.** Added **Step 13 — Log the deadlines to the calendar**: once an RFP is promoted to `2-intermediate-stage/`, run the new `skills/rfp-calendar-logging-skill.md` (CLAUDE.md v1.28, recipe #15) to put its Q&A/conference/proposal deadlines on the "Seamgen RFPs" Google Calendar. Promotion is the right trigger because it's the point the dates become trustworthy — before it, the score was metadata-only and HigherGov dates are unreliable (`highergov-metadata-scores-overpredict`). No change to the fetch/scoring procedure itself; this just chains the calendar step onto the promotion that Steps 11–12 already perform.
+
+**v1.4 — July 22, 2026, Jake + Claude.** Step 12's transfer mechanism is now **`tools/Sync-RfpToDrive.ps1`** (rclone), replacing "the browser bridge, or Jake drags them in." v1.3 had shipped with a transfer step that didn't really work: the Drive connector is read-only *and* would route file bytes through Claude's context, and the browser bridge uploads one file per tool call before the native Windows file-picker sticks open and blocks Chrome entirely — it managed 5 of 34 documents before jamming. rclone moves the whole set in one command at no context cost, and the script verifies the destination counts rather than trusting an exit code. The browser is now explicitly named as **not** the transfer path, with its failure mode written down so nobody rediscovers it. The rule that survives unchanged: if transfer can't run, **still create the folder and record its link** — an empty folder with a known link is recoverable, a missing one silently breaks the pursue email.
+
+**v1.3 — July 22, 2026, Jake + Claude.** Added **Step 12 — mirror the documents to Google Drive**, and a `Drive folder:` line to the Step 9 manifest template. When Step 11 promotes an RFP into `2-intermediate-stage/`, it now also gets a subfolder under `My Drive > RFP Process Documents > Favorable RFP's` holding **only the agency's documents** — a mirror of `resources/`, never the deliverables at the RFP-folder root. Built because Peter and Marianne asked not to have to navigate HigherGov to read a solicitation; the folder is what the pursue email now links to (`rfp-email-pursue` v1.6), which makes this step load-bearing rather than a nicety — skip it and the pursue email falls back to a link leadership has said they don't want. A killed RFP gets no Drive folder, matching the existing purge-after-no-bid policy. Two constraints documented in the step because they will recur: **file transfer can't go through the connector** (contents route through Claude's context; LADBS alone is 43 MB), so it goes through the browser or Jake — and if neither is available, create the folder anyway and report it, because an empty folder with a known link is recoverable while a missing one silently breaks the pursue email. **Sharing is Jake's**, since the connector cannot set permissions.
+
+**v1.2 — July 21, 2026, Jake + Claude.** Two fixes found while fetching documents for 21 candidates at once. **(1) The documents list is a paginated DataTable, and Step 4 didn't say so.** It renders 10 rows; the rest aren't in the DOM at all. On the Kansas City EHR opportunity the Docs badge read **16** while the page exposed **5** links — the skill would have downloaded 5, matched no check, and reported success. Step 4 now requires expanding `select[name="datatable_document_search_length"]` to 100 before enumerating, and reconciling the count against the badge. This is precisely the silent-truncation failure the skill was written to prevent, and it was in the skill itself. **(2) New Step 4b — how much of a set to pull.** Sets range from 1 to 16+ files and large ones are mostly boilerplate (affidavits, sustainability forms, insurance certificates). When fetching in bulk to decide bid/no-bid, pull the **scoring documents** — solicitation, scope of work, requirements matrices, instructions — and defer the rest until a candidate survives, recording the deferral in the manifest's `## Not retrieved`. Single-RFP fetches for an active pursuit still take everything.
+
+**v1.1 — July 21, 2026, Jake + Claude.** Fixed a **priority error** that the first Yonkers run exposed, plus added a missing check. **(1) The agency-portal step is demoted from "follow it" to "record it."** v1.0 treated retrieving documents from the originating site as a required part of fetch; on Yonkers that hit BidNet Direct's *"Bid Documents — Locked. Registered members only"* and escalated into a same-day account-setup ask **during scoring** — for an opportunity whose HigherGov documents were already enough to score on. Now Step 6 captures the "Open" button's URL and the site's name into the manifest and moves on; a locked portal is a manifest line, not an interrupt. Source-site retrieval moves to the **building stage**, owned by `skills/rfp-document-refresh-skill.md`, and the escalation ladder is relabelled to say so. The link still gets recorded because the meeting brief now displays it (`rfp-meeting-brief-skill.md` v1.9) and because a portal locked today may open later. **(2) New Step 7 — "Confirm the actual RFP is present."** A document set can be all contract forms and exhibits with no solicitation behind it; the skill now defines what counts (scope of work + submission requirements + evaluation criteria), and when it's absent it creates the folder as a destination, files the ancillary documents, names the gap in the manifest, notifies Jake with both links and the drop path, and **leaves the score `metadata-only`** rather than producing a full-text score off supporting paperwork. Steps renumbered 6–11 accordingly; the manifest and output block gained `RFP document present` and a named `Original posting` field.
+
+**v1.0 — July 21, 2026, Jake + Claude.** First version, written the day the Chrome DevTools browser bridge went live and validated end to end (a real 256 KB PDF pulled down and deleted). Codifies the navigation path Jake described — saved search → opportunity title → the seven headers → the Docs section — plus three things found while validating it: (1) the saved search opens on its **Federal** half, and Seamgen's actual scope is on the **State | Local** half of the same search ID; (2) documents sit behind **expiring signed S3 links containing AWS credentials**, so fetch must happen in-session and the address must never be written to disk; (3) the **"Open"** button in Overview leads to the agency's own portal, where addenda and Q&A often actually live — and the first portal tested (OpenGov, via a Milpitas listing) returned a **Cloudflare bot challenge**, which produced the escalation ladder rather than a workaround. Trigger set at **75+ (Strong Pursue only)** by Jake.
 
 **How to edit this skill:** Change the text. It's Markdown. Save. Bump the version number and add a note describing what changed and why.
+
