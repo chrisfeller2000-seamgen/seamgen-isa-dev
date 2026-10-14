@@ -25,16 +25,32 @@ From that file:
 
 ## Weekly audit
 
-Each run deletes the previous week's candidate files before intake, so the results file's one-line reasons were the only lasting record. Since October 14, `workspace/scripts/rfp-audit.mjs` also keeps `reports/new-rfp-qualification/audit/<run date>.jsonl`: one JSON line per report entry, written the moment that RFP's entry is. A run that dies partway still leaves what it scored, and a second run on the same date writes `<run date>-2.jsonl` instead of touching the first. Nothing deletes these files.
+Each run deletes the previous week's candidate files before intake, so the results file's one-line reasons were the only lasting record. Since October 14, `workspace/scripts/rfp-audit.mjs` also keeps `reports/new-rfp-qualification/audit/<run date>.jsonl`, written as the run goes. A run that dies partway still leaves what it scored, and a second run on the same date writes `<run date>-2.jsonl` instead of touching the first. Nothing deletes these files.
+
+There is one line per listing the run pulled:
+- **Each report entry,** written the moment the entry is.
+- **Listings that never reached scoring,** with `outcome.tier: "skipped"`: those the intake filter dropped (`intake-due-soon`, `intake-set-aside`, `intake-not-a-bid`) and duplicates of an RFP already scored that run (`duplicate`). The duplicate check now runs before the listing is scored, so a duplicate no longer costs a model call.
 
 Each line holds:
-- **The RFP:** HigherGov `versionKey`/`oppKey`, title, agency, listing due date and links.
-- **The outcome:** exactly what the report said (tier, reason, recommendation, score).
-- **The listing and full-text scoring:** each gate's pass/fail/open with its reason, category points, the reasons and deadline, any scoring error and the number of tries, the model, and short hashes of the four scoring skills.
+- **The RFP:** HigherGov `versionKey`/`oppKey`, title, agency, listing due date and links, plus `listingText`, the HigherGov summary and description the scorer read.
+- **The outcome:** what the report said (tier, reason, recommendation, score), plus:
+  - `decision` and `why` in plain words for every line;
+  - what they want, budget, due date, and blockers and open questions.
+- **The listing and full-text scoring:**
+  - each gate's pass/fail/open with its reason;
+  - category points, the reasons and the deadline;
+  - any scoring error, the number of tries and seconds taken;
+  - the model, a hash of the whole prompt (the code's rules included), and short hashes of the four scoring skills.
 - **The model's own answer:** evidence quotes cut to 300 characters.
-- **The documents:** file names, roles, and whether each was read. Local paths and download links stay in the manifest.
+- **The documents:** why the set was incomplete, and file names, roles, and whether each was read. Local paths and download links stay in the manifest.
 
-That is about 2 MB a week. If the file can't be written, the job logs one line and the Friday update goes out without it. `npm run rfp:audit -- <run date>` copies one week to `.isa-local/audit/` (read-only on the VM) and writes a CSV next to it. The audit holds RFP and contact data, so it is never committed. Until ISA has a database this file is the record; each line imports as one row keyed on `versionKey`. ISA's chat does not read it yet.
+That is about 3 MB a week. If the file can't be written, the job logs one line and the Friday update goes out without it.
+
+`npm run rfp:audit -- <run date>` copies one week to `.isa-local/audit/` (read-only on the VM) and writes a workbook next to it, with both tabs built from the same lines in the same order:
+- **Sales:** decision, why, due, budget, score, where it lost points, what they want, and links.
+- **Details:** each gate by name with its notes, points out of their maximum, documents, scoring errors, tries, seconds, and versions.
+
+The workbook needs `exceljs`, the repo's only dependency (dev-only, `npm ci`); the VM never loads it. The audit holds RFP and contact data, so it is never committed. Until ISA has a database this file is the record; each line imports as one row keyed on `versionKey`. ISA's chat does not read it yet.
 
 `RFP_INTAKE_REPLAY=YYYY-MM-DD:YYYY-MM-DD` pulls those past HigherGov days again, ignoring the seen list, and leaves the intake state and seen list unchanged, so the next scheduled run starts where the last one stopped. A plain re-run pulls new days instead and moves the state forward. To redo a failed week, combine it with `RFP_REPORT_WEEK_OF`.
 

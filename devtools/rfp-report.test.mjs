@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {
-  MAIL_SYNC_PURSUE_SUBJECT, buildResults, checkPursueSentences, checkTelegramDraft, pursueFacts, pursueSentencesFallback,
+  MAIL_SYNC_PURSUE_SUBJECT, buildResults, checkPursueSentences, checkTelegramDraft, needOf, pursueFacts, pursueSentencesFallback,
   renderMarkdown, renderPursueEmail, renderTelegramFallback, reportEntry, telegramFacts, vibeFrom, writePursueEmail, writeTelegramMessage,
 } from '../workspace/scripts/rfp-report.mjs';
 import { deliverPursueUpdate, readPortalCandidate, reportWeek } from '../workspace/scripts/weekly-rfp-pursue-decision.mjs';
@@ -455,4 +455,13 @@ test('the Telegram send is retried while the gateway is down, and only then', as
   const unclear = await deliver(['openclaw timed out after 45000ms']);
   assert.equal(unclear.result.telegram.status, 'failed (1)');
   assert.deepEqual([unclear.sends, unclear.waits.length], [1, 0]);
+});
+
+test("what the buyer wants comes from HigherGov's summary, else its description, and isn't cut at \"No.\"", () => {
+  const body = (summary, description) => `# T\r\n\r\n## HigherGov AI summary\r\n${summary}\r\n\r\n## Opportunity description (verbatim from HigherGov)\r\n${description}\r\n\r\n## Attachments\r\n_None._\r\n`;
+  assert.equal(needOf({ body: body('Background The port wants a passenger app (RFP No. 26-1). It runs two years.', 'Long text.') }),
+    'The port wants a passenger app (RFP No. 26-1).');
+  // An empty summary used to return the next heading as what the buyer wants.
+  assert.equal(needOf({ body: body('', 'The county needs a GIS program manager. Details follow.') }), 'The county needs a GIS program manager.');
+  assert.equal(needOf({ body: body('', ''), frontmatter: {} }), '');
 });

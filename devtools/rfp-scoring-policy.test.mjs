@@ -519,6 +519,9 @@ test('a rejected answer gets one more try, told why it was rejected', async () =
   const scored = await scoreRfp(input, { judge: slip, log: line => lines.push(line) });
   assert.ok(Number.isFinite(scored.total));
   assert.equal(scored.provenance.attempts, 2);
+  // The audit keeps how long scoring took and a fingerprint of the whole prompt, rules included.
+  assert.ok(Number.isFinite(scored.provenance.seconds));
+  assert.match(scored.provenance.promptSha256, /^[0-9a-f]{64}$/);
   assert.deepEqual(prompts.map(item => item.previousAnswerRejected), [undefined, 'Invalid ai category or rubric band.']);
   assert.match(lines.join('\n'), /full-text answer rejected for .*Invalid ai category or rubric band.*asking once more/);
 
@@ -527,6 +530,7 @@ test('a rejected answer gets one more try, told why it was rejected', async () =
   const alwaysWrong = async ({ prompt }) => { calls++; const j = recordedJudgment(input); j.categories.ai.points = 1000; return JSON.stringify(referenceJudgment(j, JSON.parse(prompt).sources)); };
   const rejected = await scoreRfp(input, { judge: alwaysWrong, log: () => {} });
   assert.deepEqual([rejected.scoring_error, calls], ['invalid-judgment', 2]);
+  assert.ok(Number.isFinite(rejected.scoring_seconds));
   // A model that can't be reached is the outage guard's job, not a retry here.
   calls = 0;
   const down = await scoreRfp(input, { judge: async () => { calls++; throw new Error('provider down'); }, log: () => {} });

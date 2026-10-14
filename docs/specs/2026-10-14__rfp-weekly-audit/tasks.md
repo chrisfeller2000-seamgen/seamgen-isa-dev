@@ -32,6 +32,26 @@
   - **Before:** the VM had not drifted from the accepted baseline, and no RFP job was running.
   - **After:** the post-upload snapshot matched, `live:pull` shows no changes, and all 5 scripts pass `node --check` and import on the VM's Node v24.21.0. The Friday crontab entry is unchanged.
   - **Rollback:** restore from `~/.openclaw/workspace/backups/dev-deploy-2026-10-14T18-09-24-195Z-4defe7b`, and delete `scripts/rfp-audit.mjs`, which is new.
+- [x] Follow-up, the same day: Chris's review of the rebuilt backfill audit, from a salesperson's and a developer's point of view. Branch `feat/rfp-audit-workbook`.
+  - **Audit lines for every listing pulled.** The 53 intake drops and 2 duplicates were missing. The duplicate check now runs before scoring, saving a model call each.
+  - **New fields on each line:**
+    - plain decision and why for every line;
+    - what they want, budget, due date, blockers and open questions;
+    - the listing text the scorer read;
+    - why a document set was incomplete;
+    - seconds per stage;
+    - a hash of the whole prompt.
+  - **Workbook replaces the CSV:** a Sales tab and a Details tab, built from the same lines in the same order. Points show out of their maximum. "Lost points on" uses plain reasons and the competitive verdict instead of the model's arithmetic.
+  - **`exceljs` 4.4.0** is the repo's first dependency: dev-only, never loaded on the VM. CI runs `npm ci`. `npm audit` reports a moderate `uuid` advisory for v3/v5/v6 with a buffer argument, which exceljs doesn't use.
+  - **Fixed in the report too:**
+    - with no HigherGov summary, "what they want" was the next heading (29 of 185 RFPs that week);
+    - sentences were cut at "No." (Port of Oakland's "(RFP No.").
+  - **Backfill audit rebuilt:** 187 lines, the report's 185 plus the 2 duplicates. The 53 intake drops can't be rebuilt, because that run kept nothing about them.
+  - `npm test` (170) and `npm run check` pass; the new intake-drop and duplicate checks fail when their hooks are removed.
+  - **Released October 14 at 18:43 UTC:**
+    - PR #20, commit `7670f41`, a guarded upload of 4 scripts (`rfp-audit`, `rfp-report`, `rfp-scoring-judgment`, `weekly-rfp-pursue-decision`);
+    - no VM drift beforehand, the post-upload snapshot matched, all 4 import on the VM, and the crontab is unchanged;
+    - rollback: `~/.openclaw/workspace/backups/dev-deploy-2026-10-14T18-43-10-098Z-7670f41`.
 - [ ] After Friday October 16:
   - the audit file's line count equals the report's entries;
   - `cron.log` shows any "asking once more" lines and their outcome;

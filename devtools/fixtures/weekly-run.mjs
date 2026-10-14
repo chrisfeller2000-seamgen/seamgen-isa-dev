@@ -29,6 +29,19 @@ const LISTINGS = [
     ai_summary: 'The agency is renewing annual subscriptions for an existing commercial records product, including hosting and support from the product vendor.',
     path: 'https://example.test/synthetic-renewal', source_path: 'https://example.test/agency-renewal',
   },
+  // Due four days after HigherGov listed it, so the intake filter drops it before scoring.
+  {
+    version_key: 'fixture-rush-v1', opp_key: 'fixture-rush', title: 'Synthetic Rush Website Refresh',
+    agency: { agency_name: 'Example Town' }, captured_date: '2026-10-08', due_date: '2026-10-12',
+    ai_summary: 'The town wants its website refreshed within two weeks.', path: 'https://example.test/synthetic-rush',
+  },
+  // The portal again under a new HigherGov version: scored once, the copy is audited as a duplicate.
+  {
+    version_key: 'fixture-portal-v2', opp_key: 'fixture-portal', title: 'Synthetic Case Management Portal',
+    agency: { agency_name: 'Example Public Agency' }, captured_date: '2026-10-08', due_date: '2026-11-30', val_est_low: '180000',
+    ai_summary: 'The agency wants a custom case management portal with data migration, API integration, accessibility, workflow design, and implementation services.',
+    path: 'https://example.test/synthetic-portal-amended',
+  },
 ];
 
 const DOCUMENTS = {
