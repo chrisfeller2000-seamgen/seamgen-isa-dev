@@ -7,7 +7,7 @@ import {
   MAIL_SYNC_PURSUE_SUBJECT, buildResults, checkPursueSentences, checkTelegramDraft, pursueFacts, pursueSentencesFallback,
   renderMarkdown, renderPursueEmail, renderTelegramFallback, reportEntry, telegramFacts, vibeFrom, writePursueEmail, writeTelegramMessage,
 } from '../workspace/scripts/rfp-report.mjs';
-import { deliverPursueUpdate, readPortalCandidate } from '../workspace/scripts/weekly-rfp-pursue-decision.mjs';
+import { deliverPursueUpdate, readPortalCandidate, reportWeek } from '../workspace/scripts/weekly-rfp-pursue-decision.mjs';
 
 // Invented RFPs shaped like the weekly job's real inputs. No real opportunity data.
 const GATES = ['gate1', 'gate2', 'gate3', 'gate4', 'gate5', 'gate6'];
@@ -411,6 +411,18 @@ test("candidate files from Jake's PowerShell tools keep their header despite the
 });
 
 // October 9: the gateway was down for an OpenClaw update when the run finished.
+test("a late delivery counts as the week it belongs to, so that week's Friday run still sends", async () => {
+  assert.equal(reportWeek('2026-10-14', undefined), '42');
+  assert.equal(reportWeek('2026-10-14', '2026-10-09'), '41');
+  // Redoing October 9 on October 14 (week 41) leaves Friday October 16 (week 42) free to send.
+  const lateRun = { runDate: '2026-10-14', week: reportWeek('2026-10-14', '2026-10-09'), email: { status: 'sent' } };
+  const friday = { ...weekResults(), runDate: '2026-10-16', week: reportWeek('2026-10-16', undefined) };
+  const calls = [];
+  const sent = await deliverPursueUpdate({ results: friday, complete: null, vibe: 'Warm', to: ['marianne@example.test'], cc: [], previous: lateRun,
+    preview: false, noTelegram: true, run: async cmd => { calls.push(cmd); return 'ok'; } });
+  assert.deepEqual([sent.email.status, calls], ['sent', ['gog']]);
+});
+
 test('the Telegram send is retried while the gateway is down, and only then', async () => {
   const gatewayDown = 'Gateway not reachable at ws://127.0.0.1:18789 (ECONNREFUSED). Start it with `openclaw gateway run`.';
   const deliver = async (telegramErrors) => {
