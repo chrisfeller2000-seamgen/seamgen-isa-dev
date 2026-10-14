@@ -23,7 +23,7 @@ async function runFixture(workspaceDir, scenario = 'complete') {
         RFP_RUN_DATE: '2026-09-24',
         RFP_DOCUMENT_FETCH_ENABLED: '1',
         NO_TELEGRAM: '1',
-        REPORT_TO: 'fixture@example.test',
+        RFP_EMAIL_TO: 'fixture@example.test',
         TELEGRAM_TARGET: 'fixture',
         ISA_RFP_FIXTURE_SCENARIO: scenario,
         PATH: process.env.PATH || '',

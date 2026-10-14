@@ -62,6 +62,8 @@ Kill gates are pass/fail questions. **If any single gate fails, the RFP is a no-
 **Pass:** ≥ 10 days from today to due date.
 **Fail:** < 10 days.
 
+**Only the listing gives a date:** use it, as Jake did. Score the timeline from it and list "confirm the deadline" as a blocker; under 10 days still fails.
+
 **Needs review:** The submission deadline is missing, invalid, ambiguous, or conflicting. Do not assume this gate passes, assign a final score, or recommend pursuing on that basis. An independently verified failure of another gate may still justify no-bid.
 
 **Use the submission deadline, not any date in the document.** Approval/revision dates, publication dates, contract dates, and questions deadlines are not proposal deadlines. Do not interpret a two-digit year by automatically adding `20`. Verify the official submission wording and any applicable deadline amendment; record the source file/section. Conflicts with the listing date need review unless a clear amendment resolves them.
