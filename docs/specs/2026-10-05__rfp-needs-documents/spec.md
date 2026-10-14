@@ -137,7 +137,25 @@ These are offline results on synthetic inputs. No real HigherGov request, model 
 
 Chris's goal is a pipeline that is as automated as possible, so Needs documents should feed an automatic retrieval step, with a person only as the last resort. Jake's original system did not solve this either: it used a signed-in browser, checked only agency sites where Seamgen already had an account, and otherwise asked Jake to supply the RFP.
 
-Every candidate stores a `solicitation_url` to the agency's own posting. On October 5 the 153 candidates with that link pointed most often to SAM.gov (12), OpenGov (11), BidNet (9), and NY State Contract Reporter (9), then about 20 sites with 2–5 each and a long tail. Possible steps, easiest first: re-check HigherGov on later runs; SAM.gov's official API for federal attachments (needs a free SAM.gov API key; untested); agency pages that link documents publicly; sites where Seamgen already has an account (logins on the VM need Sam and Hugo's approval); sites needing new registration or a CAPTCHA stay flagged. Start with a read-only measurement of which sites the Needs documents RFPs use and whether their documents download without a login. This reopens portal work that was paused earlier because it was not consistently automatable.
+Every candidate stores a `solicitation_url` to the agency's own posting. On October 5 the 153 candidates with that link pointed most often to SAM.gov (12), OpenGov (11), BidNet (9), and NY State Contract Reporter (9), then about 20 sites with 2–5 each and a long tail. Possible steps, easiest first: re-check HigherGov on later runs; SAM.gov's official API for federal attachments (needs a free SAM.gov API key; untested); agency pages that link documents publicly; sites where Seamgen already has an account (logins on the VM need Sam and Hugo's approval); sites needing new registration or a CAPTCHA stay flagged. This reopens portal work that was paused earlier because it was not consistently automatable.
+
+### Measurement, October 13, 2026
+
+Input: the 16 RFPs the October 9 run marked Needs documents for lack of documents. Read-only VM reads of their candidate files, then one plain request per stored `solicitation_url` (no cookies, no JavaScript), and one test download noted below. The working notes stay in ignored local `.isa-local/` files; counts and site names only here.
+
+- **5 of 16 were not missing documents.** HigherGov had returned the solicitation and ISA did not recognize it: it called itself a Request for Offers or a Request for Application, it was the file named "Scope of Work", it said where to download itself, or it was an unreadable `.xlsm`. The recognition fixes are on `main` (`7e9dbb8`, `c0cc919`, and `f2afb73` for `.xlsm`). Whether each is live on the VM was not checked here.
+- **11 were really missing, and no stored page linked the files directly.** A plain request got a CAPTCHA or bot challenge (2), a login form (1), a plan-holder registration form (2), a JavaScript portal (3: SAM.gov, IonWave, Georgia's procurement registry), or a notice pointing to another site (3). One more hop on those three still did not reach the files.
+- **The JavaScript group, checked further.** SAM.gov's public record lists exactly the two files HigherGov returned and is readable as plain JSON without a browser. IonWave's files are plain `Extract.aspx` links with no file extension; one test download returned the full RFP with no login. Georgia's registry loads for a standard browser name, but that RFP was available only by emailing the county.
+- **Robots files.** Every dedicated procurement portal in the sample (IonWave, Bonfire, Virginia eVA, PA eMarketplace, Jaggaer, Texas SmartBuy, QuestCDN) disallows all robots. IonWave's was read only after the page reads and the one download, and no automated request went to it afterward; its owner's terms also bar commercial use not approved in writing. The sites that allow robots are ordinary agency or nonprofit pages, and none of them held the missing files.
+
+Conclusions for the retrieval spec:
+
+- Recognizing what HigherGov already returns was the largest gain in this sample, larger than any fetching step.
+- Do not schedule automated fetching from procurement portals without the site's permission. Treat them as places a person fetches from, with the portal named in the blocker. Read a site's robots file before probing it.
+- SAM.gov's official API is the one retrieval route consistent with these findings. It still needs a free SAM.gov API key and is untested.
+- A link finder must not depend on file extensions; take the file name from the link text or the response headers.
+
+This is one week's sample. `devtools/measure-document-sources.mjs`, a reusable version of the measurement written afterward, is kept as an uncommitted draft and has not been run. It does not read robots files and finds files by extension, so it should not be run as it stands.
 
 ## Coordination
 
