@@ -409,3 +409,38 @@ test("candidate files from Jake's PowerShell tools keep their header despite the
     await fs.rm(dir, { recursive: true, force: true });
   }
 });
+
+// October 9: the gateway was down for an OpenClaw update when the run finished.
+test('the Telegram send is retried while the gateway is down, and only then', async () => {
+  const gatewayDown = 'Gateway not reachable at ws://127.0.0.1:18789 (ECONNREFUSED). Start it with `openclaw gateway run`.';
+  const deliver = async (telegramErrors) => {
+    const calls = [], waits = [];
+    const run = async cmd => {
+      calls.push(cmd);
+      const error = cmd === 'openclaw' && telegramErrors.shift();
+      if (error) throw new Error(error);
+      return 'ok';
+    };
+    const result = await deliverPursueUpdate({ results: weekResults(), complete: null, vibe: 'Warm', to: ['marianne@example.test'], cc: [],
+      preview: false, noTelegram: false, run, sleep: async ms => { waits.push(ms); } });
+    return { result, waits, emails: calls.filter(cmd => cmd === 'gog').length, sends: calls.filter(cmd => cmd === 'openclaw').length };
+  };
+
+  const recovered = await deliver([gatewayDown, gatewayDown]);
+  assert.equal(recovered.result.telegram.status, 'sent');
+  assert.equal(recovered.result.telegram.attempts, 3);
+  assert.equal(recovered.result.telegram.error, undefined);
+  assert.deepEqual(recovered.waits, [180000, 180000]);
+  assert.equal(recovered.emails, 1);
+
+  const stillDown = await deliver(Array(9).fill(gatewayDown));
+  assert.equal(stillDown.result.telegram.status, 'failed (1)');
+  assert.match(stillDown.result.telegram.error, /Gateway not reachable/);
+  assert.deepEqual([stillDown.sends, stillDown.waits.length, stillDown.result.telegram.attempts], [5, 4, 5]);
+  assert.equal(stillDown.result.email.status, 'sent');
+
+  // A timeout may have posted the message; sending again could post it twice.
+  const unclear = await deliver(['openclaw timed out after 45000ms']);
+  assert.equal(unclear.result.telegram.status, 'failed (1)');
+  assert.deepEqual([unclear.sends, unclear.waits.length], [1, 0]);
+});

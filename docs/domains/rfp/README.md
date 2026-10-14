@@ -27,6 +27,18 @@ From that file:
 
 If the run fails, the cron wrapper posts one failure notice to the group. See the [pursue email spec](../../specs/2026-10-12__rfp-pursue-email/spec.md) and the earlier [weekly update spec](../../specs/2026-10-06__rfp-weekly-messages/spec.md).
 
+## When OpenClaw is unavailable during the run
+
+The weekly job scores through the OpenClaw install on the VM and sends Telegram through its gateway, and it runs for about three hours from 12:00 UTC on Fridays. On October 9 an OpenClaw update (2026.9.6 to 2026.9.9) ran during it: 58 RFPs were left unscored and the Telegram message was not sent. Keep OpenClaw updates and gateway restarts out of that window.
+
+The job now limits the damage:
+
+- **Scoring.** One model connection serves the run. After three model failures in a row the job waits five minutes and tries the same RFP again, up to three times. If the model is still unavailable, the remaining RFPs are left as "Couldn't check yet" without calling it, and the report still goes out.
+- **Telegram.** If the gateway refuses the connection, the send is tried five times, three minutes apart. Other failures are not retried, because the message may already have been posted.
+- **Job log.** Each scoring failure writes one `[rfp-scoring]` line to `cron.log` with the stage and the error, with URLs and credentials removed. Reports and candidate files still record only the stage.
+
+An answer that fails validation (`invalid-judgment`) or a document set over the size limit (`context-unavailable`) is not an outage and is not retried. Whether a fresh connection recovers after an update has replaced the install has not been tested against a real OpenClaw.
+
 ## Invariants and sharp edges
 
 - A metadata score is provisional; it must not be presented as document-backed qualification. Track `document_status`, `qualification_status`, and `scoring_confidence` separately.

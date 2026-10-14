@@ -226,8 +226,67 @@ export async function createOpenClawJudge({ packageDir = process.env.RFP_OPENCLA
   };
 }
 
+// One OpenClaw connection per process. Until October 9 every RFP rebuilt it, so each
+// call ran `npm root -g` and re-read OpenClaw's config, and an OpenClaw update that
+// replaced the install mid-run failed every remaining RFP. A failed model call drops
+// the connection so the next call rebuilds it from the current install and config.
+let sharedJudge = null;
+function openClawJudge(createJudge) {
+  sharedJudge ||= createJudge();
+  return sharedJudge;
+}
+
+// Provider errors can carry request URLs and credentials. The job log gets the error's
+// name, code and message with those removed, cut to one short line.
+export function describeScoringFailure(error) {
+  const label = [error?.name && error.name !== 'Error' ? error.name : '', typeof error?.code === 'string' ? error.code : ''].filter(Boolean).join(' ');
+  const message = String(error?.message || error || 'unknown error')
+    .replace(/[a-z][a-z0-9+.-]*:\/\/\S+/gi, '[url]')
+    .replace(/\b(bearer|basic)\s+\S+/gi, '$1 [secret]')
+    .replace(/\b((?:api[-_]?key|authorization|token|secret|password)\b["']?\s*[:=]\s*)["']?[^\s"',;]+/gi, '$1[secret]')
+    .replace(/\b[A-Za-z0-9_-]{24,}\b/g, '[redacted]')
+    .replace(/\s+/g, ' ').trim().slice(0, 240);
+  return label ? `${label}: ${message}` : message;
+}
+
+// Stops a model outage from failing a whole run. On October 9 OpenClaw was updated
+// while the weekly job ran, and the last 61 RFPs failed within eight seconds. After
+// `threshold` model failures in a row the run waits and tries the same RFP again;
+// when the waits are used up, the remaining RFPs are left unscored without calling
+// the model. The defaults cover a 15-minute outage; that update took nine.
+export function createModelOutageGuard({ threshold = 3, waitMs = 300000, maxWaits = 3,
+  sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), log = line => process.stderr.write(`${line}\n`) } = {}) {
+  let failures = 0, waits = 0, stopped = false;
+  return {
+    get stopped() { return stopped; },
+    async run(call) {
+      if (stopped) throw Object.assign(new Error('AI scoring was stopped earlier in this run.'), { alreadyLogged: true });
+      for (;;) {
+        try {
+          const value = await call();
+          failures = 0;
+          return value;
+        } catch (error) {
+          if (++failures < threshold) throw error;
+          if (waits >= maxWaits) {
+            stopped = true;
+            log(`[rfp-scoring] the model is still unavailable after ${waits} wait(s); the remaining RFPs stay unscored`);
+            throw error;
+          }
+          waits += 1;
+          log(`[rfp-scoring] ${failures} model failures in a row (${describeScoringFailure(error)}); waiting ${Math.round(waitMs / 1000)}s before trying again (${waits}/${maxWaits})`);
+          await sleep(waitMs);
+        }
+      }
+    },
+  };
+}
+
 // High-reasoning calls on large solicitation packages took up to ~2 minutes on October 5.
-export async function scoreRfp(input, { judge, workspace = process.env.WORKSPACE_DIR || '/home/azureuser/.openclaw/workspace', timeoutMs = 300000 } = {}) {
+// `outage` is a createModelOutageGuard() shared by every call in one run. `createJudge`
+// is a parameter only so tests can count connections without a real OpenClaw install.
+export async function scoreRfp(input, { judge, outage, createJudge = createOpenClawJudge, workspace = process.env.WORKSPACE_DIR || '/home/azureuser/.openclaw/workspace', timeoutMs = 300000,
+  log = line => process.stderr.write(`${line}\n`) } = {}) {
   let failureStage = 'context-unavailable';
   try {
     let policies = input.policies || globalThis[policiesSymbol], companySources = input.companySources || globalThis[sourcesSymbol];
@@ -243,16 +302,22 @@ export async function scoreRfp(input, { judge, workspace = process.env.WORKSPACE
     const systemPrompt = `${SYSTEM_RULES}\n\n${policies.map(item => `## ${item.name}\n${item.text}`).join('\n\n')}`;
     if (packet.length + systemPrompt.length > MAX_PACKET_CHARS) throw new Error('Scoring context exceeds the safe limit; required evidence was not silently truncated.');
     failureStage = 'model-unavailable';
-    judge ||= globalThis[judgeSymbol] || await createOpenClawJudge();
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    let result;
-    try {
-      result = await Promise.race([
-        judge({ input: packetInput, systemPrompt, prompt: packet, signal: controller.signal }),
-        new Promise((_, reject) => controller.signal.addEventListener('abort', () => reject(new Error('AI scoring timed out.')), { once: true })),
-      ]);
-    } finally { clearTimeout(timer); }
+    const fixedJudge = judge || globalThis[judgeSymbol];
+    const callModel = async () => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const ask = fixedJudge || await openClawJudge(createJudge);
+        return await Promise.race([
+          ask({ input: packetInput, systemPrompt, prompt: packet, signal: controller.signal }),
+          new Promise((_, reject) => controller.signal.addEventListener('abort', () => reject(new Error('AI scoring timed out.')), { once: true })),
+        ]);
+      } catch (error) {
+        sharedJudge = null;
+        throw error;
+      } finally { clearTimeout(timer); }
+    };
+    const result = await (outage ? outage.run(callModel) : callModel());
     failureStage = 'invalid-judgment';
     const raw = typeof result === 'string' ? result : result.text;
     if (typeof raw !== 'string' || raw.length > MAX_RESPONSE_CHARS) throw new Error('Invalid or oversized AI scoring response.');
@@ -262,9 +327,13 @@ export async function scoreRfp(input, { judge, workspace = process.env.WORKSPACE
       assessmentDate: input.assessment?.runDate, sources: sources.map(source => ({ id: source.id, sha256: crypto.createHash('sha256').update(source.text).digest('hex') })),
       policyHashes: policies.map(item => ({ name: item.name, sha256: crypto.createHash('sha256').update(item.text).digest('hex') })) } };
   } catch (error) {
-    // Provider errors can contain sensitive URLs/auth details. Do not copy them to reports.
+    // Provider errors can contain sensitive URLs/auth details. Do not copy them to reports;
+    // the job log gets a scrubbed line, because the stage alone could not explain October 9.
     // A rejected answer is different: the message is our validator's own ("Invalid ai
     // category or rubric band.") and says what the model got wrong.
+    if (!error?.alreadyLogged) {
+      log(`[rfp-scoring] ${input.phase || 'full-text'} scoring failed (${failureStage}) for ${input.candidate?.slug || 'an RFP'}: ${describeScoringFailure(error)}`);
+    }
     const detail = failureStage === 'invalid-judgment' ? { scoring_error_detail: String(error?.message || '').slice(0, 200) } : {};
     return { ...unscoredRfp(input, 'Scoring could not be validated; check model access, source assets, and structured evidence in an isolated test.'), scoring_error: failureStage, ...detail };
   }

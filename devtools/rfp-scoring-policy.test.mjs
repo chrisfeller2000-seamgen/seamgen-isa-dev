@@ -7,7 +7,7 @@ import { alignmentCases } from './fixtures/rfp-alignment-cases.mjs';
 import { companySources, fixturePolicies, recordedJudgment, referenceJudgment } from './fixtures/rfp-recorded-judgments.mjs';
 import { CATEGORY_BANDS, DOCUMENT_FETCH_THRESHOLD, assessProjectValue, documentEvidence, finalizeRfpScore, intakeText, scoringSources } from '../workspace/scripts/rfp-scoring-policy.mjs';
 import { createAssessmentContext } from '../workspace/scripts/rfp-deadline.mjs';
-import { createOpenClawJudge, scoreRfp } from '../workspace/scripts/rfp-scoring-judgment.mjs';
+import { createModelOutageGuard, createOpenClawJudge, describeScoringFailure, scoreRfp } from '../workspace/scripts/rfp-scoring-judgment.mjs';
 import { persistValidatedScore, readPortalCandidate, scoreCandidateFromText, shouldFetchDocuments } from '../workspace/scripts/weekly-rfp-pursue-decision.mjs';
 import { buildSecondaryReport, resolveSelectedCandidates } from '../workspace/scripts/secondary-fulltext-score.mjs';
 
@@ -547,4 +547,87 @@ test('the SDK request has no tools, agent session, delivery, or production edits
   await assert.rejects(judge({ systemPrompt: '', prompt: '' }), /tool request/);
   sdk.completeWithPreparedSimpleCompletionModel = async () => ({ stopReason: 'length', content: [{ type: 'thinking' }] });
   await assert.rejects(judge({ systemPrompt: '', prompt: '' }), /truncated/);
+});
+
+// The October 9 run: an OpenClaw update mid-run made every remaining model call fail.
+const goodJudge = async ({ prompt }) => JSON.stringify(referenceJudgment(recordedJudgment(packet()), JSON.parse(prompt).sources));
+
+test('a model outage pauses the run and the same RFP is scored once the model is back', async () => {
+  const waits = [], lines = [];
+  const outage = createModelOutageGuard({ threshold: 3, waitMs: 300000, maxWaits: 3, sleep: async ms => { waits.push(ms); }, log: line => lines.push(line) });
+  let calls = 0;
+  // Calls 1-4 fail: two RFPs are lost, the third trips the guard and fails once more after the first wait.
+  const judge = async args => { if (++calls <= 4) throw new Error('connect ECONNREFUSED https://api.example.test/v1?key=abc'); return goodJudge(args); };
+  const options = { judge, outage, log: line => lines.push(line) };
+  assert.equal((await scoreRfp(packet(), options)).scoring_error, 'model-unavailable');
+  assert.equal((await scoreRfp(packet(), options)).scoring_error, 'model-unavailable');
+  const recovered = await scoreRfp(packet(), options);
+  assert.equal(recovered.scoring_error, undefined);
+  assert.ok(Number.isFinite(recovered.total));
+  assert.deepEqual(waits, [300000, 300000]);
+  assert.equal(outage.stopped, false);
+  assert.equal(lines.filter(line => /scoring failed \(model-unavailable\)/.test(line)).length, 2);
+  assert.equal(lines.filter(line => /waiting 300s/.test(line)).length, 2);
+  assert.doesNotMatch(lines.join('\n'), /api\.example\.test|key=abc/);
+  // A success resets the count: one later failure does not pause the run.
+  calls = 3;
+  assert.equal((await scoreRfp(packet(), options)).scoring_error, 'model-unavailable');
+  assert.equal(waits.length, 2);
+});
+
+test('when the waits are used up, the remaining RFPs stay unscored without calling the model', async () => {
+  const waits = [], lines = [];
+  const outage = createModelOutageGuard({ threshold: 2, waitMs: 1000, maxWaits: 2, sleep: async ms => { waits.push(ms); }, log: line => lines.push(line) });
+  let calls = 0;
+  const options = { judge: async () => { calls++; throw new Error('model down'); }, outage, log: line => lines.push(line) };
+  for (let i = 0; i < 6; i++) {
+    const result = await scoreRfp(packet(), options);
+    assert.equal(result.scoring_error, 'model-unavailable');
+    assert.equal(result.total, null);
+  }
+  // RFP 1 fails once; RFP 2 fails, waits twice and fails each time; RFPs 3-6 never reach the model.
+  assert.equal(calls, 4);
+  assert.deepEqual(waits, [1000, 1000]);
+  assert.equal(outage.stopped, true);
+  assert.equal(lines.filter(line => /remaining RFPs stay unscored/.test(line)).length, 1);
+  assert.equal(lines.filter(line => /scoring failed/.test(line)).length, 2);
+});
+
+test('invalid answers do not count as a model outage', async () => {
+  const waits = [];
+  const outage = createModelOutageGuard({ threshold: 2, sleep: async ms => { waits.push(ms); }, log: () => {} });
+  for (let i = 0; i < 4; i++) {
+    assert.equal((await scoreRfp(packet(), { judge: async () => '{not json}', outage, log: () => {} })).scoring_error, 'invalid-judgment');
+  }
+  assert.deepEqual(waits, []);
+  assert.equal(outage.stopped, false);
+});
+
+test('the job log gets the failure reason without URLs or credentials', () => {
+  const error = Object.assign(new TypeError('fetch failed for https://user:pw@api.example.test/v1/responses?api_key=abc123 with Authorization: Bearer sk-live-0123456789abcdefghij and token=shortsecret'), { code: 'ECONNRESET' });
+  const line = describeScoringFailure(error);
+  assert.match(line, /^TypeError ECONNRESET: fetch failed for \[url\]/);
+  assert.doesNotMatch(line, /example\.test|abc123|sk-live|shortsecret|user:pw/);
+  assert.ok(describeScoringFailure(new Error('word '.repeat(200))).length <= 240);
+  assert.equal(describeScoringFailure(new Error('AI scoring timed out.')), 'AI scoring timed out.');
+  assert.equal(describeScoringFailure(undefined), 'unknown error');
+});
+
+test('one OpenClaw connection serves the whole run and is rebuilt after a failed call', async () => {
+  let created = 0, fail = false;
+  const createJudge = async () => { created++; return async args => { if (fail) throw new Error('model down'); return goodJudge(args); }; };
+  const testJudge = Symbol.for('isa.rfp.testJudge');
+  const saved = globalThis[testJudge];
+  delete globalThis[testJudge];
+  try {
+    const options = { createJudge, log: () => {} };
+    assert.equal((await scoreRfp(packet(), options)).scoring_error, undefined);
+    assert.equal((await scoreRfp(packet(), options)).scoring_error, undefined);
+    assert.equal(created, 1);
+    fail = true;
+    assert.equal((await scoreRfp(packet(), options)).scoring_error, 'model-unavailable');
+    fail = false;
+    assert.equal((await scoreRfp(packet(), options)).scoring_error, undefined);
+    assert.equal(created, 2);
+  } finally { if (saved) globalThis[testJudge] = saved; }
 });
