@@ -48,6 +48,10 @@
     - sentences were cut at "No." (Port of Oakland's "(RFP No.").
   - **Backfill audit rebuilt:** 187 lines, the report's 185 plus the 2 duplicates. The 53 intake drops can't be rebuilt, because that run kept nothing about them.
   - `npm test` (170) and `npm run check` pass; the new intake-drop and duplicate checks fail when their hooks are removed.
+  - **Released October 14 at 18:43 UTC:**
+    - PR #20, commit `7670f41`, a guarded upload of 4 scripts (`rfp-audit`, `rfp-report`, `rfp-scoring-judgment`, `weekly-rfp-pursue-decision`);
+    - no VM drift beforehand, the post-upload snapshot matched, all 4 import on the VM, and the crontab is unchanged;
+    - rollback: `~/.openclaw/workspace/backups/dev-deploy-2026-10-14T18-43-10-098Z-7670f41`.
 - [ ] After Friday October 16:
   - the audit file's line count equals the report's entries;
   - `cron.log` shows any "asking once more" lines and their outcome;
