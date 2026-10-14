@@ -152,7 +152,7 @@ Conclusions for the retrieval spec:
 
 - Recognizing what HigherGov already returns was the largest gain in this sample, larger than any fetching step.
 - Do not schedule automated fetching from procurement portals without the site's permission. Treat them as places a person fetches from, with the portal named in the blocker. Read a site's robots file before probing it.
-- SAM.gov's official API is the one retrieval route consistent with these findings. It still needs a free SAM.gov API key and is untested.
+- SAM.gov's official API is the one permitted retrieval route found, but there is no case for it yet. ISA's HigherGov search already includes SAM.gov (`sourceType: "sled,sam"`). Of the 180 listings on October 9, 15 came from SAM.gov and 1 was Needs documents, and HigherGov had every file SAM.gov lists for it; it was a federal Area of Interest, which `c0cc919` now recognizes. Build it only if later weeks show HigherGov missing SAM.gov files. It needs a free SAM.gov API key, approved for the VM, and is untested.
 - A link finder must not depend on file extensions; take the file name from the link text or the response headers.
 
 This is one week's sample. `devtools/measure-document-sources.mjs`, a reusable version of the measurement written afterward, is kept as an uncommitted draft and has not been run. It does not read robots files and finds files by extension, so it should not be run as it stands.
