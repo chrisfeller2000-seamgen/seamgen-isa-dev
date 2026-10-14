@@ -23,8 +23,10 @@
   - **A county website design and build,** scored as of October 9 (on time): Gate 2 passes, Worth a look 71, so documents would be fetched. The late run cut it at Gate 1.
   - **Previously rejected answers:**
     - A college's event and space management software: scored on the first try, as a Watch item.
-    - A regional 9-1-1 call handling system: rejected for "Missing scoring evidence.", then retried.
-    - A state toll collection system: rejected for "Deal category does not match estimated size.", then retried.
+    - A regional 9-1-1 call handling system: rejected for "Missing scoring evidence.", then scored on the second try (No-bid, 39).
+    - A state toll collection system: rejected for "Deal category does not match estimated size.", then scored on the second try (Worth a look 65; documents would be fetched).
+
+  10 model calls, 37–162 seconds per RFP.
 - [ ] Release: PR, merge, guarded upload of the changed workspace scripts.
 - [ ] After Friday October 16:
   - the audit file's line count equals the report's entries;
