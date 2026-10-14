@@ -27,7 +27,11 @@
     - A state toll collection system: rejected for "Deal category does not match estimated size.", then scored on the second try (Worth a look 65; documents would be fetched).
 
   10 model calls, 37–162 seconds per RFP.
-- [ ] Release: PR, merge, guarded upload of the changed workspace scripts.
+- [x] Release, October 14 at 18:09 UTC.
+  - **Upload:** PR #19, commit `4defe7b`, a guarded upload of 5 scripts (`rfp-audit`, `rfp-report`, `rfp-scoring-judgment`, `rfp-scoring-policy`, `weekly-rfp-pursue-decision`).
+  - **Before:** the VM had not drifted from the accepted baseline, and no RFP job was running.
+  - **After:** the post-upload snapshot matched, `live:pull` shows no changes, and all 5 scripts pass `node --check` and import on the VM's Node v24.21.0. The Friday crontab entry is unchanged.
+  - **Rollback:** restore from `~/.openclaw/workspace/backups/dev-deploy-2026-10-14T18-09-24-195Z-4defe7b`, and delete `scripts/rfp-audit.mjs`, which is new.
 - [ ] After Friday October 16:
   - the audit file's line count equals the report's entries;
   - `cron.log` shows any "asking once more" lines and their outcome;
