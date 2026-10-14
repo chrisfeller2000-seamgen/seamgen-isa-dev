@@ -1,5 +1,7 @@
 # ISA task spec: weekly RFP update the sales team can act on
 
+> **Replaced in part (October 12):** the Friday email and Telegram message described here are replaced by the [pursue email spec](../2026-10-12__rfp-pursue-email/spec.md) (Jira ISA-6). The results file, tiers, failure notice and ISA's chat instructions still apply.
+
 ## Summary
 
 The October 6 release made the Friday RFP job score with AI and fetch documents. What the sales team receives has not changed:

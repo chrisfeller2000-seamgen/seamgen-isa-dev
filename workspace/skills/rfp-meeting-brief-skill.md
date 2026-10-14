@@ -2,7 +2,7 @@
 name: rfp-meeting-brief
 purpose: Generate a short (one-page) pre-meeting document for a specific RFP, designed to be read in 60 seconds before a weekly sales meeting or a hallway conversation with Peter, Marianne, or a lead engineer.
 audience: This skill is written to be read by both Claude (who drafts the brief) and a human teammate (who reads, sanity-checks, and edits the template over time).
-version: 2.3 — July 2026
+version: 2.4 — October 2026
 owner: Jake (Seamgen)
 depends_on: rfp-scoring skill (this brief reads from that skill's output), plus optional inputs from the pursue-to-Peter email thread, engineer timeline estimates, and agency Q&A responses. The Blockers section reads the RFP directly, for verbatim requirement quotes with §/page.
 ---
@@ -40,7 +40,7 @@ Provide (or point Claude to):
 2. Any engineer timeline estimate that has come in (paste the Slack message or forward it verbatim — see "Engineer timeline" section below).
 3. Any updates from Peter, Marianne, or the agency since the last brief.
 4. **The ASK** — what specifically needs to be decided or discussed in this meeting. If Jake doesn't provide it, Claude will infer a likely ASK from the lifecycle stage.
-5. The RFP document itself — needed for **Blockers**, which quotes requirements verbatim with §/page rather than paraphrasing them. Its submission section still matters, but only for mechanics that could **disqualify** us (see Blockers below), not for a full package inventory.
+5. The RFP document itself — needed for **Blockers**, which quotes requirements verbatim with §/page rather than paraphrasing them. Its submission section still matters, but only for mechanics that could **disqualify** us (see Blockers below), not for a full package inventory. **Read it from the RFP's `resources/` folder.** If the solicitation isn't there yet, run `skills/rfp-document-fetch-skill.md` first; never build a brief from a copy that only exists in `/tmp` or the scratchpad.
 
 Claude will produce the brief in the RFP's own folder **`RFPs/[stage]/[rfp-slug]/`** (a Markdown working copy plus the PDF deliverable), creating that folder if it doesn't exist yet, named:
 
@@ -50,7 +50,7 @@ RFPs/[stage]/[rfp-slug]/meeting-brief_YYYY-MM-DD_[rfp-slug].pdf
 
 For example: `RFPs/[stage]/maryland-website-redesign/meeting-brief_2026-07-06_maryland-website-redesign.pdf`
 
-Naming convention rationale: the date prefix makes multiple briefs over time sort chronologically within the RFP's folder, and the slug in the filename keeps each file self-describing even if moved. Every deliverable for a given RFP lives together in the RFP's own folder — `RFPs/[stage]/[rfp-slug]/`, where `[stage]` is its current lifecycle tier (`1-pre-submission` / `2-intermediate-stage` / `3-building` / `4-submitted`). Save into that `[rfp-slug]/` folder wherever it already exists; don't assume the tier or create a duplicate (see CLAUDE.md Rule 10). **The PDF is rendered from a temporary HTML built in the scratchpad (headless Edge/Chrome print-to-pdf); that HTML is NOT kept in the RFP folder — the folder holds only the `.md` working copy and the `.pdf` deliverable.**
+Naming convention rationale: the date prefix makes multiple briefs over time sort chronologically within the RFP's folder, and the slug in the filename keeps each file self-describing even if moved. Every deliverable for a given RFP lives together in the RFP's own folder — `RFPs/[stage]/[rfp-slug]/`, where `[stage]` is its current lifecycle tier (`1-pre-submission` / `2-intermediate-stage` / `3-building` / `4-submitted`). Save into that `[rfp-slug]/` folder wherever it already exists; don't assume the tier or create a duplicate (see CLAUDE.md Rule 10). **The PDF is rendered from a temporary HTML built in the scratchpad (headless Edge/Chrome print-to-pdf); that HTML is NOT kept in the RFP folder — a brief adds only its `.md` working copy and its `.pdf` deliverable.** The RFP's `resources/` folder and the original documents in it are not part of this cleanup: remove only the working files this brief created, and never trash or delete an original.
 
 ## The brief format
 
@@ -482,6 +482,8 @@ control.
 That reads in 60 seconds at the top and answers every question Peter or Marianne is likely to ask on the way to the meeting room.
 
 ## Notes and edit history
+
+**v2.4 — October 12, 2026.** The brief now **reads the RFP from its `resources/` folder and leaves that folder alone when it cleans up.** On October 7 the California Monitoring Program RFQ was downloaded to `/tmp`, the brief was built from it, and the RFQ was then trashed along with the temporary HTML — the only copy, found in Trash three days later. Two causes were in this file: nothing said where the RFP document had to be, and the cleanup sentence said the folder "holds only" the `.md` and `.pdf`, which reads as an instruction to clear out anything else. Input 5 now sends a missing document to `skills/rfp-document-fetch-skill.md` first, and the cleanup sentence covers only the working files the brief itself created.
 
 **v2.3 — July 28, 2026, Jake + Claude.** Added a fourth beat — **"Who this looks written for"** — to *Current Solution & Desired Outcome*, carrying the wired-RFP verdict in about 80 words. Prompted by Jake being taken apart in a meeting with Peter on exactly this question, and by Peter supplying the concept that names the pattern: a **"fake RFP"** describes what it wants loosely, because a specification strict enough to name one supplier would exclude most of the market and invite a protest — so **the tell is a gap**, where the RFP names a platform or product posture and then stops short of requiring credentials in it.
 

@@ -1,0 +1,162 @@
+{
+  "runDate": "2026-10-16",
+  "week": "42",
+  "total": 3,
+  "counts": {
+    "strong": 2,
+    "worth": 1,
+    "check": 0,
+    "screened": 0
+  },
+  "intake": {
+    "fetched": null,
+    "passed": null,
+    "days": null
+  },
+  "entries": [
+    {
+      "slug": "seniors-app",
+      "title": "AI-Driven Mobile and Web Application for Senior Services",
+      "number": "",
+      "agency": "City of Exampleton",
+      "state": "NY",
+      "links": {
+        "highergov": "https://www.highergov.com/sl/contract-opportunity/seniors-app",
+        "posting": "",
+        "documents": "https://drive.google.com/drive/folders/synthetic-seniors-app"
+      },
+      "tier": "strong",
+      "reason": null,
+      "reasonDetail": "",
+      "recommendation": "Strong Pursue",
+      "scoredFrom": "documents",
+      "score": 86,
+      "rankScore": 86,
+      "rankFrom": "final",
+      "scoreIfYes": null,
+      "need": "The City wants a mobile and web app so residents aged 60+ and their caregivers can find services, transport and events.",
+      "fit": "The HealthCare Partners referral portal and the InsideOut caregiver platform are close matches.",
+      "buyer": {
+        "currentSolution": null,
+        "silent": true,
+        "objective": "The City wants one app where residents 60+ and their caregivers can find City services without knowing which department to call.",
+        "advantage": null
+      },
+      "blockers": [
+        {
+          "text": "Submitting needs a registration on the agency's portal.",
+          "quote": ""
+        },
+        {
+          "text": "The RFP asks for SOC 2 Type II evidence where available, which we do not hold.",
+          "quote": ""
+        }
+      ],
+      "questions": [],
+      "agencyQuestion": null,
+      "notes": [],
+      "sensitive": null,
+      "deadline": {
+        "date": "2026-11-13",
+        "confirmed": true,
+        "days": 28,
+        "text": "Nov 13 at 11am PT (28 days)"
+      },
+      "budget": {
+        "low": 650000,
+        "high": 650000,
+        "text": "$650k (from the RFP)"
+      },
+      "longShot": false
+    },
+    {
+      "slug": "permits",
+      "title": "Online Permitting and Inspections Portal",
+      "number": "",
+      "agency": "Example County",
+      "state": "NY",
+      "links": {
+        "highergov": "https://www.highergov.com/sl/contract-opportunity/permits",
+        "posting": "",
+        "documents": "https://drive.google.com/drive/folders/synthetic-permits"
+      },
+      "tier": "strong",
+      "reason": null,
+      "reasonDetail": "",
+      "recommendation": "Strong Pursue",
+      "scoredFrom": "documents",
+      "score": 79,
+      "rankScore": 79,
+      "rankFrom": "final",
+      "scoreIfYes": null,
+      "need": "The County wants an online permitting portal.",
+      "fit": "Our permit portal for the City of Sample is a close match.",
+      "buyer": {
+        "currentSolution": "Applicants file paper forms that staff re-key into a 2012 desktop system.",
+        "silent": false,
+        "objective": "The County wants applicants to apply, pay and book inspections online.",
+        "advantage": null
+      },
+      "blockers": [],
+      "questions": [],
+      "agencyQuestion": null,
+      "notes": [],
+      "sensitive": null,
+      "deadline": {
+        "date": "2026-11-13",
+        "confirmed": true,
+        "days": 28,
+        "text": "Nov 13 at 11am PT (28 days)"
+      },
+      "budget": {
+        "low": 650000,
+        "high": 650000,
+        "text": "$650k (from the RFP)"
+      },
+      "longShot": false
+    },
+    {
+      "slug": "grants",
+      "title": "Grants Management System",
+      "number": "",
+      "agency": "Example State Arts Council",
+      "state": "NY",
+      "links": {
+        "highergov": "https://www.highergov.com/sl/contract-opportunity/grants",
+        "posting": "",
+        "documents": ""
+      },
+      "tier": "worth",
+      "reason": null,
+      "reasonDetail": "",
+      "recommendation": "Needs review",
+      "scoredFrom": "documents",
+      "score": null,
+      "rankScore": 71,
+      "rankFrom": "potential",
+      "scoreIfYes": 71,
+      "need": "A grants management system.",
+      "fit": "A grants tool we built is similar.",
+      "buyer": null,
+      "blockers": [],
+      "questions": [
+        "Verified."
+      ],
+      "agencyQuestion": null,
+      "notes": [],
+      "sensitive": null,
+      "deadline": {
+        "date": "2026-11-13",
+        "confirmed": true,
+        "days": 28,
+        "text": "Nov 13 at 11am PT (28 days)"
+      },
+      "budget": {
+        "low": 650000,
+        "high": 650000,
+        "text": "$650k (from the RFP)"
+      },
+      "longShot": false
+    }
+  ]
+}

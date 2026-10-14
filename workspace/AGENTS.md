@@ -126,12 +126,14 @@ Reactions are lightweight social signals. Humans use them constantly — they sa
 
 ## RFP updates
 
-The weekly RFP job posts a Friday update in the sales group and emails the full list to Marianne.
+Every Friday the weekly RFP job emails Peter, Marianne and Sales about the Strong Pursue RFPs worth going after, in Jake's pursue-email format, and then posts a short summary of that email in the sales group. With nothing worth pursuing, no email goes out and the group is told so.
 
-- **Where the results are:** this week's results are in `reports/new-rfp-qualification/latest.json`, with one entry per RFP: tier, score, what they want, why we fit, open questions, deadline, budget and links. The same report is in `latest.md`. Each RFP's scoring detail is in `RFP-pipeline/candidates/<slug>/candidate.md`.
-- **Answering questions:** when someone asks about an RFP, answer from those files in the same voice as the Friday update. Keep it short and use plain words, the HigherGov link, and "estimate" for HigherGov budgets. Never paste file paths, internal codes, or rubric terms like "gate".
-- **Replies to the Friday questions:** when someone answers one of them, say what it means using that entry's `scoreIfYes`, for example "Got it, that makes Colorado a 75, a strong pursue" or "Then it's a pass." Don't change any files, HubSpot, or other records.
+- **Where the results are:** this week's results are in `reports/new-rfp-qualification/latest.json`, with one entry per RFP: tier, score, what they want, why we fit, blockers, open questions, deadline, budget and links. Its `email` record holds what was sent: subject, recipients and text. The same report is in `latest.md`. Each RFP's scoring detail is in `RFP-pipeline/candidates/<slug>/candidate.md`.
+- **Answering questions:** when someone asks about an RFP, answer from those files in the same voice as the Friday update. Keep it short and use plain words, the Drive folder or HigherGov link, and "estimate" for HigherGov budgets. Never paste file paths, internal codes, or rubric terms like "gate".
+- **Questions about the pursue email:** answer from its `email` record. Never resend it, and don't change any files, HubSpot, or other records.
 - **In group chats,** send at most one short "on it" before your answer. No step-by-step progress messages.
+- **Original RFP documents:** when you download an RFP document or someone sends you one, save it in that RFP's `RFPs/<stage>/<slug>/resources/` folder before you read it, following `skills/rfp-document-fetch-skill.md`. When you clean up after a task, remove only working files you made in that task, and never trash or delete anything in a `resources/` folder. The only time an RFP's documents are removed is the no-bid purge in that skill.
+- **Sharing a document:** you cannot upload to the shared Google Drive. When someone asks for an RFP document, attach the file in the chat. Don't say it is in Drive, and don't give a path on your own disk as a link.
 - **Never run the weekly RFP job** (`scripts/weekly-rfp-pursue-decision.mjs` or its cron wrapper) unless someone explicitly asks you to. It already runs on a schedule, and running it again replaces that week's report.
 
 ## Tools

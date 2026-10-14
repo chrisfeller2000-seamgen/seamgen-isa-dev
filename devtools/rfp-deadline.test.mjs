@@ -247,18 +247,21 @@ test('input/output defaults use assessment date, with explicit older input suppo
   assert.throws(() => resolveRunConfig({ RFP_SECONDARY_OUT_BASENAME: '../outside' }), /filename/);
 });
 
-test('unknown deadlines cannot inflate qualified counts or get finalized scores', () => {
-  const unresolved = score('Support available 24/7/365.');
-  assert.equal(unresolved.total, null);
-  assert.equal(unresolved.recommendation, 'Deadline needs review');
-  assert.equal(unresolved.gate.gate1, null);
+test('a listing-only deadline is scored with Gate 1 open; conflicting dates still get no score', () => {
+  const listingOnly = score('Support available 24/7/365.');
+  assert.equal(listingOnly.gate.gate1, null);
+  assert.equal(listingOnly.timeline.status, 'metadata-only');
+  assert.equal(listingOnly.categories.timeline, 4);
+  assert.ok(Number.isFinite(listingOnly.total));
+  const conflict = score('Proposal deadline: October 25, 2026');
+  assert.deepEqual([conflict.recommendation, conflict.total], ['Deadline needs review', null]);
   const row = (title, scored) => ({ title, agency: 'Synthetic Agency', preliminary_score: 80, fulltext_score: scored.total, ...scored, fetchStatus: 'downloaded' });
-  const report = buildSecondaryReport([row('Needs review', unresolved), row('Verified', score(mdrText)), row('Conflict', score('Proposal deadline: October 25, 2026'))], assessment);
-  assert.equal(report.summary.strongPursue, 1);
-  assert.equal(report.summary.deadlineNeedsReview, 2);
+  const report = buildSecondaryReport([row('Listing only', listingOnly), row('Verified', score(mdrText)), row('Conflict', conflict)], assessment);
+  assert.equal(report.summary.strongPursue, 2);
+  assert.equal(report.summary.deadlineNeedsReview, 1);
   assert.equal(report.summary.gateFails, 0);
   assert.equal(report.summary.total, report.summary.strongPursue + report.summary.worthALook + report.summary.noBid + report.summary.deadlineNeedsReview);
-  assert.equal(report.results[0].title, 'Verified');
+  assert.equal(report.results.at(-1).title, 'Conflict');
   assert.match(report.markdown, /Secondary Full-Text Scoring - 2026-09-28/);
   assert.match(report.markdown, /Full-text: Not finalized/);
   assert.match(report.markdown, /Deadline status: conflicting/);
