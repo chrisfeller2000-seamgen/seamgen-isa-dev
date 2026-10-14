@@ -64,6 +64,10 @@
     - **Budget.** Ranges crossing a band edge scored 8 (viable): $120k–450k, $150k–1.2M, $750k–3.5M. Ranges inside the sweet spot kept 10.
     - **Net:** the accessible website went from 71 to 72.
     - **Failure:** one listing failed on both tries with "Missing scoring evidence." That is the known failure mode, not a new one. 7 model calls.
+  - **Released October 14 at 21:39 UTC:**
+    - PR #21, commit `90b29ee`, a guarded upload of 3 scripts (`rfp-report`, `rfp-scoring-judgment`, `rfp-scoring-policy`);
+    - no VM drift beforehand, no RFP job running, the post-upload snapshot matched, the weekly scripts import on the VM, and the crontab is unchanged;
+    - rollback: `~/.openclaw/workspace/backups/dev-deploy-2026-10-14T21-39-20-662Z-90b29ee`.
 - [ ] After Friday October 16:
   - the audit file's line count equals the report's entries;
   - `cron.log` shows any "asking once more" lines and their outcome;
