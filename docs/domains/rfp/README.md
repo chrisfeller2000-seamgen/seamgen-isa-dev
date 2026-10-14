@@ -12,7 +12,7 @@ The weekly job in `workspace/scripts/weekly-rfp-pursue-decision.mjs` runs intake
 
 - **Strong pursue.**
 - **Worth a look.**
-- **Couldn't check yet:** documents missing or unreadable, or scoring didn't finish.
+- **Couldn't check yet:** documents missing or unreadable, or scoring didn't finish. Also "ask the agency first": the documents show a product buy (Jake's Gates 2 and 2a). The report gives the question to send and when the agency's questions are due. These are never picks, whatever they could score.
 - **Screened out:** with a plain reason.
 
 From that file:
@@ -21,6 +21,7 @@ From that file:
 - **The subject must never match the mail-to-HubSpot job's pursue pattern** (`RFP_PURSUE_SUBJECT_PATTERN`). That job turns matching emails from isa@ into deals, paragraph by paragraph, so a match would create junk deals. A test keeps the two patterns in step.
 - **At most one pursue email per week.** A re-run in the same week sends nothing new; a failed send can be retried.
 - **The Telegram message** is a short summary of what happened: the email was sent (with each RFP's score and biggest blocker), it failed, or nothing was worth pursuing (with the closest one and why). ISA writes the "sent" version, checked like the email; the other two are code-built.
+- **Close calls.** Code then adds up to three "close calls": RFPs scoring 70 or more that weren't picked, so someone can ask for a closer look. Scores move about 5 points between runs. "Ask the agency first" RFPs and the quiet week's closest one are left out.
 - **The results file** records the email and the message, who wrote them, and why a code-built version was used. ISA's chat reads it to answer questions about the week's RFPs.
 
 ## Weekly audit

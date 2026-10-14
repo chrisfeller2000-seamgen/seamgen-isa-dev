@@ -35,6 +35,15 @@ Weekly preliminary scoring can use a valid listing deadline, but remains metadat
 
 **Gate 2 from a listing (October 14).** Jake's preliminary skill says a Gate 2 call that could go either way from the listing is carried forward, not killed. In the October 2–8 backfill, 86 of the 91 Gate 2 cuts were made from the listing alone. About 20 gave "the Q&A window is unverified" as a reason, which a listing can never show. Now an unconfirmed Q&A window never fails Gate 2 at preliminary depth; the model fails it there only when the listing leaves no custom path. At that depth the Conditional — Ask the Agency route is scored like an open gate, so a 50+ listing gets its documents fetched; it used to stop at Needs review with no score. After the documents are read, Gate 2 and the conditional route are decided exactly as before.
 
+**Jessica's review against Jake's system (October 14).** Three of her points were deviations in ISA's own code, not in Jake's rubric:
+
+- **Compliance.** Jake's Category 6 lists Section 508, ADA, HIPAA, GDPR and NIST/FISMA/FITARA as demonstrated, and his example scored a website accessibility policy 8/10. ISA's prompt sent accessibility without a named standard to 3–5; Madison County's accessible website scored 4.
+  - A required accessibility standard (508, ADA, WCAG) or a listed regime is now demonstrated (10), citing the company's 508 work or the HCP HIPAA case.
+  - Accessibility without a named standard is 8–9.
+  - 3–5 is only for generic requirements.
+- **Deal size.** A value range that crosses a size-band edge may be scored in any band it touches. Jake gave 8–9 to ranges straddling the sweet spot, where the policy used to demand the estimate's own band.
+- **Product buys.** When the documents show one, the model takes the ask-the-agency route. The policy returns Needs review if another gate is also open, and the report counted a Needs review with a could-reach score as Worth a look: Raleigh's fire records system, an existing-product install, showed at 71. Now any result with a conditional route is "ask the agency first" in the report, never a pick.
+
 ## Known gaps
 
 The fixture covers complete, empty, and portal-gated document sets, not actual HigherGov behavior from Azure. `devtools/document-text.test.mjs` replaces `pdftotext` and `ocrmypdf` with stand-ins, so the real OCR path is only exercised on the VM. The RFP report does not yet say when a document was read by OCR, and the deadline rules do not recognise wording such as "qualifications will be accepted no later than". An empty list is recorded as `document-list-empty` (Needs documents), separately from confirmed access blocking; neither proves no solicitation exists. Full-text requires usable extracted solicitation text and no known missing required scoring attachment. Ancillary/rating forms and bid-board exports pointing to a separate RFP do not establish that.

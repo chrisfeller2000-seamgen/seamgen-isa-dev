@@ -356,10 +356,17 @@ function validateDealSize(deal, dealBand, points, value, sources, phase, reasons
     throw new Error('Project estimate contradicts the value evidence.');
   }
   if (value.low !== null && value.low !== undefined && deal.kind === 'stated' && deal.estimate < value.low) throw new Error('Estimate contradicts listing lower bound.');
-  // For overlapping size-band endpoints, the highest applicable band wins.
-  const expectedBand = deal.estimate >= 250000 && deal.estimate <= 3000000 ? 'sweetSpot'
-    : deal.estimate <= 5000000 ? 'viable' : deal.estimate <= 10000000 ? 'large' : 'veryLarge';
-  if (dealBand !== expectedBand) throw new Error('Deal category does not match estimated size.');
+  // For overlapping size-band endpoints, the highest applicable band wins. A value range
+  // that crosses a band edge may be scored in any band it touches: Jake gave 8–9 to ranges
+  // straddling the sweet spot, where this check used to demand the estimate's own band.
+  const bandOf = amount => (amount >= 250000 && amount <= 3000000 ? 'sweetSpot'
+    : amount <= 5000000 ? 'viable' : amount <= 10000000 ? 'large' : 'veryLarge');
+  const allowed = new Set([bandOf(deal.estimate)]);
+  if (Number.isFinite(value.low) && Number.isFinite(value.high) && value.low < value.high) {
+    const edges = [250000, 3000000, 5000000, 10000000].filter(edge => edge > value.low && edge < value.high);
+    for (const amount of [Math.max(value.low, 100000), value.high, ...edges, ...edges.map(edge => edge + 1)]) allowed.add(bandOf(amount));
+  }
+  if (!allowed.has(dealBand)) throw new Error('Deal category does not match estimated size.');
   if (deal.kind === 'inferred' && !norm(deal.reason)) throw new Error('Inferred value needs a scope/comparable explanation.');
 }
 
