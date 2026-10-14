@@ -34,4 +34,10 @@
   - 00:39 UTC: commit `745a48c`, the cron wrapper only, holding Peter back. Backup: `backups/dev-deploy-2026-10-14T00-39-44-767Z-745a48c`.
   - Before upload, the VM matched main exactly (OCR and PR #11 were live). After it, `live:pull` shows no differences. On the VM's Node 24, the deployed modules import and build a sample email without the model.
   - Recipients: to Marianne and sales@, cc cfeller@ and jgaribay@. Peter joins later.
+  - 02:00 UTC: Jessica's PRs, from main at `a41b00f`, 6 workspace files. Backup: `backups/dev-deploy-2026-10-14T02-00-15-449Z-a41b00f`.
+    - #12: keep original RFP documents; the real fetch skill and meeting brief v2.4.
+    - #13: recognize RFO, RFA, "Scope of Work" and Area of Interest solicitations.
+    - #15: outage guard, one model connection per run, scrubbed failure lines in `cron.log`, and the Telegram gateway retry, ported into `deliverPursueUpdate`.
+
+    Afterward, `live:pull` shows no differences, and on the VM the modules load, the guard and log scrubber work, and an RFA file is recognized.
 - [ ] After the first live Friday: email, Telegram, `email` record, no mail-sync deals, log.
