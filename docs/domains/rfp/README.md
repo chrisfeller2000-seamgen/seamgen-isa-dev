@@ -23,6 +23,19 @@ From that file:
 - **The Telegram message** is a short summary of what happened: the email was sent (with each RFP's score and biggest blocker), it failed, or nothing was worth pursuing (with the closest one and why). ISA writes the "sent" version, checked like the email; the other two are code-built.
 - **The results file** records the email and the message, who wrote them, and why a code-built version was used. ISA's chat reads it to answer questions about the week's RFPs.
 
+## Weekly audit
+
+Each run deletes the previous week's candidate files before intake, so the results file's one-line reasons were the only lasting record. Since October 14, `workspace/scripts/rfp-audit.mjs` also keeps `reports/new-rfp-qualification/audit/<run date>.jsonl`: one JSON line per report entry, written the moment that RFP's entry is. A run that dies partway still leaves what it scored, and a second run on the same date writes `<run date>-2.jsonl` instead of touching the first. Nothing deletes these files.
+
+Each line holds:
+- **The RFP:** HigherGov `versionKey`/`oppKey`, title, agency, listing due date and links.
+- **The outcome:** exactly what the report said (tier, reason, recommendation, score).
+- **The listing and full-text scoring:** each gate's pass/fail/open with its reason, category points, the reasons and deadline, any scoring error and the number of tries, the model, and short hashes of the four scoring skills.
+- **The model's own answer:** evidence quotes cut to 300 characters.
+- **The documents:** file names, roles, and whether each was read. Local paths and download links stay in the manifest.
+
+That is about 2 MB a week. If the file can't be written, the job logs one line and the Friday update goes out without it. `npm run rfp:audit -- <run date>` copies one week to `.isa-local/audit/` (read-only on the VM) and writes a CSV next to it. The audit holds RFP and contact data, so it is never committed. Until ISA has a database this file is the record; each line imports as one row keyed on `versionKey`. ISA's chat does not read it yet.
+
 `RFP_INTAKE_REPLAY=YYYY-MM-DD:YYYY-MM-DD` pulls those past HigherGov days again, ignoring the seen list, and leaves the intake state and seen list unchanged, so the next scheduled run starts where the last one stopped. A plain re-run pulls new days instead and moves the state forward. To redo a failed week, combine it with `RFP_REPORT_WEEK_OF`.
 
 `RFP_REPORT_WEEK_OF=YYYY-MM-DD` counts a late re-run as that date's week for the once-a-week email, so that week's Friday run still sends; deadlines still count from the real run date. It was used to redo October 9's run on October 14.
@@ -41,7 +54,7 @@ The job now limits the damage:
 - **Telegram.** If the gateway refuses the connection, the send is tried five times, three minutes apart. Other failures are not retried, because the message may already have been posted.
 - **Job log.** Each scoring failure writes one `[rfp-scoring]` line to `cron.log` with the stage and the error, with URLs and credentials removed. Reports and candidate files still record only the stage.
 
-An answer that fails validation (`invalid-judgment`) or a document set over the size limit (`context-unavailable`) is not an outage and is not retried. Whether a fresh connection recovers after an update has replaced the install has not been tested against a real OpenClaw.
+An answer that fails validation (`invalid-judgment`) is not an outage. Since October 14 the model gets one more try, with the validator's reason in the request (`previousAnswerRejected`); a second rejection stays unscored. On October 14 these rejections, mostly "Missing scoring evidence.", left 20 of 185 RFPs unchecked. A document set over the size limit (`context-unavailable`) is not retried. Whether a fresh connection recovers after an update has replaced the install has not been tested against a real OpenClaw.
 
 ## Invariants and sharp edges
 
@@ -51,7 +64,7 @@ An answer that fails validation (`invalid-judgment`) or a document set over the 
 - Candidate and `resources/` folders are runtime/customer data, not versioned source. The document manifest should describe what was returned, saved, extracted, blocked, or missing without storing credentials or signed links.
 - RFP skills are not all consistent with current code: in this snapshot, `rfp-document-fetch-skill.md` is byte-identical to `rfp-document-refresh-skill.md` and identifies itself as refresh. Verify the intended fetch procedure before relying on that file.
 
-Offline RFP tests include the synthetic document-flow fixture in `devtools/rfp-fixture.test.mjs`, pure deadline/scoring regressions in `devtools/rfp-deadline.test.mjs`, the isolated secondary report fixture in `devtools/rfp-deadline-report.test.mjs`, the secondary evidence gate and file-role checks in `devtools/rfp-secondary-evidence.test.mjs`, and the rubric cases in `devtools/rfp-alignment.test.mjs`. They do not prove real portal access, complete document qualification, or scheduled production behavior. See [integrations](../../integrations.md) and [security](../../security.md).
+Offline RFP tests include a whole weekly run in preview mode in `devtools/rfp-audit.test.mjs` (intake replay, recorded scoring, documents, report and audit, with nothing sent), the synthetic document-flow fixture in `devtools/rfp-fixture.test.mjs`, pure deadline/scoring regressions in `devtools/rfp-deadline.test.mjs`, the isolated secondary report fixture in `devtools/rfp-deadline-report.test.mjs`, the secondary evidence gate and file-role checks in `devtools/rfp-secondary-evidence.test.mjs`, and the rubric cases in `devtools/rfp-alignment.test.mjs`. They do not prove real portal access, complete document qualification, or scheduled production behavior. See [integrations](../../integrations.md) and [security](../../security.md).
 
 The local scoring implementation shares `rfp-scoring-policy.mjs` and `rfp-scoring-judgment.mjs` between weekly and secondary scoring. It replaces their divergent keyword totals with grounded judgments, validated gates/categories, and code-computed decisions. It reuses ISA's model configuration; no separate model service or credentials are introduced.
 

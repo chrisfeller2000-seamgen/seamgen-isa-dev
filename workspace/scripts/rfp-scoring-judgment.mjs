@@ -20,6 +20,10 @@ const MAX_RESOLVED_QUOTE_CHARS = 250000;
 // used 6k-12k tokens and one 48k-character solicitation ran past 16k. Unused headroom
 // is not billed; the call timeout still bounds a runaway answer.
 const MAX_COMPLETION_TOKENS = 32000;
+// A rejected answer is usually one slip: a missing citation, or a band and points that
+// disagree. On October 14, 20 of 185 RFPs were left unscored that way, so the model gets
+// one more try with the validator's reason. Each retry is one more model call.
+const MAX_JUDGMENT_ATTEMPTS = 2;
 const judgeSymbol = Symbol.for('isa.rfp.testJudge');
 const sourcesSymbol = Symbol.for('isa.rfp.testCompanySources');
 const policiesSymbol = Symbol.for('isa.rfp.testPolicies');
@@ -106,6 +110,7 @@ const SYSTEM_RULES = [
   'Gate 2a and 6a are mandatory.',
   'Gate 2 resolves to pass, fail, or the conditional route, as the policy defines; leave it unknown only when the scope itself is unclear.',
   'Buying, licensing, hosting, or configuring an existing product fails Gate 2 unless the custom portion is clearly material (about 40%+ of the effort) or the conditional route applies: the product framing is the sole blocker, it would otherwise reach Worth a look, a real case-study analog exists, and the Q&A window is open.',
+  "At preliminary depth, follow the preliminary skill's Gate 2 rule: a listing rarely shows the custom share or the Q&A window, so an unconfirmed Q&A window never fails Gate 2 there. Fail it only when the listing leaves no custom path (work that is not software, a named-product renewal or resale, hardware, or support of a product already in place); when a product-framed listing could go either way and a real case-study analog exists, set gate2 null with the reason so the documents decide.",
   'A definite gate or subrule answer needs evidence; an unknown (null) one needs a reason but may have empty evidence.',
   'Claiming Seamgen currently holds a credential needs a current company record; a requirement Seamgen clearly cannot meet is a Gate 6 failure, not unknown.',
   'A known gate failure stops weighted scoring; omit categories rather than fabricate them on that route.',
@@ -125,6 +130,7 @@ const SYSTEM_RULES = [
   'At full-text depth, if a gate remains unknown, still return all eight category judgments; the open gate is listed as a blocker.',
   'Categories may be omitted only when a gate is known false or the bid is not open. A referenced document that was not supplied, or an unconfirmed deadline, still gets all eight categories: score from the supplied documents and list the missing document in requiredDocuments.',
   'Never invent evidence to fill categories.',
+  'If the packet includes previousAnswerRejected, your previous answer failed validation for that reason: return the complete corrected JSON object.',
   'buyer is for the sales email and never affects gates or points: give currentSolution only when the supplied text names what is in place today, citing that text; otherwise null.',
   'questions is for the sales email and never affects gates or points: give due only when the documents state a deadline for questions or clarification requests, citing it; otherwise null.',
 ].join(' ');
@@ -297,19 +303,20 @@ export async function scoreRfp(input, { judge, outage, createJudge = createOpenC
     const packetInput = { ...input, companySources };
     const sources = scoringSources(packetInput);
     const catalog = buildEvidenceCatalog(sources);
-    const packet = JSON.stringify({ phase: input.phase || 'full-text', assessment: input.assessment, sources: catalog.sources,
-      allowedExcerptIds: [...catalog.excerpts.keys()], outputContract: OUTPUT_CONTRACT, categoryBands: CATEGORY_BANDS, evidenceSerialization: EVIDENCE_RULES });
+    const request = { phase: input.phase || 'full-text', assessment: input.assessment, sources: catalog.sources,
+      allowedExcerptIds: [...catalog.excerpts.keys()], outputContract: OUTPUT_CONTRACT, categoryBands: CATEGORY_BANDS, evidenceSerialization: EVIDENCE_RULES };
+    const packet = JSON.stringify(request);
     const systemPrompt = `${SYSTEM_RULES}\n\n${policies.map(item => `## ${item.name}\n${item.text}`).join('\n\n')}`;
     if (packet.length + systemPrompt.length > MAX_PACKET_CHARS) throw new Error('Scoring context exceeds the safe limit; required evidence was not silently truncated.');
     failureStage = 'model-unavailable';
     const fixedJudge = judge || globalThis[judgeSymbol];
-    const callModel = async () => {
+    const callModel = async prompt => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
         const ask = fixedJudge || await openClawJudge(createJudge);
         return await Promise.race([
-          ask({ input: packetInput, systemPrompt, prompt: packet, signal: controller.signal }),
+          ask({ input: packetInput, systemPrompt, prompt, signal: controller.signal }),
           new Promise((_, reject) => controller.signal.addEventListener('abort', () => reject(new Error('AI scoring timed out.')), { once: true })),
         ]);
       } catch (error) {
@@ -317,15 +324,29 @@ export async function scoreRfp(input, { judge, outage, createJudge = createOpenC
         throw error;
       } finally { clearTimeout(timer); }
     };
-    const result = await (outage ? outage.run(callModel) : callModel());
-    failureStage = 'invalid-judgment';
-    const raw = typeof result === 'string' ? result : result.text;
-    if (typeof raw !== 'string' || raw.length > MAX_RESPONSE_CHARS) throw new Error('Invalid or oversized AI scoring response.');
-    const judgment = resolveEvidenceReferences(JSON.parse(raw), catalog);
-    const scored = finalizeRfpScore(packetInput, judgment);
-    return { ...scored, provenance: { rubric: 'Jake v1.8 + approved deadline correction', evidenceFormat: 'source-excerpt-ids-v1', model: result.model || 'recorded test judgment',
-      assessmentDate: input.assessment?.runDate, sources: sources.map(source => ({ id: source.id, sha256: crypto.createHash('sha256').update(source.text).digest('hex') })),
-      policyHashes: policies.map(item => ({ name: item.name, sha256: crypto.createHash('sha256').update(item.text).digest('hex') })) } };
+    let rejection = null;
+    for (let attempt = 1; ; attempt += 1) {
+      failureStage = 'model-unavailable';
+      const prompt = rejection ? JSON.stringify({ ...request, previousAnswerRejected: rejection }) : packet;
+      const result = await (outage ? outage.run(() => callModel(prompt)) : callModel(prompt));
+      failureStage = 'invalid-judgment';
+      try {
+        const raw = typeof result === 'string' ? result : result.text;
+        if (typeof raw !== 'string' || raw.length > MAX_RESPONSE_CHARS) throw new Error('Invalid or oversized AI scoring response.');
+        const judgment = resolveEvidenceReferences(JSON.parse(raw), catalog);
+        const scored = finalizeRfpScore(packetInput, judgment);
+        return { ...scored, provenance: { rubric: 'Jake v1.8 + approved deadline correction', evidenceFormat: 'source-excerpt-ids-v1', model: result.model || 'recorded test judgment',
+          attempts: attempt, assessmentDate: input.assessment?.runDate,
+          sources: sources.map(source => ({ id: source.id, sha256: crypto.createHash('sha256').update(source.text).digest('hex') })),
+          policyHashes: policies.map(item => ({ name: item.name, sha256: crypto.createHash('sha256').update(item.text).digest('hex') })) } };
+      } catch (error) {
+        if (attempt >= MAX_JUDGMENT_ATTEMPTS) throw error;
+        // Our validator's message (for example "Missing scoring evidence.") or a JSON
+        // parse error about the model's own answer; never provider text.
+        rejection = String(error?.message || 'The answer did not match the output contract.').slice(0, 200);
+        log(`[rfp-scoring] ${input.phase || 'full-text'} answer rejected for ${input.candidate?.slug || 'an RFP'} (${describeScoringFailure(error)}); asking once more`);
+      }
+    }
   } catch (error) {
     // Provider errors can contain sensitive URLs/auth details. Do not copy them to reports;
     // the job log gets a scrubbed line, because the stage alone could not explain October 9.
