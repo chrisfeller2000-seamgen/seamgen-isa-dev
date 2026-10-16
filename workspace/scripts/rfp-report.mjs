@@ -40,7 +40,6 @@ const REASONS = {
   notOpen: { one: "isn't an open bid", heading: 'Not an open bid' },
   watch: { one: 'is an early notice', heading: 'Early notice (pre-solicitation)' },
   thin: { one: 'had too little detail to judge', heading: 'Too little listing detail' },
-  hubspot: { one: 'is already in HubSpot', heading: 'Already in HubSpot' },
 };
 const CHECK_REASONS = {
   documents: "couldn't get or read the RFP documents",
@@ -308,7 +307,7 @@ function rankOf(final, preliminary) {
   return { score: null, from: null };
 }
 
-function placement({ preliminary, final, documentStatus, hubspotDuplicate }) {
+function placement({ preliminary, final, documentStatus }) {
   const prelim = preliminary?.preview || {};
   const screened = (key, detail = '') => ({ tier: 'screened', reason: key, detail });
   const check = key => ({ tier: 'check', reason: key, detail: '' });
@@ -335,7 +334,6 @@ function placement({ preliminary, final, documentStatus, hubspotDuplicate }) {
   if (final.conditional || final.judgments?.conditional) return check('agency');
   // Never a pick until someone confirms the date (deadline spec).
   if (final.recommendation === 'Deadline needs review') return check('noDeadline');
-  if (hubspotDuplicate) return screened('hubspot');
   if (final.recommendation === 'Strong Pursue') return { tier: 'strong', reason: null, detail: '' };
   // A pick needs a score read from the documents; a listing score never makes one.
   const score = finite(final.total) ?? finite(final.potential_total);
@@ -347,11 +345,11 @@ function placement({ preliminary, final, documentStatus, hubspotDuplicate }) {
  * One results-file entry per RFP. `preliminary` is the weekly job's preliminary result
  * ({ status, preview }); `final` is the full-text result when documents were scored.
  */
-export function reportEntry({ candidate, preliminary, final = null, documentStatus = 'metadata-only', hubspotDuplicate = false, documentsLink = '' }) {
+export function reportEntry({ candidate, preliminary, final = null, documentStatus = 'metadata-only', hubspotDeal = '', documentsLink = '' }) {
   const frontmatter = candidate?.frontmatter || {};
   const prelim = preliminary?.preview || {};
   const result = final || prelim;
-  const place = placement({ preliminary, final, documentStatus, hubspotDuplicate });
+  const place = placement({ preliminary, final, documentStatus });
   const rank = rankOf(final, prelim);
   const questions = place.tier === 'worth' || place.tier === 'strong' ? openQuestions(final) : [];
   const budget = budgetOf(result.value);
@@ -369,6 +367,8 @@ export function reportEntry({ candidate, preliminary, final = null, documentStat
     agency: clean(candidate?.issuer || frontmatter.agency_name),
     state: /^[A-Z]{2}$/.test(clean(frontmatter.pop_state)) ? clean(frontmatter.pop_state) : '',
     links: { highergov: listing, posting: posting !== listing ? posting : '', documents: publicUrl(documentsLink) },
+    // The RFP-pipeline deal this RFP already matches in HubSpot, shown on the pick.
+    hubspotDeal: clean(hubspotDeal) || null,
     tier: place.tier,
     reason: place.reason,
     reasonDetail: place.detail,
@@ -463,6 +463,7 @@ export function pursueFacts(results) {
       // Results files written before ISA-6 have no blockers or sensitive flag.
       blockers: entry.blockers || [],
       sensitive: entry.sensitive || null,
+      hubspotDeal: entry.hubspotDeal || null,
     })),
   };
 }
@@ -563,6 +564,7 @@ export function renderPursueEmail(facts, sentences) {
     return {
       heading: `${pick.number}. ${clean(words.name)} — ${clean(words.hook)}`,
       source, link: pick.link,
+      hubspot: pick.hubspotDeal ? `Already in HubSpot as "${clean(pick.hubspotDeal)}".` : '',
       dates: pick.dates ? `Key dates: ${pick.dates}` : '',
       situation: `Current solution & hopeful objective: ${clean(words.situation)}`,
       fit: clean(words.fit) ? `Why it fits us: ${clean(words.fit)}` : '',
@@ -575,6 +577,7 @@ export function renderPursueEmail(facts, sentences) {
     ...blocks.flatMap(block => [
       block.heading,
       block.link ? `${block.source} — ${block.link.label}: ${block.link.url}` : block.source,
+      block.hubspot,
       block.dates,
       block.situation,
       block.fit,
@@ -589,6 +592,7 @@ ${p(escapeHtml(clean(sentences.intro)))}
 ${blocks.map(block => [
     p(escapeHtml(block.heading)),
     p(`${escapeHtml(block.source)}${block.link ? ` — <a href="${escapeHtml(block.link.url)}">${escapeHtml(block.link.label)}</a>` : ''}`),
+    block.hubspot ? p(escapeHtml(block.hubspot)) : '',
     block.dates ? p(escapeHtml(block.dates)) : '',
     p(escapeHtml(block.situation)),
     block.fit ? p(escapeHtml(block.fit)) : '',

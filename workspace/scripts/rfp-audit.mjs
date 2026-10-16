@@ -128,6 +128,7 @@ export function auditRecord({ run, entry, candidate, preliminary = null, final =
       questionsDue: entry.questionsDue?.text || null,
       blockers: (entry.blockers || []).map(item => item.text),
       openQuestions: entry.questions || [],
+      hubspotDeal: entry.hubspotDeal || null,
     },
     listing: stage(preliminary),
     documents,

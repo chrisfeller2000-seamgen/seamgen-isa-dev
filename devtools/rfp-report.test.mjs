@@ -95,8 +95,14 @@ test('each RFP lands in one tier, from the scorer outcome and the document state
   assert.deepEqual([byslug.thin.tier, byslug.thin.reason], ['screened', 'thin']);
   const disabled = reportEntry({ candidate: candidate('off'), preliminary: preliminary(64), documentStatus: 'fetch-disabled' });
   assert.deepEqual([disabled.tier, disabled.reason], ['check', 'disabled']);
-  const duplicate = reportEntry({ candidate: candidate('dup'), preliminary: preliminary(70), final: result({ recommendation: 'Strong Pursue', total: 80 }), hubspotDuplicate: true });
-  assert.deepEqual([duplicate.tier, duplicate.reason], ['screened', 'hubspot']);
+  // October 16: a HubSpot match hid the week's only Strong Pursue. A match is now a note on
+  // the pick, named in the email, so sales sees it and a wrong match costs nothing.
+  const duplicate = reportEntry({ candidate: candidate('dup'), preliminary: preliminary(70), final: result({ recommendation: 'Strong Pursue', total: 80 }), hubspotDeal: 'Example City - Permit Portal' });
+  assert.deepEqual([duplicate.tier, duplicate.hubspotDeal], ['strong', 'Example City - Permit Portal']);
+  const dupFacts = pursueFacts(buildResults({ runDate: '2026-10-16', week: '42', entries: [duplicate] }));
+  const dupEmail = renderPursueEmail(dupFacts, pursueSentencesFallback(dupFacts));
+  assert.match(dupEmail.text, /\nAlready in HubSpot as "Example City - Permit Portal"\.\n/);
+  assert.match(dupEmail.html, /<p style="margin:0 0 12px;">Already in HubSpot as &quot;Example City - Permit Portal&quot;\.<\/p>/);
   // A failed AI call is "check", but a deadline the code already ruled out stays a No-bid.
   const failed = reportEntry({ candidate: candidate('err'), preliminary: preliminary(70), final: result({ recommendation: 'Needs review', extra: { scoring_error: 'model-unavailable' } }) });
   assert.deepEqual([failed.tier, failed.reason], ['check', 'unscored']);
