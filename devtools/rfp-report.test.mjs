@@ -7,7 +7,7 @@ import {
   MAIL_SYNC_PURSUE_SUBJECT, buildResults, checkPursueSentences, checkTelegramDraft, needOf, plainOutcome, pursueFacts, pursueSentencesFallback,
   renderMarkdown, renderPursueEmail, renderTelegramFallback, reportEntry, telegramFacts, vibeFrom, writePursueEmail, writeTelegramMessage,
 } from '../workspace/scripts/rfp-report.mjs';
-import { deliverPursueUpdate, readPortalCandidate, reportWeek } from '../workspace/scripts/weekly-rfp-pursue-decision.mjs';
+import { deliverPursueUpdate, driveFolderUrl, readPortalCandidate, reportWeek } from '../workspace/scripts/weekly-rfp-pursue-decision.mjs';
 
 // Invented RFPs shaped like the weekly job's real inputs. No real opportunity data.
 const GATES = ['gate1', 'gate2', 'gate3', 'gate4', 'gate5', 'gate6'];
@@ -103,6 +103,10 @@ test('each RFP lands in one tier, from the scorer outcome and the document state
   const dupEmail = renderPursueEmail(dupFacts, pursueSentencesFallback(dupFacts));
   assert.match(dupEmail.text, /\nAlready in HubSpot as "Example City - Permit Portal"\.\n/);
   assert.match(dupEmail.html, /<p style="margin:0 0 12px;">Already in HubSpot as &quot;Example City - Permit Portal&quot;\.<\/p>/);
+  // October 16: the Drive link was "<id>\t<url>", so the email linked the agency posting.
+  const withFolder = reportEntry({ candidate: candidate('drive'), preliminary: preliminary(70), final: result({ recommendation: 'Strong Pursue', total: 80 }), documentsLink: driveFolderUrl('1_Abc-xyz') });
+  assert.deepEqual(pursueFacts(buildResults({ runDate: '2026-10-16', week: '42', entries: [withFolder] })).picks[0].link,
+    { label: 'Drive folder', url: 'https://drive.google.com/drive/folders/1_Abc-xyz' });
   // A failed AI call is "check", but a deadline the code already ruled out stays a No-bid.
   const failed = reportEntry({ candidate: candidate('err'), preliminary: preliminary(70), final: result({ recommendation: 'Needs review', extra: { scoring_error: 'model-unavailable' } }) });
   assert.deepEqual([failed.tier, failed.reason], ['check', 'unscored']);

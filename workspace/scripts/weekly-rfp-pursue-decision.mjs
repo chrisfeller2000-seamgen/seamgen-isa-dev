@@ -378,9 +378,10 @@ async function loadHubSpotDeals() {
   }).filter((deal) => deal.name);
 }
 
-async function driveUrl(fileId) {
-  const output = await runJson('gog', ['-a', 'isa@seamgen.com', 'drive', 'url', fileId], { timeoutMs: 60000 });
-  return normalizeText(output);
+// Built from the ID: `gog drive url` prints "<id>\t<url>", and that whole string was stored
+// as the link, so the pursue email fell back to the agency posting (October 16).
+export function driveFolderUrl(folderId) {
+  return `https://drive.google.com/drive/folders/${encodeURIComponent(folderId)}`;
 }
 
 async function listFilesRecursive(rootDir) {
@@ -1089,8 +1090,7 @@ async function ensureRfpDriveFolder(issuer, title, slug = '') {
   if (!folderId) {
     return { created: false, copied: false, reason: 'Could not resolve destination folder.' };
   }
-  const folderUrl = await driveUrl(folderId).catch(() => `https://drive.google.com/drive/folders/${folderId}`);
-  return { created: true, folderId, folderUrl };
+  return { created: true, folderId, folderUrl: driveFolderUrl(folderId) };
 }
 
 async function mirrorLocalResourcesToDrive(folderId, slug) {
