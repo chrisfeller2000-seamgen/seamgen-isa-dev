@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { createAssessmentContext } from './rfp-deadline.mjs';
 import { auditDocuments, auditRecord, auditSkippedRecord, createAuditLog } from './rfp-audit.mjs';
 import { extractDocumentText } from './document-text.mjs';
+import { RFP_PIPELINE_ID, findHubSpotDeal } from './rfp-hubspot-match.mjs';
 import { DOCUMENT_FETCH_THRESHOLD, intakeText, unscoredRfp } from './rfp-scoring-policy.mjs';
 import { createModelOutageGuard, createOpenClawJudge, scoreRfp } from './rfp-scoring-judgment.mjs';
 import {
@@ -55,7 +56,6 @@ const FULL_QUALIFY_THRESHOLD = Number.parseInt(process.env.RFP_FULL_QUALIFY_THRE
 const TEST_MODE = ['1', 'true', 'yes', 'on'].includes(String(process.env.RFP_WEEKLY_TEST_MODE || '').toLowerCase()) || process.argv.slice(2).includes('--test-mode');
 const HUBSPOT_CREDS = '/home/azureuser/.openclaw/credentials/hubspot-mcp.json';
 const HUBSPOT_URL = 'https://mcp.hubspot.com';
-const RFP_PIPELINE_ID = '2487569084';
 const TEST_CANDIDATE_SLUG = normalizeText(process.env.RFP_TEST_CANDIDATE_SLUG || '');
 
 function normalizeText(value = '') {
@@ -182,17 +182,6 @@ function buildRfpKey(title = '', issuer = '') {
   const cleanedIssuer = normalizeSearchText(issuer);
   const cleanedTitle = normalizeRfpCore(title) || removeGenericRfpWords(title) || normalizeSearchText(title);
   return normalizeSearchText([cleanedIssuer, cleanedTitle].filter(Boolean).join(' '));
-}
-
-function tokenOverlapScore(left = '', right = '') {
-  const leftTokens = new Set(normalizeSearchText(left).split(' ').filter(Boolean));
-  const rightTokens = new Set(normalizeSearchText(right).split(' ').filter(Boolean));
-  if (!leftTokens.size || !rightTokens.size) return 0;
-  let overlap = 0;
-  for (const token of leftTokens) {
-    if (rightTokens.has(token)) overlap += 1;
-  }
-  return overlap / Math.max(leftTokens.size, rightTokens.size);
 }
 
 function isPrimaryRfpFile(name = '') {
@@ -368,178 +357,25 @@ async function driveSearch(query, max = 50) {
   return rows;
 }
 
-async function hubspotSearchTitle(title) {
-  const payload = {
-    objectType: 'deals',
-    query: title,
-    properties: ['dealname', 'pipeline', 'dealstage'],
-    limit: 5,
-  };
-  const output = await runJson('mcpjam', [
-    'tools',
-    'call',
-    '--url',
-    HUBSPOT_URL,
-    '--credentials-file',
-    HUBSPOT_CREDS,
-    '--tool-name',
-    'search_crm_objects',
-    '--tool-args',
-    JSON.stringify(payload),
-    '--format',
-    'json',
-  ], { timeoutMs: 60000 });
-
-  const parsed = JSON.parse(output || '{}');
-  const text = parsed?.content?.[0]?.text || '';
-  const result = text ? JSON.parse(text) : { results: [] };
-  return Array.isArray(result.results) ? result.results : [];
-}
-
-function hubspotDealNameText(deal = {}) {
-  return normalizeSearchText(deal?.properties?.dealname || deal?.dealname || '');
-}
-
-function scoreDuplicateMatch(query = '', deal = {}) {
-  const normalizedQuery = normalizeSearchText(query);
-  const normalizedDeal = hubspotDealNameText(deal);
-  if (!normalizedQuery || !normalizedDeal) return 0;
-  if (normalizedQuery === normalizedDeal) return 1;
-  if (normalizedQuery.includes(normalizedDeal) || normalizedDeal.includes(normalizedQuery)) return 0.95;
-
-  const queryTokens = normalizedQuery.split(' ').filter(Boolean);
-  const dealTokens = new Set(normalizedDeal.split(' ').filter(Boolean));
-  if (!queryTokens.length || !dealTokens.size) return 0;
-
-  let overlap = 0;
-  for (const token of queryTokens) {
-    if (dealTokens.has(token)) overlap += 1;
-  }
-  return overlap / Math.max(queryTokens.length, dealTokens.size);
-}
-
-function buildDuplicateQueries(title = '', summary = '') {
-  const queries = new Set();
-  const normalizedTitle = normalizeSearchText(title);
-  const shortenedTitle = removeGenericRfpWords(title);
-  const normalizedSummary = normalizeText(summary);
-  const summarySentence = (normalizedSummary.match(/[^.!?]+[.!?]+/g) || [normalizedSummary])[0] || '';
-  const summaryLead = normalizedSummary.split(/\s+/).slice(0, 18).join(' ');
-
-  for (const value of [title, shortenedTitle, summaryLead, summarySentence]) {
-    const text = normalizeText(value);
-    if (text && text.length >= 6) queries.add(text);
-  }
-
-  return [...queries].filter((value) => removeGenericRfpWords(value).length >= 6 || normalizeSearchText(value).split(' ').length >= 3);
-}
-
-function scoreCandidateAgainstDeal(candidateText = '', dealNameText = '') {
-  const normalizedCandidate = normalizeSearchText(candidateText);
-  const normalizedDeal = normalizeSearchText(dealNameText);
-  if (!normalizedCandidate || !normalizedDeal) return 0;
-  if (normalizedCandidate === normalizedDeal) return 1;
-  if (normalizedCandidate.includes(normalizedDeal) || normalizedDeal.includes(normalizedCandidate)) return 0.95;
-
-  const candidateTokens = normalizedCandidate.split(' ').filter(Boolean);
-  const dealTokens = new Set(normalizedDeal.split(' ').filter(Boolean));
-  if (!candidateTokens.length || !dealTokens.size) return 0;
-
-  let overlap = 0;
-  for (const token of candidateTokens) {
-    if (dealTokens.has(token)) overlap += 1;
-  }
-  return overlap / Math.max(candidateTokens.length, dealTokens.size);
-}
-
-async function loadHubSpotRfpIndex() {
-  if (loadHubSpotRfpIndex.cache) return loadHubSpotRfpIndex.cache;
-  const names = new Set();
-
-  try {
-    const response = await runJson(
-      'mcpjam',
-      [
-        'tools',
-        'call',
-        '--url',
-        HUBSPOT_URL,
-        '--credentials-file',
-        HUBSPOT_CREDS,
-        '--tool-name',
-        'query_crm_data',
-        '--tool-args',
-        JSON.stringify({
-          sql: `SELECT dealname, pipeline, dealstage, hs_object_id, hs_lastmodifieddate FROM DEAL ORDER BY hs_lastmodifieddate DESC LIMIT 2000`,
-          verbosityLevel: 'LOW',
-          chatInsights: {
-            userIntent: 'Build a complete index of existing HubSpot RFP deal names for weekly RFP qualification dedupe.',
-            satisfaction: 'NEUTRAL',
-          },
-        }),
-        '--format',
-        'json',
-      ],
-      { timeoutMs: 120000 },
-    );
-    const parsed = JSON.parse(response || '{}');
-    const text = parsed?.content?.[0]?.text || '';
-    const bundle = text ? JSON.parse(text) : { results: [] };
-    for (const item of bundle.results || []) {
-      let record = item;
-      if (typeof item?.content === 'string') {
-        try {
-          record = JSON.parse(item.content);
-        } catch {
-          record = item;
-        }
-      }
-      const props = record?.properties || {};
-      const name = normalizeSearchText(props.dealname || props['Deal name'] || props['Deal Name'] || '');
-      if (name) names.add(name);
-    }
-  } catch {
-    const queries = ['RFP', 'proposal', 'website', 'portal', 'development', 'redesign', 'cms', 'intranet', 'ai', 'software'];
-    for (const query of queries) {
-      const matches = await hubspotSearchTitle(query).catch(() => []);
-      for (const deal of matches) {
-        const name = hubspotDealNameText(deal);
-        if (name) names.add(name);
-      }
-    }
-  }
-
-  loadHubSpotRfpIndex.cache = [...names];
-  return loadHubSpotRfpIndex.cache;
-}
-
-async function hasHubSpotDuplicate(title = '', issuer = '', summary = '', index = []) {
-  const normalizedTitle = normalizeSearchText(title);
-  const shortenedTitle = normalizeRfpCore(title) || removeGenericRfpWords(title);
-  const normalizedIssuer = normalizeSearchText(issuer);
-  const summaryLead = normalizeText(summary).split(/\s+/).slice(0, 20).join(' ');
-  const candidateVariants = [
-    title,
-    shortenedTitle,
-    issuer ? `${issuer} ${title}` : '',
-    summaryLead,
-  ].map((value) => normalizeSearchText(value)).filter(Boolean);
-
-  const matchedInIndex = index.some((dealName) => {
-    const normalizedDeal = normalizeSearchText(dealName);
-    if (!normalizedDeal) return false;
-    if (candidateVariants.some((variant) => variant === normalizedDeal || variant.includes(normalizedDeal) || normalizedDeal.includes(variant))) {
-      return true;
-    }
-    if (shortenedTitle && normalizedDeal.includes(shortenedTitle)) return true;
-    if (normalizedIssuer && normalizedDeal.includes(normalizedIssuer) && tokenOverlapScore(shortenedTitle || normalizedTitle, normalizedDeal) >= 0.45) {
-      return true;
-    }
-    return candidateVariants.some((variant) => tokenOverlapScore(variant, normalizedDeal) >= 0.65);
-  });
-
-  if (matchedInIndex) return true;
-  return false;
+// The RFP pipeline's deals as { name, pipeline }; rfp-hubspot-match.mjs decides which one, if
+// any, is the same RFP. Asking for that pipeline alone keeps it under HubSpot's 500-row cap.
+// Throws when HubSpot can't be read, so the caller can say so.
+async function loadHubSpotDeals() {
+  const response = await runJson('mcpjam', [
+    'tools', 'call', '--url', HUBSPOT_URL, '--credentials-file', HUBSPOT_CREDS, '--tool-name', 'query_crm_data',
+    '--tool-args', JSON.stringify({
+      sql: `SELECT dealname, pipeline FROM DEAL WHERE pipeline = '${RFP_PIPELINE_ID}' ORDER BY hs_lastmodifieddate DESC LIMIT 2000`,
+      verbosityLevel: 'LOW',
+      chatInsights: { userIntent: 'List existing HubSpot deals so the weekly RFP update can note RFPs already in the pipeline.', satisfaction: 'NEUTRAL' },
+    }),
+    '--format', 'json',
+  ], { timeoutMs: 120000 });
+  const text = JSON.parse(response || '{}')?.content?.[0]?.text || '';
+  return (text ? JSON.parse(text).results || [] : []).map((item) => {
+    const record = typeof item?.content === 'string' ? JSON.parse(item.content) : item;
+    const props = record?.properties || {};
+    return { name: normalizeText(props.dealname || props['Deal name'] || ''), pipeline: String(props.pipeline || props.Pipeline || '') };
+  }).filter((deal) => deal.name);
 }
 
 async function driveUrl(fileId) {
@@ -1355,56 +1191,6 @@ function extractIssuer(text = '', title = '') {
   return '';
 }
 
-function extractSummary(text = '') {
-  const paragraphs = String(text || '')
-    .replace(/\r/g, '\n')
-    .split(/\n\s*\n+/)
-    .map((block) => normalizeText(block))
-    .filter(Boolean)
-    .filter((block) => !/^(table of contents|contents|section\s+\d+|page\s+\d+)$/i.test(block))
-    .filter((block) => !/\.{6,}\s*\d+\s*$/i.test(block))
-    .filter((block) => block.length > 40);
-
-  if (!paragraphs.length) return '';
-
-  const scored = paragraphs.map((paragraph, index) => {
-    const lower = paragraph.toLowerCase();
-    let score = 0;
-    if (/request for proposal|request for proposals|rfp|solicitation|invitation to proposal/.test(lower)) score += 4;
-    if (/(seeks|seeking|soliciting|seeks competitive proposals|is soliciting proposals|purpose|background|overview|scope|mission|project overview)/.test(lower)) score += 4;
-    if (/(shall|must|required|will|include|support|provide|deliver|manage|maintain)/.test(lower)) score += 2;
-    if (paragraph.length > 400) score += 1;
-    if (/table of contents|contents|page \d+|\.{6,}\s*\d+$/.test(lower)) score -= 5;
-    if (/^[A-Z0-9\s,&\-()]{25,}$/.test(paragraph) && paragraph.length < 120) score -= 3;
-    score -= Math.min(index, 5) * 0.25;
-    return { paragraph, score };
-  });
-
-  scored.sort((a, b) => b.score - a.score);
-  const best = scored[0]?.paragraph || paragraphs[0] || '';
-  const secondary = scored[1]?.paragraph || '';
-
-  const combined = [best, secondary]
-    .filter(Boolean)
-    .map((paragraph) => {
-      const sentences = paragraph.match(/[^.!?]+[.!?]+/g) || [paragraph];
-      return sentences.slice(0, 2).join(' ').replace(/\s+/g, ' ').trim();
-    })
-    .filter(Boolean)
-    .join(' ');
-
-  const summary = normalizeText(combined || best)
-    .replace(/^(the\s+)?vendor\s+shall\s+be\s+responsible\s+for\s+/i, '')
-    .replace(/^(this\s+rfp|the\s+rfp)\s+(seeks|seeks to|is seeking|is for)\s+/i, '')
-    .replace(/\b(addenda|attachments?|exhibits?)\b.*$/i, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  if (!summary) return '';
-  const trimmed = summary.length > 260 ? `${summary.slice(0, 260).trimEnd()}…` : summary;
-  return trimmed.replace(/\s+/g, ' ');
-}
-
 function daysBetween(left = '', right = '') {
   const leftDate = new Date(left);
   const rightDate = new Date(right);
@@ -1683,15 +1469,17 @@ async function main() {
   if (audit.file) process.stderr.write(`[weekly-rfp] audit file: ${audit.file}\n`);
   for (const listing of intake.dropped || []) await audit.append(auditSkippedRecord({ run: auditRun, listing }));
   const entries = [];
-  let hubspotDealIndex = null;
-  const getHubspotIndex = async () => {
-    if (hubspotDealIndex) return hubspotDealIndex;
-    hubspotDealIndex = await withTimeout(loadHubSpotRfpIndex().catch(() => []), 30000, 'HubSpot index load').catch((error) => {
-      process.stderr.write(`[weekly-rfp] HubSpot index fallback: ${error.message}\n`);
+  // Loaded once, the first time a Strong Pursue needs it. If HubSpot can't be read the
+  // picks simply carry no HubSpot note; a partial list would only make the notes wrong.
+  let hubspotDeals = null;
+  const getHubSpotDeals = async () => {
+    if (hubspotDeals) return hubspotDeals;
+    hubspotDeals = await withTimeout(loadHubSpotDeals(), 30000, 'HubSpot deal load').catch((error) => {
+      process.stderr.write(`[weekly-rfp] HubSpot not checked this week: ${error.message}\n`);
       return [];
     });
-    process.stderr.write(`[weekly-rfp] HubSpot index loaded: ${hubspotDealIndex.length} deal name(s)\n`);
-    return hubspotDealIndex;
+    process.stderr.write(`[weekly-rfp] HubSpot deals loaded: ${hubspotDeals.length}\n`);
+    return hubspotDeals;
   };
   // The first title scored for each RFP, so a duplicate's audit line can name it.
   const seenRfpKeys = new Map();
@@ -1835,16 +1623,9 @@ async function main() {
       continue;
     }
 
-    const summary = extractSummary(buildMetadataText(candidate)) || normalizeText(candidate.frontmatter.ai_summary || '').slice(0, 260)
-      || normalizeText(candidate.frontmatter.description_text || '').slice(0, 260) || '';
-    const hubspotDuplicate = await hasHubSpotDuplicate(title, issuer, summary, await getHubspotIndex()).catch(() => false);
-    if (hubspotDuplicate) {
-      await persistCandidateState(candidatePath, {
-        qualification_status: 'rejected',
-      });
-      await addEntry({ final: scoringBundle, documentStatus: 'full-text', hubspotDuplicate: true, documents: documentsRead });
-      continue;
-    }
+    // Already a deal in the RFP pipeline? The pick says so; it is never dropped for it.
+    const hubspotDeal = findHubSpotDeal({ title, agency: issuer, number: candidate.frontmatter.rfp_number }, await getHubSpotDeals())?.name || '';
+    if (hubspotDeal) process.stderr.write(`[weekly-rfp] already in HubSpot as "${hubspotDeal}": ${displayTitle}\n`);
 
     process.stderr.write(`[weekly-rfp] qualify ${candidatePaths.length ? `${i + 1}/${candidatePaths.length}` : i + 1}: ${displayTitle}\n`);
     let documentsLink = '';
@@ -1877,7 +1658,7 @@ async function main() {
       }
       documentsLink = driveFolder.folderUrl || '';
     }
-    await addEntry({ final: scoringBundle, documentStatus: 'full-text', documentsLink, documents: documentsRead });
+    await addEntry({ final: scoringBundle, documentStatus: 'full-text', documentsLink, hubspotDeal, documents: documentsRead });
   }
 
   if (process.env.RFP_REPORT_WEEK_OF) process.stderr.write(`[weekly-rfp] late delivery: counted as week ${week}; deadlines count from ${runDate}\n`);
