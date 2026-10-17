@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -41,7 +41,7 @@ Proposal due date: October 26, 2026. This is a candidate note, not document evid
     const inputReport = path.join(reportDir, '2026-09-22.md');
     await fs.writeFile(inputReport, '### Synthetic Analytics Platform\n- Preliminary score: 80\n');
     for (const scenario of ['complete', 'empty', 'conflict', 'invalid']) {
-      const child = spawnSync(process.execPath, ['--import', path.join(root, 'devtools/fixtures/secondary-deadline-fetch.mjs'), path.join(root, 'workspace/scripts/secondary-fulltext-score.mjs')], {
+      const child = spawnSync(process.execPath, ['--import', pathToFileURL(path.join(root, 'devtools/fixtures/secondary-deadline-fetch.mjs')).href, path.join(root, 'workspace/scripts/secondary-fulltext-score.mjs')], {
         cwd: root,
         env: {
           WORKSPACE_DIR: workspace, HIGHERGOV_API_KEY: 'fixture-key',
