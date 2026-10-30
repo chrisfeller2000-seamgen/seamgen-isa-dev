@@ -28,8 +28,6 @@ Since October 12:
 - One required government reference is covered by Jake's standing fact (Florida DEP, `GOVERNMENT_REFERENCES` in the policy). A second still needs the RFP to accept nonprofit or federal work.
 - Gate 2 has Jake's three outcomes: pass, fail, or Conditional — Ask the Agency. Buying, licensing, hosting, or configuring an existing product fails unless the custom share is clearly material (about 40%+) or the conditional route applies. A re-score of the 8 on October 12 left this gate open on 3 RFPs that Jake's system failed, which is why this rule was added.
 
-Since October 26, ISA departs from Jake's "pass with a note" for these two gates. After the documents are read, an open Gate 2 or Gate 6 is Needs review (shown as Worth a look with the question), never Strong Pursue. Rhode Island's PDMP went out as a 75 Strong Pursue with both open, scored from the bid board's cover sheet; its specification asked for an out-of-the-box product and prior PDMP installs. See [document qualification](document-qualification.md).
-
 Whether the model now matches Jake's calls is measured by the sample comparison in Jira ISA-3, not by these tests.
 
 ## What remains unproven
