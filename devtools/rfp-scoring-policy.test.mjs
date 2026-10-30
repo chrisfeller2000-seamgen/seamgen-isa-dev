@@ -10,7 +10,6 @@ import { createAssessmentContext } from '../workspace/scripts/rfp-deadline.mjs';
 import { createModelOutageGuard, createOpenClawJudge, describeScoringFailure, scoreRfp } from '../workspace/scripts/rfp-scoring-judgment.mjs';
 import { persistValidatedScore, readPortalCandidate, scoreCandidateFromText, shouldFetchDocuments } from '../workspace/scripts/weekly-rfp-pursue-decision.mjs';
 import { buildSecondaryReport, resolveSelectedCandidates } from '../workspace/scripts/secondary-fulltext-score.mjs';
-import { reportEntry } from '../workspace/scripts/rfp-report.mjs';
 
 const assessment = createAssessmentContext({ runDate: '2026-09-30' });
 const policies = await fixturePolicies();
@@ -36,19 +35,19 @@ test('unconfirmed completed-reference availability stays an open gate: scored, n
     judgment.subrules.eligibility.companyEvidence = [{ sourceId: 'case-library', quote: companySources[0].text }];
   };
   const result = finalize(input, update);
-  // The categories are still scored and the open gate's reason is kept for the report's
-  // questions, but an open eligibility gate after the documents is never a Strong Pursue.
+  // Like Jake's "pass with a note": the score stands and the open gate's reason is kept
+  // for the report's blockers, but the gate itself is never recorded as passed.
   assert.equal(result.gate.gate6, null);
   assert.match(result.gateReasons[5].reason, /have not been confirmed/);
-  assert.ok(Number.isFinite(result.potential_total));
-  assert.equal(result.recommendation, 'Needs review');
+  assert.ok(Number.isFinite(result.total));
+  assert.equal(result.recommendation, 'Strong Pursue');
   const transported = await scoreRfp(input, { judge: async ({ prompt }) => {
     const judgment = recordedJudgment(input); update(judgment);
     return JSON.stringify(referenceJudgment(judgment, JSON.parse(prompt).sources));
   } });
   assert.equal(transported.scoring_error, undefined);
   assert.equal(transported.gate.gate6, null);
-  assert.equal(transported.potential_total, result.potential_total);
+  assert.equal(transported.total, result.total);
 });
 
 test('a no-bid judgment cannot retain inaccurate non-decisive supporting citations', () => {
@@ -245,8 +244,7 @@ test('unknown requirements score provisionally before documents, and stay open g
   assert.equal(preliminary.qualification_status, 'provisional');
   const full = finalize(packet(), modify);
   assert.deepEqual([full.gate.gate4, full.gate.gate6], [null, null]);
-  assert.ok(Number.isFinite(full.potential_total));
-  assert.equal(full.recommendation, 'Needs review');
+  assert.ok(Number.isFinite(full.total));
 });
 
 test('before documents exist, documents to retrieve cite the listing and never block selection', () => {
@@ -267,7 +265,7 @@ test('before documents exist, documents to retrieve cite the listing and never b
   assert.throws(() => finalize(packet(), toRetrieve), /citation does not match/);
 });
 
-test('potential_total is the category sum; an open gate keeps it but withholds the total only for Gates 2 and 6', () => {
+test('potential_total is the category sum, and an open gate no longer withholds the total', () => {
   const scored = finalize(packet());
   assert.equal(scored.potential_total, scored.total);
   const open = finalize(packet(), j => {
@@ -276,33 +274,12 @@ test('potential_total is the category sum; an open gate keeps it but withholds t
   });
   assert.equal(open.gate.gate6, null);
   assert.equal(open.potential_total, Object.values(open.categories).reduce((a, b) => a + b, 0));
-  assert.equal(open.total, null);
+  assert.equal(open.total, open.potential_total);
   // An open submission route is routine to confirm and still gets its total, as Jake did.
   const submission = finalize(packet(), j => { j.gates.gate4 = { pass: null, reason: 'Portal registration not yet checked.', evidence: [] }; j.subrules.submission.status = 'unknown'; });
   assert.equal(submission.gate.gate4, null);
   assert.equal(submission.total, submission.potential_total);
   assert.equal(submission.recommendation, 'Strong Pursue');
-});
-
-test('after the documents, an open custom-build or eligibility gate is a question, never a Strong Pursue', () => {
-  // Rhode Island's PDMP, October 23: Gates 2 and 6 were open and it went out as a 75 Strong Pursue.
-  const openGate2 = j => {
-    j.gates.gate2 = { pass: null, reason: 'The specification may want an existing product; the custom share is not stated.', evidence: [] };
-    j.subrules.product.hardProductObligations = null;
-  };
-  const full = finalize(packet(), openGate2);
-  assert.equal(full.gate.gate2, null);
-  assert.ok(full.potential_total >= 75);
-  assert.deepEqual([full.recommendation, full.total, full.qualification_status], ['Needs review', null, 'provisional']);
-  // The weekly report shows it as Worth a look with the open question and its score if confirmed.
-  const entry = reportEntry({ candidate: { slug: 'open-gate', title: 'Example portal', frontmatter: {} }, preliminary: { preview: { total: 73 } }, final: full, documentStatus: 'full-text' });
-  assert.equal(entry.tier, 'worth');
-  assert.equal(entry.scoreIfYes, full.potential_total);
-  assert.ok(entry.questions.some(question => /existing product/.test(question)));
-  // Before the documents, an open Gate 2 is carried forward and still scored.
-  const preliminary = finalize(packet('clean-custom-build', { phase: 'preliminary', documents: [] }), openGate2);
-  assert.ok(Number.isFinite(preliminary.total));
-  assert.notEqual(preliminary.recommendation, 'Needs review');
 });
 
 test("the buyer summary and questions deadline for the pursue email are checked like any citation and never change the score", () => {
@@ -431,8 +408,7 @@ test('Gate 2a product obligations require a real integrator partner or a conditi
   assert.throws(() => finalize(packet(), j => { makeProduct(j); j.subrules.product.partner = { ...partner, sellsThroughIntegrators: false }; }), /integrator/);
   const unknown = finalize(packet(), j => { j.subrules.product.hardProductObligations = null; });
   assert.equal(unknown.gate.gate2, null);
-  assert.ok(Number.isFinite(unknown.potential_total));
-  assert.equal(unknown.recommendation, 'Needs review');
+  assert.ok(Number.isFinite(unknown.total));
 });
 
 test("before the documents, the ask-the-agency route is an open gate that still gets its documents fetched", () => {

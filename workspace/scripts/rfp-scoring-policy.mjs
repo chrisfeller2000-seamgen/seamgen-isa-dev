@@ -498,12 +498,6 @@ export function finalizeRfpScore(input, judgment) {
   if ((phase === 'full-text' && judgment.value.kind === 'uncertain') || value.status === 'conflicting') {
     return { ...scored, recommendation: 'Needs review' };
   }
-  // Except Gates 2 and 6 after the documents: an open custom-build or eligibility gate can
-  // hide a kill, so the score goes to the team as a question (Worth a look in the report)
-  // and never as a Strong Pursue pick. Rhode Island's PDMP went out as a pick with both open.
-  if (phase === 'full-text' && (gate.gate2 === null || gate.gate6 === null)) {
-    return { ...scored, recommendation: 'Needs review' };
-  }
   const total = scored.potential_total;
   return { ...scored, total, recommendation: total >= 75 ? 'Strong Pursue' : total >= 50 ? 'Worth a look' : 'No-bid',
     qualification_status: phase === 'preliminary' ? 'provisional' : total >= 75 ? 'qualified' : 'rejected',
