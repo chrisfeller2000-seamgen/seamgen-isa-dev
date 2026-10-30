@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const READABLE_EXTENSIONS = ['.pdf', '.docx', '.xlsx', '.xlsm', '.html', '.htm', '.txt', '.md'];
+export const READABLE_EXTENSIONS = ['.pdf', '.docx', '.xlsx', '.xlsm', '.xml', '.html', '.htm', '.txt', '.md'];
 
 // A page with fewer characters than this is treated as a scan. Typed pages, even
 // near-empty ones such as "This page intentionally left blank", are above it.
@@ -56,6 +56,60 @@ with ZipFile(sys.argv[1]) as z:
             else:
                 values.append(v.text)
 print(' '.join(values))
+`;
+
+// SF City Partner (PeopleSoft Strategic Sourcing) publishes an event's main RFP as
+// an Excel 2003 XML Spreadsheet: one .xml file, one <Worksheet> per tab, and text in
+// <Data> cells, some with inline <B>/<Font> markup. Any other XML, such as a Word 2003
+// XML document, falls back to all of its text, minus base64 image data (<binData>).
+const XML_SCRIPT = `
+import re, sys
+from xml.etree import ElementTree as ET
+SS = '{urn:schemas-microsoft-com:office:spreadsheet}'
+EXCEL = '{urn:schemas-microsoft-com:office:excel}'
+with open(sys.argv[1], 'rb') as f:
+    raw = f.read()
+# ElementTree does not fetch external entities, but it does expand internal ones,
+# so a DOCTYPE could be an entity-expansion bomb. Office XML never has one.
+if re.search(rb'<!(DOCTYPE|ENTITY)', raw, re.I):
+    sys.exit('DOCTYPE not allowed')
+# PeopleSoft declares ISO-8859-15 but writes curly quotes that encoding cannot hold.
+# Decode the bytes ourselves and drop the declaration so the parser cannot re-decode.
+try:
+    text = raw.decode('utf-8')
+except UnicodeDecodeError:
+    text = raw.decode('cp1252', errors='replace')
+text = re.sub(r'^<\\?xml[^>]*\\?>', '', text.lstrip('\\ufeff \\t\\r\\n'))
+root = ET.fromstring(text)
+def clean(value):
+    return ' '.join(value.split())
+lines = []
+if root.tag == SS + 'Workbook':
+    # Every PeopleSoft tab repeats the same event header, so rows already printed
+    # under an earlier tab are skipped. Hidden tabs hold form plumbing.
+    earlier = set()
+    for sheet in root.iter(SS + 'Worksheet'):
+        visible = sheet.find('.//' + EXCEL + 'Visible')
+        if visible is not None and visible.text in ('SheetHidden', 'SheetVeryHidden'):
+            continue
+        rows = []
+        for row in sheet.iter(SS + 'Row'):
+            cells = [clean(''.join(data.itertext())) for data in row.iter(SS + 'Data')]
+            line = ' | '.join(cell for cell in cells if cell)
+            if line and line not in earlier:
+                rows.append(line)
+        if rows:
+            lines.append('[' + sheet.get(SS + 'Name', '') + ']')
+            lines.extend(rows)
+        earlier.update(rows)
+else:
+    for parent in list(root.iter()):
+        for child in list(parent):
+            if child.tag.endswith('}binData'):
+                parent.remove(child)
+    lines.append(clean(' '.join(root.itertext())))
+# Node reads stdout as UTF-8; print() would use the locale's encoding instead.
+sys.stdout.buffer.write('\\n'.join(lines).encode('utf-8'))
 `;
 
 function runTool(command, args, { timeoutMs = TOOL_TIMEOUT_MS } = {}) {
@@ -159,6 +213,7 @@ export async function extractDocumentText(filePath, { run = runTool } = {}) {
   // .xlsm (macro-enabled) stores cells the same way as .xlsx; only cell values are read,
   // macros never run. Agencies use it for required forms such as requirements matrices.
   if (ext === '.xlsx' || ext === '.xlsm') return pythonText(XLSX_SCRIPT, filePath, 'xlsx', run);
+  if (ext === '.xml') return pythonText(XML_SCRIPT, filePath, 'xml', run);
   let raw;
   try {
     raw = await fs.readFile(filePath, 'utf8');

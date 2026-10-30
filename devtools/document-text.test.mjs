@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -124,4 +125,60 @@ test('Word and Excel files report a missing python3 instead of an empty document
   const matrix = await extractDocumentText('Functional Specifications Matrix.xlsm', { run: ok });
   assert.equal(matrix.status, 'extracted');
   assert.equal(matrix.method, 'xlsx');
+});
+
+const hasPython = spawnSync('python3', ['--version']).status === 0;
+
+// Shaped like an SF City Partner event export: ISO-8859-15 declared but UTF-8 curly
+// quotes written, inline <B>/<Font> cells, the event header repeated on every tab,
+// and a hidden tab.
+const header = '<Row><Cell><Data ss:Type="String">Event ID</Data></Cell><Cell><Data ss:Type="String">SFGOV-0000000001</Data></Cell></Row>';
+const PEOPLESOFT_XML = `<?xml version="1.0" encoding="ISO-8859-15"?> <?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:x="urn:schemas-microsoft-com:office:excel"><!-- PLEASE READ TO OPEN THIS FILE -->
+<Worksheet ss:Name="General Details"><Table>${header}
+<Row><Cell><Data ss:Type="String">This Request for Proposals (“RFP”) seeks web design &amp;&#10;data services.</Data></Cell></Row>
+</Table></Worksheet>
+<Worksheet ss:Name="Line Details"><Table>${header}
+<Row><Cell><ss:Data ss:Type="String" xmlns="http://www.w3.org/TR/REC-html40"><B>Description: </B><Font>2027 Portal RFP</Font></ss:Data></Cell><Cell><ss:Data ss:Type="String" xmlns="http://www.w3.org/TR/REC-html40"/></Cell></Row>
+</Table></Worksheet>
+<Worksheet ss:Name="Test"><Table><Row><Cell><Data ss:Type="String">Item ID:</Data></Cell></Row></Table>
+<WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><Visible>SheetHidden</Visible></WorksheetOptions></Worksheet>
+</Workbook>`;
+
+test('an SF City Partner Excel XML event is read tab by tab', { skip: !hasPython && 'python3 is not installed' }, async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'document-text-test-'));
+  try {
+    const file = path.join(dir, 'Request_for_Proposals.xml');
+    await fs.writeFile(file, PEOPLESOFT_XML, 'utf8');
+    const extraction = await extractDocumentText(file);
+    assert.equal(extraction.status, 'extracted');
+    assert.equal(extraction.method, 'xml');
+    assert.equal(extraction.text, [
+      '[General Details]',
+      'Event ID | SFGOV-0000000001',
+      'This Request for Proposals (“RFP”) seeks web design & data services.',
+      '[Line Details]',
+      'Description: 2027 Portal RFP',
+    ].join('\n'));
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('other XML is read as plain text, skipping images and refusing a DOCTYPE', { skip: !hasPython && 'python3 is not installed' }, async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'document-text-test-'));
+  try {
+    const word = path.join(dir, 'scope.xml');
+    await fs.writeFile(word, '<?xml version="1.0"?><w:wordDocument xmlns:w="http://schemas.microsoft.com/office/word/2003/wordml"><w:body><w:p><w:t>Scope of work</w:t></w:p><w:binData>iVBORw0KGgo=</w:binData></w:body></w:wordDocument>');
+    const fromWord = await extractDocumentText(word);
+    assert.equal(fromWord.text, 'Scope of work');
+
+    const bomb = path.join(dir, 'bomb.xml');
+    await fs.writeFile(bomb, '<?xml version="1.0"?><!DOCTYPE a [<!ENTITY x "xxxxxxxx">]><a>&x;&x;</a>');
+    const refused = await extractDocumentText(bomb);
+    assert.equal(refused.status, 'failed');
+    assert.equal(refused.text, '');
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
 });
