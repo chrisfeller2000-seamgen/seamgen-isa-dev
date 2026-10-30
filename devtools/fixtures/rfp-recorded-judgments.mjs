@@ -23,6 +23,7 @@ const decisions = {
   'case-match-control': { ai: false },
   'case-match-bid': { ai: false },
   'ai-email': { ai: false },
+  'portal-cover-sheet': { unreadScope: true },
 };
 
 export function recordedJudgment(input, overrides = {}) {
@@ -56,7 +57,11 @@ export function recordedJudgment(input, overrides = {}) {
     },
     value: { kind: choice.uncertain ? 'uncertain' : 'inferred', estimate: choice.uncertain ? null : estimate, reason: 'Recorded scope and comparable test project basis', evidence: metadata },
     competitive: { verdict: 'Insufficient evidence', effortDeduction: 0, wiredDeduction: 0, tells: [], counterEvidence: [], evidence: [] },
-    bidStatus: choice.bidStatus || 'open', bidEvidence: evidence, requiredDocuments: [], flags: [], conditional: null,
+    bidStatus: choice.bidStatus || 'open', bidEvidence: evidence, flags: [], conditional: null,
+    requiredDocuments: choice.unreadScope && input.phase !== 'preliminary' ? [
+      { name: 'Agency Solicitation Specification', scope: true, evidence, documentIds: [] },
+      { name: 'Addendum A - Insurance Requirements', scope: false, evidence, documentIds: [] },
+    ] : [],
   };
 }
 

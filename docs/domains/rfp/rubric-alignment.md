@@ -6,7 +6,7 @@ Run `npm test` and `npm run check`. There is no separate alignment command.
 
 ## What is covered
 
-- `devtools/rfp-alignment.test.mjs` runs the 31 rubric cases in `devtools/fixtures/rfp-alignment-cases.mjs` through the real intake prefilter, document check, and finalizer, at preliminary and full-text depth. Expectations are rubric-derived and Jake has not reviewed them. The old keyword scorer passed 12 of 31.
+- `devtools/rfp-alignment.test.mjs` runs the 32 rubric cases in `devtools/fixtures/rfp-alignment-cases.mjs` through the real intake prefilter, document check, and finalizer, at preliminary and full-text depth. Expectations are rubric-derived and Jake has not reviewed them; the portal cover-sheet case is a project rule added after Rhode Island's PDMP. The old keyword scorer passed 12 of the first 31.
 - `devtools/fixtures/rfp-recorded-judgments.mjs` supplies invented, evidence-grounded decisions and company records. They are fixture inputs, not measured model judgments or current Seamgen claims.
 - `devtools/rfp-scoring-policy.test.mjs`:
   - citation, project, credential, and partner grounding;
@@ -27,6 +27,8 @@ Since October 12:
 - A mandatory minimum that the case library and Jake's standing facts clearly can't meet fails Gate 6. Examples are 3+ government references, or years of a product Seamgen has never delivered. Eligibility stays unknown only when the requirement is unclear, or when passing would rest on a credential that needs a current record.
 - One required government reference is covered by Jake's standing fact (Florida DEP, `GOVERNMENT_REFERENCES` in the policy). A second still needs the RFP to accept nonprofit or federal work.
 - Gate 2 has Jake's three outcomes: pass, fail, or Conditional — Ask the Agency. Buying, licensing, hosting, or configuring an existing product fails unless the custom share is clearly material (about 40%+) or the conditional route applies. A re-score of the 8 on October 12 left this gate open on 3 RFPs that Jake's system failed, which is why this rule was added.
+
+Since October 26, ISA departs from Jake's "pass with a note" for these two gates. After the documents are read, an open Gate 2 or Gate 6 is Needs review (shown as Worth a look with the question), never Strong Pursue. Rhode Island's PDMP went out as a 75 Strong Pursue with both open, scored from the bid board's cover sheet; its specification asked for an out-of-the-box product and prior PDMP installs. See [document qualification](document-qualification.md).
 
 Whether the model now matches Jake's calls is measured by the sample comparison in Jira ISA-3, not by these tests.
 

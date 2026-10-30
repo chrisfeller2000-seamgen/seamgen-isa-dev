@@ -10,6 +10,7 @@ import { createAssessmentContext } from '../workspace/scripts/rfp-deadline.mjs';
 import { createModelOutageGuard, createOpenClawJudge, describeScoringFailure, scoreRfp } from '../workspace/scripts/rfp-scoring-judgment.mjs';
 import { persistValidatedScore, readPortalCandidate, scoreCandidateFromText, shouldFetchDocuments } from '../workspace/scripts/weekly-rfp-pursue-decision.mjs';
 import { buildSecondaryReport, resolveSelectedCandidates } from '../workspace/scripts/secondary-fulltext-score.mjs';
+import { reportEntry } from '../workspace/scripts/rfp-report.mjs';
 
 const assessment = createAssessmentContext({ runDate: '2026-09-30' });
 const policies = await fixturePolicies();
@@ -35,19 +36,19 @@ test('unconfirmed completed-reference availability stays an open gate: scored, n
     judgment.subrules.eligibility.companyEvidence = [{ sourceId: 'case-library', quote: companySources[0].text }];
   };
   const result = finalize(input, update);
-  // Like Jake's "pass with a note": the score stands and the open gate's reason is kept
-  // for the report's blockers, but the gate itself is never recorded as passed.
+  // The categories are still scored and the open gate's reason is kept for the report's
+  // questions, but an open eligibility gate after the documents is never a Strong Pursue.
   assert.equal(result.gate.gate6, null);
   assert.match(result.gateReasons[5].reason, /have not been confirmed/);
-  assert.ok(Number.isFinite(result.total));
-  assert.equal(result.recommendation, 'Strong Pursue');
+  assert.ok(Number.isFinite(result.potential_total));
+  assert.equal(result.recommendation, 'Needs review');
   const transported = await scoreRfp(input, { judge: async ({ prompt }) => {
     const judgment = recordedJudgment(input); update(judgment);
     return JSON.stringify(referenceJudgment(judgment, JSON.parse(prompt).sources));
   } });
   assert.equal(transported.scoring_error, undefined);
   assert.equal(transported.gate.gate6, null);
-  assert.equal(transported.total, result.total);
+  assert.equal(transported.potential_total, result.potential_total);
 });
 
 test('a no-bid judgment cannot retain inaccurate non-decisive supporting citations', () => {
@@ -244,7 +245,8 @@ test('unknown requirements score provisionally before documents, and stay open g
   assert.equal(preliminary.qualification_status, 'provisional');
   const full = finalize(packet(), modify);
   assert.deepEqual([full.gate.gate4, full.gate.gate6], [null, null]);
-  assert.ok(Number.isFinite(full.total));
+  assert.ok(Number.isFinite(full.potential_total));
+  assert.equal(full.recommendation, 'Needs review');
 });
 
 test('before documents exist, documents to retrieve cite the listing and never block selection', () => {
@@ -265,7 +267,7 @@ test('before documents exist, documents to retrieve cite the listing and never b
   assert.throws(() => finalize(packet(), toRetrieve), /citation does not match/);
 });
 
-test('potential_total is the category sum, and an open gate no longer withholds the total', () => {
+test('potential_total is the category sum; an open gate keeps it but withholds the total only for Gates 2 and 6', () => {
   const scored = finalize(packet());
   assert.equal(scored.potential_total, scored.total);
   const open = finalize(packet(), j => {
@@ -274,7 +276,33 @@ test('potential_total is the category sum, and an open gate no longer withholds 
   });
   assert.equal(open.gate.gate6, null);
   assert.equal(open.potential_total, Object.values(open.categories).reduce((a, b) => a + b, 0));
-  assert.equal(open.total, open.potential_total);
+  assert.equal(open.total, null);
+  // An open submission route is routine to confirm and still gets its total, as Jake did.
+  const submission = finalize(packet(), j => { j.gates.gate4 = { pass: null, reason: 'Portal registration not yet checked.', evidence: [] }; j.subrules.submission.status = 'unknown'; });
+  assert.equal(submission.gate.gate4, null);
+  assert.equal(submission.total, submission.potential_total);
+  assert.equal(submission.recommendation, 'Strong Pursue');
+});
+
+test('after the documents, an open custom-build or eligibility gate is a question, never a Strong Pursue', () => {
+  // Rhode Island's PDMP, October 23: Gates 2 and 6 were open and it went out as a 75 Strong Pursue.
+  const openGate2 = j => {
+    j.gates.gate2 = { pass: null, reason: 'The specification may want an existing product; the custom share is not stated.', evidence: [] };
+    j.subrules.product.hardProductObligations = null;
+  };
+  const full = finalize(packet(), openGate2);
+  assert.equal(full.gate.gate2, null);
+  assert.ok(full.potential_total >= 75);
+  assert.deepEqual([full.recommendation, full.total, full.qualification_status], ['Needs review', null, 'provisional']);
+  // The weekly report shows it as Worth a look with the open question and its score if confirmed.
+  const entry = reportEntry({ candidate: { slug: 'open-gate', title: 'Example portal', frontmatter: {} }, preliminary: { preview: { total: 73 } }, final: full, documentStatus: 'full-text' });
+  assert.equal(entry.tier, 'worth');
+  assert.equal(entry.scoreIfYes, full.potential_total);
+  assert.ok(entry.questions.some(question => /existing product/.test(question)));
+  // Before the documents, an open Gate 2 is carried forward and still scored.
+  const preliminary = finalize(packet('clean-custom-build', { phase: 'preliminary', documents: [] }), openGate2);
+  assert.ok(Number.isFinite(preliminary.total));
+  assert.notEqual(preliminary.recommendation, 'Needs review');
 });
 
 test("the buyer summary and questions deadline for the pursue email are checked like any citation and never change the score", () => {
@@ -403,7 +431,8 @@ test('Gate 2a product obligations require a real integrator partner or a conditi
   assert.throws(() => finalize(packet(), j => { makeProduct(j); j.subrules.product.partner = { ...partner, sellsThroughIntegrators: false }; }), /integrator/);
   const unknown = finalize(packet(), j => { j.subrules.product.hardProductObligations = null; });
   assert.equal(unknown.gate.gate2, null);
-  assert.ok(Number.isFinite(unknown.total));
+  assert.ok(Number.isFinite(unknown.potential_total));
+  assert.equal(unknown.recommendation, 'Needs review');
 });
 
 test("before the documents, the ask-the-agency route is an open gate that still gets its documents fetched", () => {
@@ -464,15 +493,34 @@ test('full-text needs the solicitation itself; a missing referenced attachment i
   assert.equal(documentEvidence([{ file: 'RFP_Final.txt', text: 'Actual proposal requirements.' }]).complete, true);
   const rating = packet('rating-form-only', { completeness: { complete: true } });
   assert.equal(finalize(rating).total, null);
-  const missing = finalize(packet(), j => { j.requiredDocuments = [{ name: 'Required Statement of Work', evidence: citation, documentIds: [] }]; });
+  const missing = finalize(packet(), j => { j.requiredDocuments = [{ name: 'Required Insurance Certificate Form', scope: false, evidence: citation, documentIds: [] }]; });
   assert.ok(Number.isFinite(missing.total));
-  assert.ok(missing.reasons.includes('Missing referenced document: Required Statement of Work.'));
+  assert.ok(missing.reasons.includes('Missing referenced document: Required Insurance Certificate Form.'));
   const unweighted = finalize(packet(), j => {
-    j.requiredDocuments = [{ name: 'Required Statement of Work', evidence: citation, documentIds: [] }];
+    j.requiredDocuments = [{ name: 'Required Statement of Work', scope: true, evidence: citation, documentIds: [] }];
     j.categories = null;
   });
   assert.equal(unweighted.recommendation, 'Needs documents');
   assert.equal(unweighted.total, null);
+});
+
+test('an unread scope document stops a full-text score even when the categories were scored', () => {
+  // Rhode Island's PDMP, October 23: the only file was the portal's cover sheet, the model
+  // scored all eight categories from it, and the missing specification became a footnote.
+  const spec = { name: 'Agency Solicitation Specification', scope: true, evidence: citation, documentIds: [] };
+  const form = { name: 'Insurance Requirements Addendum', scope: false, evidence: citation, documentIds: [] };
+  const cover = finalize(packet(), j => { j.requiredDocuments = [spec, form]; });
+  assert.deepEqual([cover.recommendation, cover.total, cover.document_status], ['Needs documents', null, 'partial-documents']);
+  assert.ok(cover.reasons.includes('Missing scope document: Agency Solicitation Specification.'));
+  // Once the specification is supplied, only the form is missing and the score stands.
+  const read = finalize(packet(), j => { j.requiredDocuments = [{ ...spec, documentIds: ['doc-1'] }, form]; });
+  assert.ok(Number.isFinite(read.total));
+  assert.ok(read.reasons.includes('Missing referenced document: Insurance Requirements Addendum.'));
+  // Full-text answers must say which kind each missing document is; listing-stage notes need not.
+  assert.throws(() => finalize(packet(), j => { j.requiredDocuments = [{ name: 'Appendix C', evidence: citation, documentIds: [] }]; }), /defines the scope/);
+  const input = packet('clean-custom-build', { phase: 'preliminary', documents: [] });
+  const listing = [{ sourceId: 'metadata', quote: input.candidate.body }];
+  assert.ok(Number.isFinite(finalize(input, j => { j.requiredDocuments = [{ name: 'Official solicitation', evidence: listing, documentIds: [] }]; }).total));
 });
 
 test('documents are fetched at a preliminary 50+, never for a non-finalizable or gate-failed result', () => {
@@ -508,7 +556,7 @@ test('actual candidate persistence retains the validated score, review state, an
     assert.match(saved, /qualification_status: "qualified"/);
     assert.match(saved, /scoring_categories:/);
     assert.match(saved, /scoring_judgments:/);
-    const partial = finalize(packet(), j => { j.requiredDocuments = [{ name: 'SOW', evidence: citation, documentIds: [] }]; j.categories = null; });
+    const partial = finalize(packet(), j => { j.requiredDocuments = [{ name: 'SOW', scope: true, evidence: citation, documentIds: [] }]; j.categories = null; });
     await persistValidatedScore(file, { preliminaryScore: 80, result: partial, manifestPath: '', runDate: assessment.runDate });
     const next = await fs.readFile(file, 'utf8');
     assert.match(next, /final_score: unknown/);

@@ -52,6 +52,7 @@ const OUTPUT_CONTRACT = {
     name: 'buyer-issued solicitation/scoring attachment required for review, not bidder-created reference letters, cost proposals or company certificates; at preliminary depth, a document to retrieve, cited from the metadata listing',
     evidence: EVIDENCE,
     documentIds: ['source IDs such as doc-1 containing the actual attachment text, not merely the RFP referring to it; empty when missing'],
+    scope: 'boolean at full-text depth: true when the document defines the work (specification, statement of work, scope, requirements or technical requirements); false for forms, insurance, terms, cost templates, attestations and checklists',
   }],
   conditional: 'null or {rule: 2|2a, question, qaStatus: open|closed|unknown, qaDueDate: verified YYYY-MM-DD or null, qaBasis: deadline|confirmed-none-posted|unknown, commercialOnly: boolean, evidence: []}. Confirmed-none-posted requires actual document evidence, not missing metadata. For a conditional gate set gate2 null, not an approved pass.',
   subrules: {
@@ -135,6 +136,7 @@ const SYSTEM_RULES = [
   'Unless a gate is known false, return all eight categories at metadata depth and list the buyer documents to retrieve in requiredDocuments, citing metadata.',
   'At full-text depth, if a gate remains unknown, still return all eight category judgments; the open gate is listed as a blocker.',
   'Categories may be omitted only when a gate is known false or the bid is not open. A referenced document that was not supplied, or an unconfirmed deadline, still gets all eight categories: score from the supplied documents and list the missing document in requiredDocuments.',
+  'At full-text depth, mark each requiredDocuments entry scope true or false. A portal cover sheet or solicitation summary that points to a separate specification, scope of work or requirements document is not the scope: list that document with scope true.',
   'Never invent evidence to fill categories.',
   'If the packet includes previousAnswerRejected, your previous answer failed validation for that reason: return the complete corrected JSON object.',
   'buyer is for the sales email and never affects gates or points: give currentSolution only when the supplied text names what is in place today, citing that text; otherwise null.',

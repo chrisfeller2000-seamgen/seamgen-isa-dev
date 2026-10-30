@@ -27,6 +27,7 @@ export const rubricContract = {
     documents: 'Document fetch skill Step 7: ancillary files alone cannot establish a full-text score.',
     intake: 'HigherGov.Common.ps1 Test-HGPrefilter: excluded notice types, denied set-asides, and capture-date timeline; missing fields and a sole-source flag alone do not kill.',
     biddability: 'Project invariant: a notice explicitly inviting no submissions is not a Strong Pursue bid. This is a clarification for review, not a new Jake-approved kill gate.',
+    scope: 'Project invariant (October 2026, RI PDMP): a portal cover sheet whose specification is unread is not a full-text score. Not a Jake-approved rule.',
   },
 };
 
@@ -109,6 +110,13 @@ export const alignmentCases = [
   ]),
   scoringCase('rating-form-only', 'An evaluation form with a date is not the solicitation', { documents: [{ file: 'RFP COMMITTEE RATING FORM.txt', text: 'Proposal deadline: October 26, 2026. Evaluation form: technical approach 40%, team experience 30%, cost 30%.' }] }, [
     { field: 'document.total', op: 'eq', expected: null, rule: 'documents' },
+  ]),
+  // The shape of a state bid-board printout: dates, registration, a pointer to the real
+  // specification and a list of attachments that HigherGov did not serve.
+  scoringCase('portal-cover-sheet', 'A portal cover sheet that points to an unread specification is not the RFP', { documents: [{ file: '01-solicitation-RFP0000_solicitation_doc.pdf',
+    text: 'Request for Proposals\nProposal deadline: October 26, 2026.\nSECTION 2. AGENCY SOLICITATION SPECIFICATIONS\nSee the Overview tab of this solicitation for the Agency Solicitation Specifications document.\nDocuments: Agency Solicitation Specification.pdf; Appendix C - Business and Technical Requirements.xlsx; Addendum A - Insurance Requirements.pdf\nVendors must register in the state procurement portal to submit.' }] }, [
+    { field: 'document.recommendation', op: 'eq', expected: 'Needs documents', rule: 'scope' },
+    { field: 'document.total', op: 'eq', expected: null, rule: 'scope' },
   ]),
   scoringCase('case-match-control', 'Control for incidental bid wording', { scope: 'Custom build a secure internal portal on Azure.' }),
   scoringCase('case-match-bid', 'The word bid does not establish a closer case study', { scope: 'Custom build a secure internal portal on Azure.', extra: 'Submit a bid.' }, [

@@ -306,6 +306,9 @@ function requiredDocuments(judgment, sources, phase) {
     if (!norm(requirement.name) || !Array.isArray(requirement.documentIds) || requirement.documentIds.some(id => sources.get(id)?.kind !== 'document')) {
       throw new Error('Invalid required-document evidence.');
     }
+    // After the documents are read, the judge says whether each one defines the scope
+    // (a specification, statement of work or requirements list) or is a form or addendum.
+    if (phase !== 'preliminary' && typeof requirement.scope !== 'boolean') throw new Error('Required document must say whether it defines the scope.');
   }
   return missing;
 }
@@ -461,6 +464,15 @@ export function finalizeRfpScore(input, judgment) {
   // model couldn't score the categories without it.
   const unread = phase === 'full-text' ? missing.filter(item => !item.documentIds.length) : [];
   if (unread.length && !judgment.categories) return { ...base, recommendation: 'Needs documents', document_status: 'partial-documents' };
+  // A missing form is a blocker to note; a missing scope document means the scope was never
+  // read. October 23: HigherGov served only Rhode Island's bid-board cover sheet for its PDMP
+  // RFP, the specification and requirements appendix sat on the state portal, and the cover
+  // sheet scored Strong Pursue. The specification asked for an out-of-the-box product.
+  const unreadScope = unread.filter(item => item.scope);
+  if (unreadScope.length) {
+    base.reasons.push(`Missing scope document: ${unreadScope.map(item => item.name).join('; ')}.`);
+    return { ...base, recommendation: 'Needs documents', document_status: 'partial-documents' };
+  }
   if (unread.length) base.reasons.push(`Missing referenced document: ${unread.map(item => item.name).join('; ')}.`);
   if (phase === 'preliminary' && missing.length) base.reasons.push(`Documents to retrieve: ${missing.map(item => item.name).join('; ')}.`);
 
@@ -484,6 +496,12 @@ export function finalizeRfpScore(input, judgment) {
   // "with a note"; ISA keeps the gate open and the report lists its reason as a blocker.
   // An uncertain or conflicting project value still needs review.
   if ((phase === 'full-text' && judgment.value.kind === 'uncertain') || value.status === 'conflicting') {
+    return { ...scored, recommendation: 'Needs review' };
+  }
+  // Except Gates 2 and 6 after the documents: an open custom-build or eligibility gate can
+  // hide a kill, so the score goes to the team as a question (Worth a look in the report)
+  // and never as a Strong Pursue pick. Rhode Island's PDMP went out as a pick with both open.
+  if (phase === 'full-text' && (gate.gate2 === null || gate.gate6 === null)) {
     return { ...scored, recommendation: 'Needs review' };
   }
   const total = scored.potential_total;
