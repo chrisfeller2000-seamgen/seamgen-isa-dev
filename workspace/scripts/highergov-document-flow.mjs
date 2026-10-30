@@ -345,10 +345,25 @@ function countBy(rows, key) {
   return tally;
 }
 
+// A document's name without its extension or the local "01-role-" prefix, so the same
+// document saved in two formats has one stem.
+function documentStem(row) {
+  const name = row.source_file_name || String(row.local_file_name || '').replace(/^\d+-[a-z_]+-/, '');
+  return normalizeText(name).toLowerCase().replace(/\.[a-z0-9]{1,5}$/, '').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
 function evaluateDocumentCompleteness({ manifest = [] } = {}) {
   const rows = Array.isArray(manifest) ? manifest : [];
   const primary = rows.find((row) => row.role === 'solicitation' && row.downloaded && row.extracted);
-  const missingRequired = rows.filter((row) => row.required && (!row.downloaded || !row.extracted || ['portal-gated', 'failed', 'downloaded but unsupported'].includes(row.document_status)));
+  // Agencies post one document in two formats: SF City Partner posts an event as PeopleSoft
+  // .xml and .pdf, others post .docx and .pdf. October 30: Our415's .xml was unreadable, so
+  // the RFP was reported unread although its .pdf copy and the full RFP were both read. An
+  // unreadable required file is covered only by a read copy with the same name; a
+  // different readable file never stands in for it.
+  const readStems = new Set(rows.filter((row) => row.downloaded && row.extracted).map(documentStem).filter(Boolean));
+  const missingRequired = rows.filter((row) => row.required
+    && (!row.downloaded || !row.extracted || ['portal-gated', 'failed', 'downloaded but unsupported'].includes(row.document_status))
+    && !readStems.has(documentStem(row)));
   const hasAnyDocs = rows.some((row) => row.downloaded);
   const hasPortalBlock = rows.some((row) => row.document_status === 'portal-gated');
   const hasFailure = rows.some((row) => row.document_status === 'failed');
