@@ -17,7 +17,7 @@ node scripts/document-text.mjs "<path to the file>"
 
 The text is printed. A final status line says how it was read, for example `extracted | ocr | 14 pages by OCR`.
 
-It reads PDF, Word (`.docx`), Excel (`.xlsx`, and macro-enabled `.xlsm`, whose macros are never run), HTML, and plain text files. A scanned PDF is read by OCR (Optical Character Recognition), which recognises the letters in the page images.
+It reads PDF, Word (`.docx`), Excel (`.xlsx`, and macro-enabled `.xlsm`, whose macros are never run), XML, HTML, and plain text files. SF City Partner publishes an event's main RFP as an `.xml` spreadsheet. Its text comes out one tab at a time, each under a `[Tab name]` line, with a row's cells separated by `|`. Treat that file as the event summary. The full scope, forms, and contract terms are usually in the event's other attachments. A scanned PDF is read by OCR (Optical Character Recognition), which recognises the letters in the page images.
 
 ## When to use it
 
