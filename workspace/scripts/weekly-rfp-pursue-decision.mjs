@@ -81,7 +81,9 @@ function isoDate(value) {
 // by an OpenClaw outage), so that week's Friday run still sends; deadlines keep counting
 // from the real run date.
 export function reportWeek(runDate, weekOf = process.env.RFP_REPORT_WEEK_OF) {
-  return weekNumber(new Date(isoDate(weekOf) || runDate));
+  // isoDate() with no value is today, so only call it when a week-of date was given;
+  // otherwise a rerun for a past runDate would be filed under the current week.
+  return weekNumber(new Date((weekOf && isoDate(weekOf)) || runDate));
 }
 
 async function withTimeout(promise, timeoutMs, label = 'operation') {
