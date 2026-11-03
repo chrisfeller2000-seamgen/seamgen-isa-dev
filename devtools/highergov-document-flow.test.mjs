@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { listDocumentRecords, lookupOpportunityRecord } from '../workspace/scripts/highergov-document-flow.mjs';
+import { evaluateDocumentCompleteness, listDocumentRecords, lookupOpportunityRecord } from '../workspace/scripts/highergov-document-flow.mjs';
 
 const base = { apiKey: 'test-key', searchId: 'search-1', sourceType: 'sled,sam', capturedDate: '2026-09-22', retryDelayMs: 0 };
 
@@ -124,4 +124,41 @@ test('document listing retries a 503 and returns the records', async () => {
   assert.equal(requests.length, 2);
   assert.equal(requests[1].searchParams.get('related_key'), 'doc-1');
   assert.equal(requests[1].searchParams.get('api_key'), 'test-key');
+});
+
+// Manifest rows as the weekly job leaves them after extraction.
+const read = (name, extra = {}) => ({ source_file_name: name, local_file_name: name, role: 'solicitation', required: true, downloaded: true, extracted: true, document_status: 'downloaded and extracted', ...extra });
+const unread = (name, extra = {}) => ({ ...read(name), extracted: false, document_status: 'downloaded but unsupported', ...extra });
+
+test('an unreadable file is covered by a read copy of the same document in another format', () => {
+  // Shaped like Our415 on SF City Partner, October 30: the event as .xml and .pdf, plus the RFP.
+  const completeness = evaluateDocumentCompleteness({ manifest: [
+    unread('CHF___2027_Our415_Request_for_Proposals.xml'),
+    read('DCYF_2027_Our415_RFP_10.26.26.pdf'),
+    read('CHF___2027_Our415_Request_for_Proposals.pdf'),
+  ] });
+  assert.deepEqual(completeness, { complete: true, status: 'full-text', reasons: [] });
+
+  // Without a source name, the local "NN-role-" prefix is ignored, even when the roles differ.
+  const local = evaluateDocumentCompleteness({ manifest: [
+    unread('', { local_file_name: '01-solicitation-Scope_of_Work.doc' }),
+    read('', { local_file_name: '02-requirements-Scope of Work.pdf' }),
+  ] });
+  assert.equal(local.complete, true);
+});
+
+test('a different readable file never stands in for an unreadable or missing required one', () => {
+  const unreadable = evaluateDocumentCompleteness({ manifest: [
+    read('RFP_2027.pdf'),
+    unread('Appendix C - Business and Technical Requirements.xls', { role: 'requirements' }),
+  ] });
+  assert.equal(unreadable.complete, false);
+  assert.deepEqual(unreadable.reasons, ['Missing or unreadable required document: Appendix C - Business and Technical Requirements.xls']);
+
+  const gated = evaluateDocumentCompleteness({ manifest: [
+    read('RFP_2027.pdf'),
+    { ...unread('Agency Solicitation Specification.pdf', { role: 'requirements' }), downloaded: false, document_status: 'portal-gated' },
+  ] });
+  assert.equal(gated.complete, false);
+  assert.match(gated.reasons[0], /Agency Solicitation Specification\.pdf$/);
 });
