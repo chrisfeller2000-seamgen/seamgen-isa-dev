@@ -734,11 +734,12 @@ function closestMiss(results) {
 
 // Scores move about 5 points between runs (Jessica's review, October 14), so an RFP at 70 or
 // more that wasn't picked is one run away from it. The weekly message names up to three so
-// someone can ask for a closer look. "Ask the agency first" RFPs need a question, not a look.
+// someone can ask for a closer look. "Ask the agency first" RFPs need a question, not a look,
+// and an RFP waiting on a portal login is named on its own line below.
 const CLOSE_CALL_SCORE = 70;
 function closeCalls(results, closest) {
   return results.entries
-    .filter(entry => ['worth', 'check'].includes(entry.tier) && entry.reason !== 'agency' && Number.isFinite(entry.rankScore) && entry.rankScore >= CLOSE_CALL_SCORE)
+    .filter(entry => ['worth', 'check'].includes(entry.tier) && !['agency', 'portal'].includes(entry.reason) && Number.isFinite(entry.rankScore) && entry.rankScore >= CLOSE_CALL_SCORE)
     .sort((a, b) => b.rankScore - a.rankScore)
     .map(entry => ({ name: shortName(entry.title), score: entry.rankScore }))
     .filter(call => !(closest && call.name === closest.name))
@@ -749,6 +750,21 @@ function closeCalls(results, closest) {
 function closeCallsLine(facts) {
   if (!facts.closeCalls?.length) return '';
   return `Close calls this week: ${facts.closeCalls.map(call => `**${call.name}** (${call.score})`).join(', ')}. Reply here if you want a closer look at one.`;
+}
+
+// RFPs scoring 50+ whose documents wait on someone signing in to the agency's portal: the
+// highest three by name, and how many in all. Also added by code after the message.
+function portalLogins(results) {
+  const waiting = results.entries.filter(entry => entry.reason === 'portal').sort((a, b) => (b.rankScore ?? -1) - (a.rankScore ?? -1));
+  return { count: waiting.length, named: waiting.slice(0, 3).map(entry => ({ name: shortName(entry.title), portal: entry.portal?.name || '' })) };
+}
+
+function portalLine(facts) {
+  const { count = 0, named = [] } = facts.portalLogins || {};
+  if (!count) return '';
+  const names = named.map(item => `**${item.name}**${item.portal ? ` (${item.portal})` : ''}`).join(', ');
+  const more = count > named.length ? `, and ${count - named.length} more` : '';
+  return `${count} ${plural(count, 'RFP needs', 'RFPs need')} a portal login before ${plural(count, 'its', 'their')} documents can be read: ${names}${more}. They're in the report.`;
 }
 
 /**
@@ -768,7 +784,7 @@ export function telegramFacts(results, pursue, email = { status: 'none' }) {
     })),
     closest: pursue.picks.length ? null : closestMiss(results),
   };
-  return { ...facts, closeCalls: closeCalls(results, facts.closest) };
+  return { ...facts, closeCalls: closeCalls(results, facts.closest), portalLogins: portalLogins(results) };
 }
 
 /** The code-built Telegram summary: the only version for failed and quiet weeks. */
@@ -848,10 +864,10 @@ function telegramWriterPrompt(vibe) {
  * quiet weeks always use the code-built text. Returns { text, source, reason }.
  */
 export async function writeTelegramMessage(facts, complete, { vibe = DEFAULT_VIBE, timeoutMs = 120000 } = {}) {
-  const withCloseCalls = text => [text, closeCallsLine(facts)].filter(Boolean).join('\n\n');
+  const withCloseCalls = text => [text, closeCallsLine(facts), portalLine(facts)].filter(Boolean).join('\n\n');
   if (!['sent', 'preview'].includes(facts.email)) return { text: withCloseCalls(renderTelegramFallback(facts)), source: 'code', reason: null };
-  // ISA writes and is checked on the facts without the close calls; code adds that line.
-  const { closeCalls: _, ...writerFacts } = facts;
+  // ISA writes and is checked on the facts without the close calls and portal logins; code adds those lines.
+  const { closeCalls: _, portalLogins: __, ...writerFacts } = facts;
   const read = draft => ({ ...checkTelegramDraft(draft, writerFacts), value: draft });
   const written = await writeChecked({ complete, systemPrompt: telegramWriterPrompt(vibe), facts: writerFacts, read,
     fallback: () => renderTelegramFallback(writerFacts), timeoutMs });
