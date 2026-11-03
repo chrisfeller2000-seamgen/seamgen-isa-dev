@@ -206,3 +206,22 @@ Evaluated on the VM with the undeployed code on all 42 September 30 RFPs scoring
 - **All 18 document-backed results are No-bid from the existing keyword gates.** All 18 fail the keyword "software, not hardware" gate; 14 fail the references gate and 9 the custom-work gate. Long solicitations almost always contain such words. This predates the evidence gate (the September 28 report had 19 No-bids among 23 downloaded RFPs) and is the document-backed scorer the AI scoring work replaces.
 
 Because recognizing more solicitations currently turns Needs documents into keyword No-bids, do not deploy the content rule until document-backed scoring is trustworthy. The deployed name-based gate stays.
+
+## Same-name copy release — November 3, 2026
+
+PR #30, released on Jessica's explicit request: exact-file release of `main` at merge commit `0a44d30`. No service restart, schedule, configuration, or credential change.
+
+On October 30, Our415's PeopleSoft `.xml` could not be read, so the RFP was reported unread even though its `.pdf` copy and the full RFP were read. An unreadable required file now counts as read when a file with the same name in another format was read (names compared without the extension or the local `NN-role-` prefix). A different readable file never stands in for a missing one. The rule is in [document qualification](../../domains/rfp/document-qualification.md).
+
+- Before upload: a read-only check found no VM change since the October 30 accepted baseline, and the VM copy of the file was identical to `main` just before #30, so only #30's change went up. `npm run check` passed; `npm test` passed 177 of 181 on Windows, and the 4 failures are the Windows import-path issue fixed by open PR #22 (181 of 181 with that fix applied temporarily). CI passed on #30.
+- Excluded on purpose: `scripts/run-weekly-current-year-sales-report-cron.sh`, whose VM copy adds report recipients that Git does not have yet.
+- Release: `dev-deploy-2026-11-03T18-24-12-544Z-0a44d30`, uploaded at 18:25 UTC. Backup root: `/home/azureuser/.openclaw/workspace/backups/dev-deploy-2026-11-03T18-24-12-544Z-0a44d30` (`original/` holds the prior file).
+
+| Deployed file | New SHA-256 | Prior SHA-256 (in backup) |
+| --- | --- | --- |
+| `scripts/highergov-document-flow.mjs` | `dc51cc75d88cb5d7538a782c187220c8ed2edb1a4bde4ac816d1d51d4be1a084` | `d40d0b47a4917a5f264dd5896f1b3985e4978c488d11e178d51e082949c8745d` |
+
+- After upload: the VM hash matches the commit, the file passes `node --check` on the VM, and the post-upload snapshot matched the expected one, so the accepted baseline advanced. A fresh `live:pull` shows no VM change since it.
+- Not yet observed: a real weekly run. On Friday November 6, check that an RFP whose unreadable file has a readable same-name copy is scored from its documents, not reported as Needs documents.
+
+Rollback, if needed and separately requested: confirm the VM file still has the new hash above, copy it from the backup's `original/` folder back into place, and verify the prior hash.
