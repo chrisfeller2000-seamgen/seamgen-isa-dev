@@ -503,3 +503,34 @@ test("a product buy found in the documents is never a pick: it asks the agency f
     final: result({ recommendation: 'Conditional — Ask the Agency', potential: 71, extra: { conditional } }), documentStatus: 'full-text' });
   assert.deepEqual([asked.tier, asked.reason], ['check', 'agency']);
 });
+
+// What the agency-posting attempt found, as posting-documents.mjs returns it.
+const postingOf = (outcome, { portal = '', access = 'unknown' } = {}) => ({ host: 'bids.example.gov', portal, access, outcome, reason: '', listed: 0, downloaded: 0,
+  skipped: { offDomain: 0, duplicate: 0, unsupported: 0, overCap: 0, unmatched: 0 } });
+
+test("missing documents on a login portal get their own group, naming the portal; other misses say why", () => {
+  const login = reportEntry({ candidate: candidate('pp'), preliminary: preliminary(74), documentStatus: 'document-list-empty',
+    posting: postingOf('skipped-known-portal', { portal: 'Public Purchase', access: 'free-account' }) });
+  assert.deepEqual([login.tier, login.reason, login.reasonDetail, login.portal],
+    ['check', 'portal', 'Public Purchase', { name: 'Public Purchase', access: 'free-account', outcome: 'skipped-known-portal' }]);
+  assert.deepEqual(plainOutcome(login), { decision: 'Needs a portal login', why: 'The documents need a free Public Purchase account to download.' });
+  // A sign-in page met at an unlisted site, and a full-text "Needs documents" on a paid portal.
+  const signIn = reportEntry({ candidate: candidate('signin'), preliminary: preliminary(66), documentStatus: 'document-list-empty', posting: postingOf('login-required') });
+  assert.equal(plainOutcome(signIn).why, "The documents need a login on the agency's portal.");
+  const partial = reportEntry({ candidate: candidate('ds'), preliminary: preliminary(79), final: result({ recommendation: 'Needs documents' }),
+    documentStatus: 'partial-documents', posting: postingOf('skipped-known-portal', { portal: 'DemandStar', access: 'paid' }) });
+  assert.deepEqual([partial.reason, plainOutcome(partial).why], ['portal', 'The documents need a paid DemandStar account to download.']);
+  // Not a login: the reason stays "documents", with the cause in brackets.
+  const botCheck = reportEntry({ candidate: candidate('emma'), preliminary: preliminary(60), documentStatus: 'document-list-empty',
+    posting: postingOf('skipped-known-portal', { portal: 'eMMA (Maryland)', access: 'bot-check' }) });
+  assert.deepEqual([botCheck.reason, plainOutcome(botCheck).why],
+    ['documents', "Couldn't get or read the RFP documents (they are on an agency site with a bot check, so someone has to download them)."]);
+  const unlisted = reportEntry({ candidate: candidate('quiet'), preliminary: preliminary(62), documentStatus: 'document-list-empty', posting: postingOf('no-documents-listed') });
+  assert.equal(plainOutcome(unlisted).why, "Couldn't get or read the RFP documents (the agency posting didn't list them).");
+  // With nothing known, as before.
+  const plain = reportEntry({ candidate: candidate('none'), preliminary: preliminary(62), documentStatus: 'document-list-empty', posting: postingOf('not-attempted') });
+  assert.deepEqual([plain.reason, plainOutcome(plain).why], ['documents', "Couldn't get or read the RFP documents."]);
+
+  const markdown = renderMarkdown(weekResults([...weekEntries(), login, botCheck]));
+  assert.match(markdown, /## Couldn't check yet\n\n\*\*Documents need a portal login \(1\)\*\*\n\n- Permit portal pp — City of Example, CA: the documents need a free Public Purchase account to download\. Listing score 74\. Due: Not confirmed \(the listing says Oct 28\)\. \[HigherGov listing\]\(https:\/\/www\.highergov\.com\/sl\/contract-opportunity\/pp\) · \[Agency posting\]\(https:\/\/bids\.example\.gov\/pp\)\n\n\*\*Other checks \(2\)\*\*\n\n- Permit portal nodocs — [^\n]+\n- Permit portal emma — City of Example, CA: couldn't get or read the RFP documents \(they are on an agency site with a bot check/);
+});

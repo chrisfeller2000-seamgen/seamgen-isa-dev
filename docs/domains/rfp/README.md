@@ -12,7 +12,11 @@ The weekly job in `workspace/scripts/weekly-rfp-pursue-decision.mjs` runs intake
 
 - **Strong pursue.**
 - **Worth a look.**
-- **Couldn't check yet:** documents missing or unreadable, or scoring didn't finish. Also "ask the agency first": the documents show a product buy (Jake's Gates 2 and 2a). The report gives the question to send and when the agency's questions are due. These are never picks, whatever they could score.
+- **Couldn't check yet:** documents missing or unreadable, or scoring didn't finish. These are never picks, whatever they could score. It also covers two RFPs with a clear next step:
+  - **"Ask the agency first":** the documents show a product buy (Jake's Gates 2 and 2a). The report gives the question to send and when the agency's questions are due.
+  - **"Documents need a portal login":** the documents are on the agency's portal behind a vendor account. These come first in the Markdown, under their own heading. Each names the portal ("the documents need a free Public Purchase account to download") and gives the listing score, the HigherGov listing and the agency posting.
+
+  Other missing documents say why in brackets when the posting attempt found out, such as a bot check, by email, or not listed (see [document qualification](document-qualification.md), "Agency posting").
 - **Screened out:** with a plain reason.
 
 From that file:
@@ -45,7 +49,7 @@ Each line holds:
   - the model, a hash of the whole prompt (the code's rules included), and short hashes of the four scoring skills.
 - **The model's own answer:** evidence quotes cut to 300 characters.
 - **Rejected answers** (`rejections`): each answer the validator turned down, with its try number and reason, whether or not a later try passed. Up to 40,000 characters each.
-- **The documents:** why the set was incomplete, and file names, roles, and whether each was read. Local paths and download links stay in the manifest.
+- **The documents:** why the set was incomplete, and file names, roles, whether each was read, and its `source` (`highergov` or `posting`, with `match` for posting files). `posting` records the attempt at the agency's posting: site, portal, access, outcome, files listed and saved, and what was skipped. Local paths and download links stay in the manifest.
 
 That is about 3 MB a week. If the file can't be written, the job logs one line and the Friday update goes out without it.
 

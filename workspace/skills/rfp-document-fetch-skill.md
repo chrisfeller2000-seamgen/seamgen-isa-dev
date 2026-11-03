@@ -176,6 +176,8 @@ HigherGov is a mirror, not the origin. The **Overview** section has an **"Open"*
 
 #### 7a — Before declaring the RFP absent, check whether what you have is a *portal summary*
 
+**The Friday job may already have tried this.** When its posting step is on, it reads the agency posting and a summary's PDF links anonymously, for RFPs scoring 50+. Check the manifest's `posting:` line and each file's source before repeating it.
+
 **Some agency portals publish a one- or two-page "event summary" instead of the solicitation, and HigherGov serves that summary as the document.** It reads like a cover sheet: title, open/close dates, contacts, a paragraph of description — and then a section listing the real package, typically headed **"Buyer Attachments,"** "Solicitation Documents," "Event Attachments," or similar. Jaggaer / SciQuest (`bids.sciquest.com`) does this; treat any portal as capable of it.
 
 **Those filenames are usually live hyperlinks, and the endpoint behind them is often open.** On Texas State (2026-09-09) the summary's eight Buyer Attachments were links to `bids01.jaggaer.com/apps/Router/PublicEventDownload`, which returned every file — including the actual RFP — with **no login**. The first pass recorded that opportunity as "RFP absent, portal access required" and left a provisional score standing. It was wrong, and the real RFP moved the score.

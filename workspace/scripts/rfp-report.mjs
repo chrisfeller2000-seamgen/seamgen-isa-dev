@@ -3,6 +3,7 @@
 // ISA's model only words the email's sentences and the Telegram summary. Its words are
 // used only when they pass the checks below; otherwise the code-built version goes out.
 import { deadlineTimestamp, parseDeadlineDate } from './rfp-deadline.mjs';
+import { PORTAL_ACCESS_TEXT, loginPortal } from './rfp-portals.mjs';
 
 const PACIFIC = 'America/Los_Angeles';
 const MIN_PICK_SCORE = 50;
@@ -46,7 +47,24 @@ const CHECK_REASONS = {
   disabled: 'document fetching is turned off',
   unscored: "the AI scoring didn't finish",
   noDeadline: "the due date couldn't be confirmed from the RFP",
-  agency: "looks like a product buy, so it needs the agency's answer on a custom build first"
+  agency: "looks like a product buy, so it needs the agency's answer on a custom build first",
+  // The documents are on the agency's portal behind a vendor login (rfp-portals.mjs, or a
+  // sign-in page met at the posting). checkReason() names the portal.
+  portal: "the documents need a login on the agency's portal",
+};
+// Why the documents couldn't be got from the agency posting either, by the posting
+// attempt's outcome (posting-documents.mjs). Shown after "couldn't get or read the RFP
+// documents" in brackets.
+const POSTING_NOTES = {
+  'bot-check': 'the agency site has a bot check, so someone has to download them',
+  'by-request': 'the agency sends them by email on request',
+  'js-only': 'the agency site lists them only in a browser',
+  'no-documents-listed': "the agency posting didn't list them",
+  'posting-gone': 'the agency posting is gone',
+  'posting-unavailable': "the agency site didn't answer",
+  'rate-limited': "the agency site didn't answer",
+  'robots-disallowed': 'the agency site asks automated tools not to read it',
+  'not-a-posting': 'the posting link is a public notice, not the RFP',
 };
 const TIER_ORDER = { strong: 0, worth: 1, check: 2, screened: 3 };
 const TIER_DECISIONS = { strong: 'Strong pursue', worth: 'Worth a look', check: "Couldn't check yet", screened: 'Screened out' };
@@ -307,10 +325,21 @@ function rankOf(final, preliminary) {
   return { score: null, from: null };
 }
 
-function placement({ preliminary, final, documentStatus }) {
+// True when the posting attempt says the documents sit behind a vendor login: a portal
+// listed as needing an account that wasn't (or couldn't be) read, or a sign-in page met at
+// the posting.
+function needsLogin(posting) {
+  if (!posting) return false;
+  if (posting.outcome === 'login-required') return true;
+  return loginPortal(posting) && ['skipped-known-portal', 'not-attempted'].includes(posting.outcome);
+}
+
+function placement({ preliminary, final, documentStatus, posting = null }) {
   const prelim = preliminary?.preview || {};
   const screened = (key, detail = '') => ({ tier: 'screened', reason: key, detail });
   const check = key => ({ tier: 'check', reason: key, detail: '' });
+  // Missing documents: a login portal gets its own group in the report.
+  const missing = () => (needsLogin(posting) ? { tier: 'check', reason: 'portal', detail: posting.portal || '' } : check('documents'));
   if (preliminary?.status === 'insufficient-metadata') return screened('thin');
   const result = final || prelim;
   // A gate the code decided (deadline, value) stays a No-bid even if the AI call failed.
@@ -324,9 +353,9 @@ function placement({ preliminary, final, documentStatus }) {
     if (prelim.recommendation === 'Deadline needs review') return check('noDeadline');
     if (!Number.isFinite(prelim.total)) return check('unscored');
     if (prelim.total < MIN_PICK_SCORE) return screened('weak');
-    return check(documentStatus === 'fetch-disabled' ? 'disabled' : 'documents');
+    return documentStatus === 'fetch-disabled' ? check('disabled') : missing();
   }
-  if (final.recommendation === 'Needs documents') return check('documents');
+  if (final.recommendation === 'Needs documents') return missing();
   // A product buy is never a pick (Jake's Gates 2 and 2a). When the documents show one, the
   // scorer takes the ask-the-agency route, and that question is the next step. October 14:
   // Raleigh's fire records system, an existing-product install, showed as Worth a look at 71
@@ -345,16 +374,16 @@ function placement({ preliminary, final, documentStatus }) {
  * One results-file entry per RFP. `preliminary` is the weekly job's preliminary result
  * ({ status, preview }); `final` is the full-text result when documents were scored.
  */
-export function reportEntry({ candidate, preliminary, final = null, documentStatus = 'metadata-only', hubspotDeal = '', documentsLink = '' }) {
+export function reportEntry({ candidate, preliminary, final = null, documentStatus = 'metadata-only', hubspotDeal = '', documentsLink = '', posting = null }) {
   const frontmatter = candidate?.frontmatter || {};
   const prelim = preliminary?.preview || {};
   const result = final || prelim;
-  const place = placement({ preliminary, final, documentStatus });
+  const place = placement({ preliminary, final, documentStatus, posting });
   const rank = rankOf(final, prelim);
   const questions = place.tier === 'worth' || place.tier === 'strong' ? openQuestions(final) : [];
   const budget = budgetOf(result.value);
   const listing = publicUrl(candidate?.sourceUrl || frontmatter.source_url);
-  const posting = publicUrl(candidate?.portalUrl || frontmatter.solicitation_url);
+  const postingLink = publicUrl(candidate?.portalUrl || frontmatter.solicitation_url);
   // The question to send the agency, and the day its question window closes.
   const asked = place.reason === 'agency' ? final?.conditional || final?.judgments?.conditional || prelim.conditional || prelim.judgments?.conditional : null;
   const conditional = asked ? firstSentence(asked.question) : '';
@@ -366,7 +395,7 @@ export function reportEntry({ candidate, preliminary, final = null, documentStat
     number: rfpNumber(frontmatter),
     agency: clean(candidate?.issuer || frontmatter.agency_name),
     state: /^[A-Z]{2}$/.test(clean(frontmatter.pop_state)) ? clean(frontmatter.pop_state) : '',
-    links: { highergov: listing, posting: posting !== listing ? posting : '', documents: publicUrl(documentsLink) },
+    links: { highergov: listing, posting: postingLink !== listing ? postingLink : '', documents: publicUrl(documentsLink) },
     // The RFP-pipeline deal this RFP already matches in HubSpot, shown on the pick.
     hubspotDeal: clean(hubspotDeal) || null,
     tier: place.tier,
@@ -386,6 +415,9 @@ export function reportEntry({ candidate, preliminary, final = null, documentStat
     questions,
     agencyQuestion: conditional || null,
     agencyQuestionBy: conditional ? askBy : null,
+    // The agency posting's site and what the attempt to read it found, when one was made.
+    portal: posting ? { name: posting.portal || null, access: posting.access || null, outcome: posting.outcome } : null,
+    documentsNote: place.reason === 'documents' ? postingNote(posting) : null,
     notes: flags.map(flag => firstSentence(flag.reason)).filter(Boolean).slice(0, 2),
     sensitive: firstSentence(flags.find(flag => flag.type === 'sensitive-industry')?.reason) || null,
     deadline: deadlineOf(result.timeline),
@@ -393,6 +425,26 @@ export function reportEntry({ candidate, preliminary, final = null, documentStat
     budget,
     longShot: place.tier === 'worth' && (questions.length >= 2 || (budget.low !== null && budget.low < MINIMUM_DEAL)),
   };
+}
+
+function postingNote(posting) {
+  if (!posting) return null;
+  if (posting.outcome === 'skipped-known-portal' && !loginPortal(posting)) {
+    const text = PORTAL_ACCESS_TEXT[posting.access];
+    return text ? `they ${text(posting.portal)}` : null;
+  }
+  return POSTING_NOTES[posting.outcome] || null;
+}
+
+/** Why an RFP is in "Couldn't check yet", in plain words; a login names its portal. */
+export function checkReason(entry) {
+  if (entry.reason === 'portal') {
+    const { name, access } = entry.portal || {};
+    if (PORTAL_ACCESS_TEXT[access] && loginPortal({ access })) return `the documents ${PORTAL_ACCESS_TEXT[access](name)}`;
+    return name ? `the documents need a login on ${name} to download` : CHECK_REASONS.portal;
+  }
+  if (entry.reason === 'documents' && entry.documentsNote) return `${CHECK_REASONS.documents} (${entry.documentsNote})`;
+  return CHECK_REASONS[entry.reason];
 }
 
 /**
@@ -407,10 +459,12 @@ export function plainOutcome(entry) {
   };
   const picked = entry.tier === 'strong' || entry.tier === 'worth';
   const why = picked ? (entry.blockers || []).slice(0, 2).map(item => sentence(item.text)).join(' ') || 'No blockers found.'
-    : entry.tier === 'check' ? `${sentence(CHECK_REASONS[entry.reason])}${askLine(entry)}`
+    : entry.tier === 'check' ? `${sentence(checkReason(entry))}${askLine(entry)}`
       : sentence(entry.reasonDetail) || sentence(REASONS[entry.reason]?.heading);
-  // An RFP waiting on the agency has a different next step from one we couldn't read.
-  const decision = entry.reason === 'agency' ? 'Ask the agency first' : TIER_DECISIONS[entry.tier] || entry.tier;
+  // An RFP waiting on the agency, or on someone signing in to its portal, has a different
+  // next step from one we couldn't read.
+  const decision = entry.reason === 'agency' ? 'Ask the agency first'
+    : entry.reason === 'portal' ? 'Needs a portal login' : TIER_DECISIONS[entry.tier] || entry.tier;
   return { decision, why };
 }
 
@@ -671,7 +725,7 @@ function closestMiss(results) {
   const best = results.entries.filter(entry => entry.tier !== 'strong' && entry.rankFrom !== 'preliminary' && entry.rankScore !== null)
     .sort((a, b) => b.rankScore - a.rankScore)[0];
   if (!best) return null;
-  const why = best.tier === 'check' ? CHECK_REASONS[best.reason]
+  const why = best.tier === 'check' ? checkReason(best)
     : best.tier === 'screened' ? `it ${REASONS[best.reason].one}`
       : best.agencyQuestion ? 'it needs an answer from the agency first'
         : best.questions.length ? plural(best.questions.length, 'it has an open question', 'it has open questions') : 'it scored under 75';
@@ -874,12 +928,22 @@ export function renderMarkdown(results) {
   const tier = name => results.entries.filter(entry => entry.tier === name);
   const listOr = lines => (lines.length ? [...lines, ''] : ['None this week.', '']);
   const placeOf = entry => (placeName(entry) ? ` — ${placeName(entry)}` : '');
+  const checkLine = entry => `- ${entry.title}${placeOf(entry)}: ${checkReason(entry)}.${askLine(entry)} Due: ${dueLabel(entry)}. ${link(entry)}`.trim();
+  // RFPs whose documents need someone to sign in to the agency's portal come first, with
+  // their listing score, since that is a next step someone can take today.
+  const logins = tier('check').filter(entry => entry.reason === 'portal');
+  const others = tier('check').filter(entry => entry.reason !== 'portal');
+  const loginLine = entry => `- ${entry.title}${placeOf(entry)}: ${checkReason(entry)}. Listing score ${entry.rankScore ?? 'not scored'}. Due: ${dueLabel(entry)}. ${link(entry)}`.trim();
+  const checks = logins.length
+    ? [`**Documents need a portal login (${logins.length})**`, '', ...logins.map(loginLine),
+      ...(others.length ? ['', `**Other checks (${others.length})**`, '', ...others.map(checkLine)] : [])]
+    : others.map(checkLine);
   return [
     `# RFP results, week ${results.week}`, '', summaryLine(results), '',
     '## Strong pursue', '', ...(tier('strong').length ? tier('strong').flatMap(card) : ['None this week.', '']),
     '## Worth a look', '', ...(tier('worth').length ? tier('worth').flatMap(card) : ['None this week.', '']),
     "## Couldn't check yet", '',
-    ...listOr(tier('check').map(entry => `- ${entry.title}${placeOf(entry)}: ${CHECK_REASONS[entry.reason]}.${askLine(entry)} Due: ${dueLabel(entry)}. ${link(entry)}`.trim())),
+    ...listOr(checks),
     '## Screened out', '',
     ...listOr(screenedGroups(results).flatMap(([reason, entries]) => [`**${REASONS[reason].heading} (${entries.length})**`, '',
       ...entries.map(entry => `- ${entry.title}${placeOf(entry)}. ${link(entry)}`.trim()), '']).slice(0, -1)),
