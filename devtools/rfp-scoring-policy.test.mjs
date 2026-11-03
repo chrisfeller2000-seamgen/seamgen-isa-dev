@@ -260,9 +260,20 @@ test('before documents exist, documents to retrieve cite the listing and never b
   assert.equal(preliminary.qualification_status, 'provisional');
   assert.equal(shouldFetchDocuments(preliminary), true);
   assert.match(preliminary.reasons.join(' '), /Documents to retrieve: Official solicitation and attachments/);
-  // No document exists yet to point at, and full-text requirements still need document evidence.
+  // No document exists yet to point at.
   assert.throws(() => finalize(input, j => { toRetrieve(j); j.requiredDocuments[0].documentIds = ['doc-1']; }), /required-document evidence/);
-  assert.throws(() => finalize(packet(), toRetrieve), /citation does not match/);
+});
+
+test('after the documents are read, a document only the listing names is flagged missing, citing the listing', () => {
+  // Until November 3 this citation was rejected, so the RFP was left unscored instead.
+  const input = packet();
+  const listing = [{ sourceId: 'metadata', quote: input.candidate.body }];
+  const scope = finalize(input, j => { j.requiredDocuments = [{ name: 'Attachment B Statement of Work', scope: true, evidence: listing, documentIds: [] }]; });
+  assert.equal(scope.recommendation, 'Needs documents');
+  assert.ok(scope.reasons.includes('Missing scope document: Attachment B Statement of Work.'));
+  const form = finalize(input, j => { j.requiredDocuments = [{ name: 'Attachment C Price Form', scope: false, evidence: listing, documentIds: [] }]; });
+  assert.ok(Number.isFinite(form.total));
+  assert.ok(form.reasons.includes('Missing referenced document: Attachment C Price Form.'));
 });
 
 test('potential_total is the category sum, and an open gate no longer withholds the total', () => {
@@ -309,6 +320,35 @@ test('an unknown gate or submission route needs no citation; a definite one stil
   assert.ok(Number.isFinite(unknown.total));
   assert.throws(() => finalize(packet(), j => { j.subrules.submission.evidence = []; }), /Missing scoring evidence/);
   assert.throws(() => finalize(packet(), j => { j.gates.gate3.evidence = []; }), /Missing scoring evidence/);
+});
+
+test('unknown eligibility needs no citation and leaves Gate 6 open; a definite answer still does', () => {
+  // What the prompt has always allowed: a listing with no stated qualifications.
+  const unknown = finalize(packet(), j => {
+    j.gates.gate6 = { pass: null, reason: 'The listing states no qualifications.', evidence: [] };
+    Object.assign(j.subrules.eligibility, { meetsMandatoryQualifications: null, publicReferences: null, evidence: [] });
+  });
+  assert.equal(unknown.gate.gate6, null);
+  assert.ok(Number.isFinite(unknown.total));
+  assert.throws(() => finalize(packet(), j => { j.subrules.eligibility.evidence = []; }),
+    /^Error: Missing scoring evidence at subrules\.eligibility\.evidence\.$/);
+  // A reference count is a definite reading of the RFP, even with the qualification answer unknown.
+  assert.throws(() => finalize(packet(), j => {
+    Object.assign(j.subrules.eligibility, { meetsMandatoryQualifications: null, publicReferences: 0, evidence: [] });
+  }), /Missing scoring evidence at subrules\.eligibility\.evidence\./);
+});
+
+test('a rejection names the answer field and what was wrong with the citation', () => {
+  const input = packet();
+  assert.throws(() => finalize(input, j => { j.gates.gate3.evidence = []; }), /Missing scoring evidence at gates\.gate3\.evidence\./);
+  // A document we have, cited only from the listing: it must be cited from the buyer documents.
+  assert.throws(() => finalize(input, j => {
+    j.requiredDocuments = [{ name: 'Scope of work', evidence: [{ sourceId: 'metadata', quote: input.candidate.body }], documentIds: ['doc-1'], scope: true }];
+  }), /citation does not match the supplied evidence at requiredDocuments\[0\]\.evidence\[0\]: needs a document excerpt, cites metadata\./);
+  // Citations outside the decision fields are found by walking the whole answer.
+  assert.throws(() => finalize(input, j => {
+    j.buyer = { currentSolution: null, objective: 'A new portal.', advantage: null, evidence: [{ sourceId: 'doc-1', quote: 'Invented buyer text' }] };
+  }), /at buyer\.evidence\[0\]: quote is not in the source\./);
 });
 
 test('preliminary deadline and value reasons state the actual listing facts', () => {
@@ -576,6 +616,32 @@ test('a rejected answer gets one more try, told why it was rejected', async () =
   calls = 0;
   const down = await scoreRfp(input, { judge: async () => { calls++; throw new Error('provider down'); }, log: () => {} });
   assert.deepEqual([down.scoring_error, calls], ['model-unavailable', 1]);
+});
+
+test('each rejected answer is kept with its reason and try, whether or not a later try passes', async () => {
+  const input = packet(); const prompts = [];
+  const slip = async ({ prompt }) => {
+    prompts.push(JSON.parse(prompt));
+    const j = recordedJudgment(input);
+    if (prompts.length === 1) j.gates.gate3.evidence = [];
+    return { text: JSON.stringify(referenceJudgment(j, prompts.at(-1).sources)), model: 'recorded-fixture' };
+  };
+  const scored = await scoreRfp(input, { judge: slip, log: () => {} });
+  assert.ok(Number.isFinite(scored.total));
+  // The retry is told which field to fix.
+  assert.equal(prompts[1].previousAnswerRejected, 'Missing scoring evidence at gates.gate3.evidence.');
+  assert.equal(scored.scoring_rejections.length, 1);
+  assert.equal(scored.scoring_rejections[0].attempt, 1);
+  assert.deepEqual(scored.scoring_rejections[0].answer.gates.gate3.evidence, []);
+  // Kept off provenance, which the weekly job writes into the candidate file.
+  assert.equal(scored.provenance.rejections, undefined);
+
+  const unparseable = await scoreRfp(input, { judge: async () => '{not json', log: () => {} });
+  assert.deepEqual([unparseable.scoring_attempts, unparseable.scoring_rejections.map(item => item.answer)], [2, ['{not json', '{not json']]);
+  const down = await scoreRfp(input, { judge: async () => { throw new Error('provider down'); }, log: () => {} });
+  assert.deepEqual([down.scoring_attempts, down.scoring_rejections], [1, undefined]);
+  const tooBig = await scoreRfp(packet('clean-custom-build', { documents: [{ file: 'huge.txt', text: 'x '.repeat(800000) }] }), { judge: slip, log: () => {} });
+  assert.deepEqual([tooBig.scoring_error, tooBig.scoring_attempts], ['context-unavailable', 0]);
 });
 
 test('model failures, invalid JSON, unsupported citations, and timeouts stay unscored', async () => {

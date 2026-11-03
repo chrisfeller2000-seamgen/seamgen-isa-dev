@@ -116,6 +116,8 @@ const DETAILS = [
   { header: 'Scoring error', width: 40, wrap: true, value: r => [r.listing?.error, r.fullText?.error].filter(Boolean)
     .map(error => [error.stage, error.detail].filter(Boolean).join(': ')).join('\n') },
   { header: 'Tries (listing / documents)', width: 12, value: r => [r.listing?.attempts, r.fullText?.attempts].filter(value => value != null).join(' / ') },
+  { header: 'Rejected answers', width: 50, wrap: true, value: r => [['listing', r.listing], ['documents', r.fullText]]
+    .flatMap(([name, stage]) => (stage?.rejections || []).map(item => `${name} try ${item.attempt}: ${item.reason}`)).join('\n') },
   { header: 'Seconds', width: 9, value: r => ([r.listing?.seconds, r.fullText?.seconds].some(Number.isFinite)
     ? [r.listing?.seconds, r.fullText?.seconds].filter(Number.isFinite).reduce((a, b) => a + b, 0) : '') },
   { header: 'Model', width: 22, value: r => decided(r)?.model },

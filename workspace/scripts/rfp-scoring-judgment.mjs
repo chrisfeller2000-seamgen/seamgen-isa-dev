@@ -24,6 +24,11 @@ const MAX_COMPLETION_TOKENS = 32000;
 // disagree. On October 14, 20 of 185 RFPs were left unscored that way, so the model gets
 // one more try with the validator's reason. Each retry is one more model call.
 const MAX_JUDGMENT_ATTEMPTS = 2;
+// A rejected answer is kept for the weekly audit, so the field the validator objected to
+// can be seen. It cites excerpt IDs, not quotes. October 23 and 30 had 32 and 34
+// rejections, so this cap keeps a week under about 1.5 MB; a longer or unparseable
+// answer is kept as cut text.
+const REJECTED_ANSWER_CHARS = 40000;
 const judgeSymbol = Symbol.for('isa.rfp.testJudge');
 const sourcesSymbol = Symbol.for('isa.rfp.testCompanySources');
 const policiesSymbol = Symbol.for('isa.rfp.testPolicies');
@@ -49,7 +54,7 @@ const OUTPUT_CONTRACT = {
   bidStatus: 'open|closed|watch',
   bidEvidence: [],
   requiredDocuments: [{
-    name: 'buyer-issued solicitation/scoring attachment required for review, not bidder-created reference letters, cost proposals or company certificates; at preliminary depth, a document to retrieve, cited from the metadata listing',
+    name: 'buyer-issued solicitation/scoring attachment required for review, not bidder-created reference letters, cost proposals or company certificates; at preliminary depth, a document to retrieve, cited from the metadata listing; at full-text depth, cited from the buyer document that refers to it, or from the metadata listing when only the listing names a document that was not supplied',
     evidence: EVIDENCE,
     documentIds: ['source IDs such as doc-1 containing the actual attachment text, not merely the RFP referring to it; empty when missing'],
     scope: 'boolean at full-text depth: true when the document defines the work (specification, statement of work, scope, requirements or technical requirements); false for forms, insurance, terms, cost templates, attestations and checklists',
@@ -131,12 +136,16 @@ const SYSTEM_RULES = [
   'Enumerated fields hold exactly one listed value, with no added description.',
   'subrules.submission.status is exactly feasible, blocked, or unknown; the route goes in basis.',
   "value.kind: stated means the buyer's own project figure; inferred means a reasoned estimate, including a HigherGov listing estimate; uncertain means it cannot reasonably be inferred above $100K.",
+  // The validator requires a buyer-document citation for stated at full-text depth. A
+  // buyer's figure quoted only on the HigherGov listing would otherwise be rejected
+  // whatever the model cited (metadata facts must cite metadata).
+  'At full-text depth, stated needs a citation from the buyer documents; a project figure that appears only in the metadata listing, even the buyer\'s own, is inferred, citing the metadata excerpt.',
   'bidStatus: open for a live solicitation, even when only its listing is supplied; closed when the notice explicitly invites no submissions; watch only for an RFI, Sources Sought, or pre-solicitation notice.',
   'At preliminary depth only the listing is supplied; that is expected, not a missing document.',
   'Unless a gate is known false, return all eight categories at metadata depth and list the buyer documents to retrieve in requiredDocuments, citing metadata.',
   'At full-text depth, if a gate remains unknown, still return all eight category judgments; the open gate is listed as a blocker.',
   'Categories may be omitted only when a gate is known false or the bid is not open. A referenced document that was not supplied, or an unconfirmed deadline, still gets all eight categories: score from the supplied documents and list the missing document in requiredDocuments.',
-  'At full-text depth, mark each requiredDocuments entry scope true or false. A portal cover sheet or solicitation summary that points to a separate specification, scope of work or requirements document is not the scope: list that document with scope true.',
+  'At full-text depth, mark each requiredDocuments entry scope true or false. A portal cover sheet or solicitation summary that points to a separate specification, scope of work or requirements document is not the scope: list that document with scope true. When only the metadata listing names a required document that was not supplied, list it with empty documentIds, citing the metadata excerpt.',
   'Never invent evidence to fill categories.',
   'If the packet includes previousAnswerRejected, your previous answer failed validation for that reason: return the complete corrected JSON object.',
   'buyer is for the sales email and never affects gates or points: give currentSolution only when the supplied text names what is in place today, citing that text; otherwise null.',
@@ -301,7 +310,8 @@ export function createModelOutageGuard({ threshold = 3, waitMs = 300000, maxWait
 // is a parameter only so tests can count connections without a real OpenClaw install.
 export async function scoreRfp(input, { judge, outage, createJudge = createOpenClawJudge, workspace = process.env.WORKSPACE_DIR || '/home/azureuser/.openclaw/workspace', timeoutMs = 300000,
   log = line => process.stderr.write(`${line}\n`) } = {}) {
-  let failureStage = 'context-unavailable';
+  let failureStage = 'context-unavailable', attempts = 0;
+  const rejections = [];
   const started = Date.now();
   const seconds = () => Math.round((Date.now() - started) / 1000);
   try {
@@ -337,11 +347,13 @@ export async function scoreRfp(input, { judge, outage, createJudge = createOpenC
     let rejection = null;
     for (let attempt = 1; ; attempt += 1) {
       failureStage = 'model-unavailable';
+      attempts = attempt;
       const prompt = rejection ? JSON.stringify({ ...request, previousAnswerRejected: rejection }) : packet;
       const result = await (outage ? outage.run(() => callModel(prompt)) : callModel(prompt));
       failureStage = 'invalid-judgment';
+      let raw;
       try {
-        const raw = typeof result === 'string' ? result : result.text;
+        raw = typeof result === 'string' ? result : result.text;
         if (typeof raw !== 'string' || raw.length > MAX_RESPONSE_CHARS) throw new Error('Invalid or oversized AI scoring response.');
         const judgment = resolveEvidenceReferences(JSON.parse(raw), catalog);
         const scored = finalizeRfpScore(packetInput, judgment);
@@ -349,12 +361,14 @@ export async function scoreRfp(input, { judge, outage, createJudge = createOpenC
           attempts: attempt, seconds: seconds(), assessmentDate: input.assessment?.runDate,
           promptSha256: crypto.createHash('sha256').update(systemPrompt).digest('hex'),
           sources: sources.map(source => ({ id: source.id, sha256: crypto.createHash('sha256').update(source.text).digest('hex') })),
-          policyHashes: policies.map(item => ({ name: item.name, sha256: crypto.createHash('sha256').update(item.text).digest('hex') })) } };
+          policyHashes: policies.map(item => ({ name: item.name, sha256: crypto.createHash('sha256').update(item.text).digest('hex') })) },
+          ...(rejections.length ? { scoring_rejections: rejections } : {}) };
       } catch (error) {
-        if (attempt >= MAX_JUDGMENT_ATTEMPTS) throw error;
-        // Our validator's message (for example "Missing scoring evidence.") or a JSON
-        // parse error about the model's own answer; never provider text.
+        // Our validator's message (for example "Missing scoring evidence at gates.gate3.evidence.")
+        // or a JSON parse error about the model's own answer; never provider text.
         rejection = String(error?.message || 'The answer did not match the output contract.').slice(0, 200);
+        rejections.push({ attempt, reason: rejection, answer: keptAnswer(raw) });
+        if (attempt >= MAX_JUDGMENT_ATTEMPTS) throw error;
         log(`[rfp-scoring] ${input.phase || 'full-text'} answer rejected for ${input.candidate?.slug || 'an RFP'} (${describeScoringFailure(error)}); asking once more`);
       }
     }
@@ -368,6 +382,16 @@ export async function scoreRfp(input, { judge, outage, createJudge = createOpenC
     }
     const detail = failureStage === 'invalid-judgment' ? { scoring_error_detail: String(error?.message || '').slice(0, 200) } : {};
     return { ...unscoredRfp(input, 'Scoring could not be validated; check model access, source assets, and structured evidence in an isolated test.'),
-      scoring_error: failureStage, scoring_seconds: seconds(), ...detail };
+      scoring_error: failureStage, scoring_seconds: seconds(), scoring_attempts: attempts, ...detail,
+      ...(rejections.length ? { scoring_rejections: rejections } : {}) };
   }
+}
+
+// The model's answer as the audit keeps it: parsed when it is JSON and short enough.
+function keptAnswer(raw) {
+  if (typeof raw !== 'string') return null;
+  if (raw.length <= REJECTED_ANSWER_CHARS) {
+    try { return JSON.parse(raw); } catch { /* kept as text below */ }
+  }
+  return raw.slice(0, REJECTED_ANSWER_CHARS);
 }
