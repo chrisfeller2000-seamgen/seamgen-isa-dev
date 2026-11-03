@@ -206,3 +206,48 @@ Evaluated on the VM with the undeployed code on all 42 September 30 RFPs scoring
 - **All 18 document-backed results are No-bid from the existing keyword gates.** All 18 fail the keyword "software, not hardware" gate; 14 fail the references gate and 9 the custom-work gate. Long solicitations almost always contain such words. This predates the evidence gate (the September 28 report had 19 No-bids among 23 downloaded RFPs) and is the document-backed scorer the AI scoring work replaces.
 
 Because recognizing more solicitations currently turns Needs documents into keyword No-bids, do not deploy the content rule until document-backed scoring is trustworthy. The deployed name-based gate stays.
+
+## PRs #26–#29 release — October 30, 2026
+
+Uploaded by Jessica in one exact-file release of `main` at merge commit `028cb4c`, after the four PRs merged that afternoon (CI passed on each). No service restart, schedule, configuration, or credential change. This note was written on November 3 from the local upload log and the accepted VM snapshots before and after the upload.
+
+- **#26** (`rfp-scoring-judgment`, `rfp-scoring-policy`): the scorer marks each missing referenced document as scope or not, and an unread scope document (specification, statement of work, requirements) makes the full-text result Needs documents even when the categories were scored. Missing forms stay a note. This came from Rhode Island's PDMP RFP, sent on October 23 as a 75 Strong Pursue after only the state bid board's cover sheet was read.
+- **#27** (`document-text`, `document-text-skill.md`): SF City Partner's main RFP, an Excel 2003 XML spreadsheet, is read tab by tab instead of rejected as unsupported.
+- **#28** (`weekly-rfp-pursue-decision`): without `RFP_REPORT_WEEK_OF`, a re-run is filed under its own run date's week, not the current week, so it cannot take this week's pursue-email slot.
+- **#29** (`rfp-scoring-policy`): withdraws #26's second rule, which made any open Gate 2 or Gate 6 after the documents Needs review. It would also have held back a real Strong Pursue with an unanswered eligibility question, and the scope-document rule already covers the Rhode Island case.
+
+Before upload, the accepted VM snapshot matched `main` at #25 (`1be20b3`) for every source file, so only #26–#29 went up. The one other difference, `scripts/run-weekly-current-year-sales-report-cron.sh`, was left out on purpose: its VM copy adds report recipients that Git does not have yet.
+
+- Release: `dev-deploy-2026-10-30T22-15-46-971Z-028cb4c`, finished at 22:18 UTC. Backup root: `/home/azureuser/.openclaw/workspace/backups/dev-deploy-2026-10-30T22-15-46-971Z-028cb4c` (`original/` holds the prior files).
+
+| Deployed file | New SHA-256 | Prior SHA-256 (in backup) |
+| --- | --- | --- |
+| `scripts/document-text.mjs` | `4380753a026b8e2b2c8f211da0228df742089d2b2e7f197aee9c93bf0dd36a36` | `91aa23dfb8b58965ee83cc02ffe46ec1d3ed94b8b25d81ad481b42caf34c30a9` |
+| `scripts/rfp-scoring-judgment.mjs` | `1f48445a5a9fcb42cf285cd2c8842cddcf62a689735b170f5fe4962b3d3de6ee` | `01276da1895ad62cba3287f7f29de720961c1872fb4ca667fe393c470aca5a74` |
+| `scripts/rfp-scoring-policy.mjs` | `9a8d9b196ce082b73c7c45931d788bdd4d670ac617aa28cfe9a4cbe0004325ee` | `93209e1c019b755c7b4cd936d5d8a0c826a46541c27f271a5c1a9fcd1b869550` |
+| `scripts/weekly-rfp-pursue-decision.mjs` | `2378545cd680b807eb1dddd48f10663b236ada4c865383df283d3c92571bf3c2` | `5407233d11e331f1a7d48f05793b12c0d65fef9f13932008ddcda5acc2883c18` |
+| `skills/document-text-skill.md` | `93346a2fb40b19057bdbf3e52bfc2fe32f6fe88758deba1f48702ac24f20e51e` | `bfbfcf73e952c1e2de34830ae72bdb7030d16d90664dc87f8795bea35e4f164c` |
+
+- After upload: the post-upload snapshot matched the expected one, so the accepted baseline advanced. The November 3 check before the PR #30 upload found no VM change since then.
+- Not yet observed: a real weekly run with these files. On Friday November 6, check that an RFP missing its specification or statement of work is Needs documents, not scored; that an RFP with an open Gate 2 or 6 but a full specification can still be picked; and that an SF City Partner `.xml` RFP is read.
+
+Rollback, if needed and separately requested: confirm the five VM files still have the new hashes above, copy them from the backup's `original/` folder back into place, and verify the prior hashes. #29 reverses part of #26 in the same file, so restore the five files together rather than one PR at a time. The November 3 release (#30) changed a different file and does not need to be rolled back with them.
+
+## Same-name copy release — November 3, 2026
+
+PR #30, released on Jessica's explicit request: exact-file release of `main` at merge commit `0a44d30`. No service restart, schedule, configuration, or credential change.
+
+On October 30, Our415's PeopleSoft `.xml` could not be read, so the RFP was reported unread even though its `.pdf` copy and the full RFP were read. An unreadable required file now counts as read when a file with the same name in another format was read (names compared without the extension or the local `NN-role-` prefix). A different readable file never stands in for a missing one. The rule is in [document qualification](../../domains/rfp/document-qualification.md).
+
+- Before upload: a read-only check found no VM change since the October 30 accepted baseline, and the VM copy of the file was identical to `main` just before #30, so only #30's change went up. `npm run check` passed; `npm test` passed 177 of 181 on Windows, and the 4 failures are the Windows import-path issue fixed by open PR #22 (181 of 181 with that fix applied temporarily). CI passed on #30.
+- Excluded on purpose: `scripts/run-weekly-current-year-sales-report-cron.sh`, whose VM copy adds report recipients that Git does not have yet.
+- Release: `dev-deploy-2026-11-03T18-24-12-544Z-0a44d30`, uploaded at 18:25 UTC. Backup root: `/home/azureuser/.openclaw/workspace/backups/dev-deploy-2026-11-03T18-24-12-544Z-0a44d30` (`original/` holds the prior file).
+
+| Deployed file | New SHA-256 | Prior SHA-256 (in backup) |
+| --- | --- | --- |
+| `scripts/highergov-document-flow.mjs` | `dc51cc75d88cb5d7538a782c187220c8ed2edb1a4bde4ac816d1d51d4be1a084` | `d40d0b47a4917a5f264dd5896f1b3985e4978c488d11e178d51e082949c8745d` |
+
+- After upload: the VM hash matches the commit, the file passes `node --check` on the VM, and the post-upload snapshot matched the expected one, so the accepted baseline advanced. A fresh `live:pull` shows no VM change since it.
+- Not yet observed: a real weekly run. On Friday November 6, check that an RFP whose unreadable file has a readable same-name copy is scored from its documents, not reported as Needs documents.
+
+Rollback, if needed and separately requested: confirm the VM file still has the new hash above, copy it from the backup's `original/` folder back into place, and verify the prior hash.
