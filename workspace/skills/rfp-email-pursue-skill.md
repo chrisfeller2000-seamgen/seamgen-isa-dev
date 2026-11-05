@@ -1,8 +1,8 @@
 ---
 name: rfp-email-pursue
-purpose: Generate the brief "pursue" email sent to Peter, Marianne and Sales when Seamgen is pursuing an RFP. The email names the opportunity (title + source + link to the RFP's Google Drive folder), says what the agency runs today and what they hope to get, why it fits Seamgen, and what could stop us winning. Deadlines and clarifying questions do NOT go in this email; they live in the meeting brief.
+purpose: Generate the brief "pursue" email sent to Peter, Marianne and Sales when Seamgen is pursuing an RFP. The email names the opportunity (title + source + link to the RFP's Google Drive folder), says what the agency runs today and what they hope to get, why it fits Seamgen, and what could stop us winning. One code-built Key dates line carries the questions and proposal deadlines; clarifying questions do NOT go in this email (they come from the rfp-email-agency-questions skill on request).
 audience: This skill is written to be read by both Claude (who drafts the email) and a human teammate (who reads, sanity-checks, and edits the template over time).
-version: 1.7 — July 2026
+version: 1.8 — November 2026
 owner: Jake (Seamgen)
 depends_on: rfp-scoring skill (this template reads from that skill's output)
 ---
@@ -18,7 +18,7 @@ Turns the output of the RFP Scoring Skill into a **short** email to Peter, Maria
 3. Says **why it fits Seamgen** — grounded in the closest real project (transferable capability).
 4. **Blockers** — what could stop us winning this, so nobody is surprised later.
 
-**Keep it brief — this is still a short email.** Do **NOT** include due dates / Q&A deadlines, and do **NOT** include a clarifying-questions list. Those belong in the **meeting brief** (`rfp-meeting-brief` skill). This email exists to put the opportunity in front of leadership cleanly — it is not the place to run the rest of the workflow.
+**Keep it brief — this is still a short email.** Dates appear only as one **Key dates** line per RFP: the questions deadline when the documents give one, then the proposal deadline. ISA's Friday job builds that line in code (`keyDates()` in `rfp-report.mjs`), so never reword or recompute it. Do **NOT** include a clarifying-questions list; when someone wants questions for an RFP, they ask ISA in chat (`rfp-email-agency-questions` skill). This email exists to put the opportunity in front of leadership cleanly — it is not the place to run the rest of the workflow.
 
 **Hard length caps, because two sections were added in v1.5 and the email must not sprawl:**
 
@@ -183,13 +183,14 @@ Blockers:
 
 Note what the Blockers section does here: it surfaces, in three lines, the exact issue that later caused Jake to decline this opportunity. Under v1.4 that fact reached Peter only inside the meeting brief.
 
-## What lives in the meeting brief, not here
+## What lives elsewhere, not here
 
-- **Key dates** — proposal due date and any Q&A / questions deadline (with time + time zone).
-- **The starter clarifying-questions list** — sourced to verbatim RFP quotes + §/page.
+- **The clarifying-questions list**, sourced to verbatim RFP quotes + §/page: generated in chat on request by `rfp-email-agency-questions` (v1.6), which also states the Q&A deadline and submission method.
 - **The full Blockers analysis** — severity labels, the requirement quoted, what would clear it, and who owns clearing it. This email carries the headline; the brief carries the argument.
 
 ## Notes and edit history
+
+**v1.8 — November 2026.** Brought in line with ISA's Friday pursue email. **Key dates are back** as one code-built line (questions deadline when the documents give one, then the proposal deadline), which Chris asked for on October 13, 2026 (pursue email spec, Jira ISA-6). The clarifying-questions list now comes from `rfp-email-agency-questions` on request in chat, because the meeting brief was retired on October 12, 2026. The meeting brief's full Blockers analysis is kept as a reference only.
 
 **v1.7 — July 22, 2026, Jake + Claude.** Two corrections from the first live test of the Gmail connector. **(1) The draft is addressed to Jake, not left empty.** v1.6 said to leave To and Cc blank; Gmail refuses — `create_draft` returns *"At least one recipient (To, Cc, or Bcc) must be specified."* Drafts now go to `joliker@seamgen.com` and nobody else, with the real routing still on the body's `Intended recipients:` line. The safety property is unchanged: the only address on the draft is Jake's own, so the worst an accidental send can do is reach him — never Peter, Marianne or Sales. **(2) The signature question is closed.** `reference-team-and-signature.md` is now **v1.2** and carries **"Cheers, / Jacob"** for internal email, taken from Jake's own sent mail rather than inferred from Katie's pattern; the ⚠ open-question note that sat here since v1.5 is removed.
 

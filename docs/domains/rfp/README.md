@@ -24,6 +24,7 @@ From that file:
 - **The Telegram message** is a short summary of what happened: the email was sent (with each RFP's score and biggest blocker), it failed, or nothing was worth pursuing (with the closest one and why). ISA writes the "sent" version, checked like the email; the other two are code-built.
 - **Close calls.** Code then adds up to three "close calls": RFPs scoring 70 or more that weren't picked, so someone can ask for a closer look. Scores move about 5 points between runs. "Ask the agency first" RFPs and the quiet week's closest one are left out.
 - **The results file** records the email and the message, who wrote them, and why a code-built version was used. ISA's chat reads it to answer questions about the week's RFPs.
+- **Q&A questions are generated in chat, on request** (`workspace/skills/rfp-email-agency-questions-skill.md`), not by the weekly job. ISA states the questions deadline and how to submit, lists 5–7 questions with the RFP text behind each, and gives the agency email as text to copy. It never creates a Gmail draft. The pursue email's Key dates line comes from the scorer's `questions` field, which never affects points. It appears only when the documents state a questions deadline and the scorer cites it.
 
 ## Weekly audit
 
