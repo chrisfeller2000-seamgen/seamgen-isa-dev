@@ -1,9 +1,9 @@
 ---
 name: rfp-solution-landscape
 purpose: Before recommending pursuit, establish what commercial solutions already exist for this problem, what the winning firm probably looks like, whether the RFP appears written for a specific vendor shape ("fake RFP"), and what role — if any — Seamgen can credibly play. Feeds rfp-scoring Category 7 and the meeting brief.
-audience: Written to be read by both Claude (who does the research) and a human teammate (who sanity-checks it and edits the recipe over time). The OUTPUT is written for Jake, Peter and Marianne.
-version: 1.0 — July 2026
-owner: Jake (Seamgen)
+audience: Written to be read by both Claude (who does the research) and a human teammate (who sanity-checks it and edits the recipe over time). The OUTPUT is written for the sales team, Peter and Marianne.
+version: 1.1 — November 2026
+owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-scoring skill (runs against its full-text score, and hands back a Category 7 input). Reads the RFP's own documents, the agency's award history, and the planholder list where a portal exposes one. Feeds rfp-meeting-brief ("Who this looks written for") and rfp-email-pursue.
 ---
 
@@ -255,6 +255,8 @@ For the meeting brief: [the ~80-word "Who this looks written for" paragraph]
 - **Re-run it when the planholder list changes.** A specialist appearing on the list three weeks in is new evidence.
 
 ## Notes and edit history
+
+**v1.1 — November 2026, Seamgen.** Jake has left Seamgen: the owner is now the sales team, with no single owner or approver, and the output is written for the sales team, Peter and Marianne. No change to the research recipe.
 
 **v1.0 — July 28, 2026, Jake + Claude.** First version. Built after Jake was taken apart in a meeting with Peter on questions the briefs should have pre-answered, and after the **second occurrence** of the 2026-07-26 feedback-log correction — whose own note said *"If this correction appears a second time, it should promote to a skill rather than stay here."* Merges two things that are really one workflow: the market/solution scan Peter asked for on 07-26, and the **"fake RFP"** diagnostic he supplied on 07-28. The load-bearing design decisions: **counter-evidence is mandatory** (Suwannee is the worked example precisely because its tells and its agency behaviour disagree); **shapes, not company names**, in anything written down; and **`Insufficient evidence`** as a first-class verdict so an un-researched RFP can't acquire a confident-looking label. The Category 7 deduction is capped at −8 rather than made a kill gate, because wiredness is a judgement and Gate 6a's precedent — a *countable* fact — does not transfer.
 

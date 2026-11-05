@@ -2,8 +2,8 @@
 name: rfp-engineering-brief
 purpose: Extract the engineering-relevant scope from an RFP into a short, structured document that a lead engineer can read in 5–10 minutes and use to give a reliable timeline estimate — without having to read the full 20–100 page RFP themselves.
 audience: This skill is written to be read by both Claude (who drafts the brief) and a human teammate (who reads, sanity-checks, and edits the template over time). The BRIEF ITSELF is written for lead engineers who have not read the RFP.
-version: 1.5 — July 2026
-owner: Jake (Seamgen)
+version: 1.6 — November 2026
+owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-scoring skill (the scoring output confirms this RFP is being pursued). Feeds into: rfp-email-agency-questions skill (via the "Ambiguities Requiring Clarification" section) and downstream engineer timeline estimates.
 ---
 
@@ -15,7 +15,7 @@ Turns a full RFP into a short, structured brief that captures every engineering-
 
 ## Why the format matters (design rationale)
 
-Every other skill we've built is optimized for Jake's judgment — if Claude's summary is a little off, Jake catches it and edits. This skill is different. Its output goes to **engineers who will not read the RFP**, and their timeline estimate depends on whether the summary is accurate. A missed requirement or a glossed-over hard part produces an under-estimate, which becomes an under-priced proposal, which becomes a money-losing project.
+Every other skill we've built is optimized for a sales teammate's judgment — if Claude's summary is a little off, the person who asked catches it and edits. This skill is different. Its output goes to **engineers who will not read the RFP**, and their timeline estimate depends on whether the summary is accurate. A missed requirement or a glossed-over hard part produces an under-estimate, which becomes an under-priced proposal, which becomes a money-losing project.
 
 The design principle is: **shift interpretation from Claude to the engineer.** Claude's job is *routing* (finding relevant sections and putting them in front of the engineer), not *summarizing* (deciding what the RFP means). Every claim in the brief must be backed by a verbatim quote and a page reference so the engineer can jump to the source if anything looks off.
 
@@ -81,7 +81,7 @@ Rules:
 **Date prepared:** [YYYY-MM-DD]
 **RFP #:** [ID]
 **Full RFP location:** [path/link to source PDF]
-**Prepared by:** Jake
+**Prepared by:** [Name of the person who asked]
 **For:** [Engineer name(s)]
 
 ---
@@ -89,7 +89,7 @@ Rules:
 ## One-line summary
 
 [A single sentence describing what's being built. Not from the RFP —
-Jake's/Claude's synthesis. Keep to 20 words or fewer.]
+The requester's/Claude's synthesis. Keep to 20 words or fewer.]
 
 ## RFP snapshot
 
@@ -175,10 +175,10 @@ clarifying-questions email to the agency contact.*
 
 ---
 
-## For Jake (not for the engineer)
+## For the sales team (not for the engineer)
 
-[A short block only Jake sees, flagging anything he should know
-before Slacking the engineer — e.g., "This RFP has an unusually
+[A short block only the person who asked sees, flagging anything they
+should know before Slacking the engineer — e.g., "This RFP has an unusually
 short response window; consider whether Chris has bandwidth this
 week before asking."]
 ```
@@ -220,7 +220,7 @@ When Claude encounters a passage in the RFP that is unclear, incomplete, or cont
 1. **Include the passage anyway** in the relevant section with the label prefixed by `⚠`.
 2. **Also add an entry to "Ambiguities Requiring Clarification"** at the bottom.
 3. **Phrase the ambiguity as a candidate question** to the agency contact — same format the Clarifying-Questions-to-Agency Email Skill would use.
-4. **Add a one-sentence "Why it matters for engineering" note** so Jake (and later Peter) understands why the ambiguity is worth clarifying.
+4. **Add a one-sentence "Why it matters for engineering" note** so the sales team (and later Peter) understands why the ambiguity is worth clarifying.
 
 **Convergence:** these ambiguities are the *canonical, sourced version* of the RFP's open questions. At the agency-questions email stage they get merged (and deduplicated) with the pursue email's starter questions into the single list the agency receives — and where they overlap, these sourced versions win. Keep each one tightly phrased and agency-ready; the "Why it matters for engineering" note is internal and gets stripped before anything reaches the agency.
 
@@ -459,7 +459,7 @@ deliverables inside each required track.
 
 ---
 
-## For Jake (not for the engineer)
+## For the sales team (not for the engineer)
 
 - This RFP has strong AI positioning (AEO/GEO) that maps directly to
   Seamgen's website messaging — Chris may want to lean into that in the
@@ -476,6 +476,8 @@ That's the full worked example. Real quotes, real page numbers, honest ambiguity
 
 ## Notes and edit history
 
+**v1.6 — November 2026.** Jake left Seamgen, so the skill has no single owner. The brief is prepared by whoever asks, and its "For Jake" block is now "For the sales team". `rfp-email-agency-questions` v1.6 now reads this brief's Ambiguities section by default, which closes the last known limitation below. The worked example keeps its original "Prepared by" line as history.
+
 **v1.5 — July 2026, Jake + Claude.** Folder reorg (type-based → by-RFP): the brief now saves to the RFP's own folder `RFPs/[stage]/[rfp-slug]/` (was `engineering-briefs/`). See CLAUDE.md v1.13.
 
 **v1.4 — July 2026, Jake + Claude.** Folder reorg: briefs now save to the `engineering-briefs/` folder.
@@ -491,7 +493,7 @@ That's the full worked example. Real quotes, real page numbers, honest ambiguity
 **Known limitations:**
 - Assumes Claude can accurately extract page numbers from the RFP. For PDFs with unusual pagination (front matter, appendices with separate numbering), Claude should use the printed page number as it appears on the page rather than the PDF page count.
 - Does not handle multi-document RFPs (e.g., main RFP + Appendix A + Attachment B) with separate references. For those, use `[Document short name] §[section], p. [page]` — e.g., `Appendix A §3.1, p. 4`.
-- Does not currently include a "questions the engineer is likely to ask Jake" section. If a pattern emerges where Chris keeps asking Jake the same clarifying questions, consider adding a preemptive section.
-- The clarifying-questions email skill does not yet automatically pull from this brief's Ambiguities section. Until it does, Jake routes manually by copying items over. If this becomes tedious, update the clarifying-questions skill's instructions to check for an engineering brief by default.
+- Does not currently include a "questions the engineer is likely to ask the sales team" section. If a pattern emerges where the engineer keeps asking the same clarifying questions, consider adding a preemptive section.
+- *(Resolved in v1.6.)* The clarifying-questions skill (`rfp-email-agency-questions` v1.6) now checks for this brief and merges its Ambiguities section by default.
 
 **How to edit this skill:** Change the text. It's Markdown. Save. Bump the version number and add a note at the bottom describing what changed and why.

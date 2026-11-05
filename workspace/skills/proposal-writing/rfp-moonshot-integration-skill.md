@@ -1,9 +1,9 @@
 ---
 name: rfp-moonshot-integration
 purpose: Take the design team's "moonshot" (a polished vision/pitch deck they produce for an RFP — e.g., from Hoda) and pick apart the best of it into the compliant proposal. Map each moonshot slide to the RFP's required response section, fact-and-compliance-check every borrowed slide before it enters the scored response, flag the required sections the moonshot omits, and feed the selected content into the proposal deck rough-draft. Covers the design-integration step of Phase 8.
-audience: Written for Claude (who does the integration) and Jake (who reviews it and forwards the feedback to the design team). One output — the "slides + edits" note — is written to be forwarded to the designer (e.g., Hoda).
-version: 1.1 — July 2026
-owner: Jake (Seamgen)
+audience: Written for Claude (who does the integration) and the sales teammate running the proposal (who reviews it and forwards the feedback to the design team). One output — the "slides + edits" note — is written to be forwarded to the designer (e.g., Hoda).
+version: 1.2 — November 2026
+owner: Seamgen sales team (no single owner or approver)
 depends_on: the design team's moonshot deck (PNG/PDF, e.g. in `resources/moonshot/` or the RFP's moonshot location), the proposal content/deck (the `rfp-proposal-deck-rough-draft` output), the RFP itself + its discovery Q&A + submission checklist. Feeds `rfp-proposal-deck-rough-draft` (Mode C — content handoff).
 ---
 
@@ -34,7 +34,7 @@ After the design team hands over a moonshot for an RFP that already has a **prop
 2. **Map** each slide to the RFP's required response section, with a call: **use as-is / use with edits / trim / don't use**, and *where it slots* (e.g., "Digital Divide → Understanding," "Transition Blueprint → Schedule").
 3. **Fact-and-compliance-check** every slide you'd borrow (see the gate below) — this is the point of the skill.
 4. **Flag the gaps** — the required sections the moonshot omits, so they're sourced from the proposal content / submission-checklist owners.
-5. **Feed the deck skill** — fold the cleared material into the proposal content (`rfp-proposal-deck-rough-draft` Mode C), and hand Jake the designer note.
+5. **Feed the deck skill** — fold the cleared material into the proposal content (`rfp-proposal-deck-rough-draft` Mode C), and hand the designer note to the person who asked.
 
 ## Fact & compliance gate (the critical guardrail)
 
@@ -54,7 +54,7 @@ List the RFP-required sections the moonshot does **not** cover, so nothing is as
 
 ## Outputs
 
-1. **Designer-ready note** (for Jake to forward to the design team): which slides we're using, where each slots, and the specific edits each needs. Collaborative, plain tone.
+1. **Designer-ready note** (for the person who asked to forward to the design team): which slides we're using, where each slots, and the specific edits each needs. Collaborative, plain tone.
 2. **Slide → section integration map** (which moonshot slide feeds which RFP section).
 3. **Folded content** — the cleared moonshot material merged into the RFP's own `RFPs/[stage]/[rfp-slug]/proposal-content_YYYY-MM-DD_[slug].md` (feeding `rfp-proposal-deck-rough-draft` Mode C), every borrowed claim grounded. (`[stage]` = the RFP's current lifecycle tier — save into its existing `[rfp-slug]/` folder wherever it lives; see CLAUDE.md Rule 10.)
 
@@ -64,13 +64,15 @@ List the RFP-required sections the moonshot does **not** cover, so nothing is as
 - **Grounded only.** Everything that enters the scored response passes the fact & compliance gate. Real facts; no invented numbers, scope, or credentials.
 - **Surface edits, don't bury them.** Rejected/softened content is explained in the designer note so the design team learns the constraints.
 - **Current staff only** in any team references; historical names never appear.
-- **Don't send anything.** This skill drafts the note; Jake forwards it.
+- **Don't send anything.** This skill drafts the note; the person who asked forwards it.
 
 ## Worked example (abbreviated — RPV)
 
 Hoda's 10-slide RPV moonshot (`resources/moonshot/`) mapped cleanly: **Digital Divide → Understanding**, **Frictionless Citizen Journey → Approach/vision**, **Inclusive Design → Accessibility**, **Administrative Superpowers → capabilities**, **Data Migration & Outreach → Migration + §IV.4**, **De-Risked Transition Blueprint → Schedule** (stronger than the original), **Why Seamgen → differentiation (with edits)**, **Contractual Alignment → Acceptance (verify first)**. Fact-gate catches: soften the **Tyler Munis** "compatibility" claim (open scope question), **verify the "Exhibit A / Exhibit D / Consultant Services Agreement"** references against RPV's Attachment A / PSA, and **source or drop** "13,000+ active members." Gaps the moonshot skips (sourced from the proposal content): cover letter, org & staffing/team, references-with-contacts, price, QC, acceptance, requirements matrix.
 
 ## Notes and edit history
+
+**v1.2 — November 2026.** Jake left Seamgen, so the skill has no single owner: the sales teammate running the proposal reviews the output and forwards the designer note. No change to the steps or the gate.
 
 **v1.1 — July 2026, Jake + Claude.** Folder reorg (type-based → by-RFP): the folded proposal-content file it feeds now lives in the RFP's own folder `RFPs/[stage]/[rfp-slug]/` (was `proposals/`), matching `rfp-proposal-deck-rough-draft` v1.3. See CLAUDE.md v1.13.
 

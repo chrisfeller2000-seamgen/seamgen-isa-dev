@@ -1,9 +1,9 @@
 ---
 name: rfp-materials-request-slack
-purpose: Turn a proposal's submission checklist (its per-item owner assignments) plus the rough-draft proposal deck's outstanding stub/inline-filler items into per-person, Slack-ready requests — grouped by teammate — so Jake collects everything the proposal still needs in one pass, without a second round of clarifying questions. Covers the materials-collection step of Phase 8 (Proposal development).
-audience: Written for both Claude (who drafts the requests) and Jake (who reviews and sends them). The MESSAGES themselves are internal, to Seamgen teammates.
-version: 1.6 — July 2026
-owner: Jake (Seamgen)
+purpose: Turn a proposal's submission checklist (its per-item owner assignments) plus the rough-draft proposal deck's outstanding stub/inline-filler items into per-person, Slack-ready requests — grouped by teammate — so the teammate running the proposal collects everything it still needs in one pass, without a second round of clarifying questions. Covers the materials-collection step of Phase 8 (Proposal development).
+audience: Written for both Claude (who drafts the requests) and the sales teammate who asked (who reviews and sends them). The MESSAGES themselves are internal, to Seamgen teammates.
+version: 1.7 — November 2026
+owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-submission-checklist skill (the per-item owner routing), the RFP itself (for verbatim requirement language), the rfp-proposal-deck-rough-draft output (its stub + inline-filler list = exactly what's still missing), the rfp-engineering-brief output (technical language + page refs for engineers), and reference-team-and-signature.md + CLAUDE.md's "Communication register by audience" (identity, signature, per-person tone).
 ---
 
@@ -11,15 +11,15 @@ depends_on: rfp-submission-checklist skill (the per-item owner routing), the RFP
 
 ## What this skill does
 
-Produces the **Slack messages Jake sends to teammates** to collect the materials a proposal still needs — the pricing, headshots, PM assignment, reference contacts, firm-registration fields, contract exceptions, and technical specifics that the rough-draft deck deliberately left as stubs. It **groups every ask by person** (all of Hoda's in one place, all of Chris's in another, etc.), so Jake can send one complete message per teammate.
+Produces the **Slack messages the sender (the teammate who asked) sends to teammates** to collect the materials a proposal still needs — the pricing, headshots, PM assignment, reference contacts, firm-registration fields, contract exceptions, and technical specifics that the rough-draft deck deliberately left as stubs. It **groups every ask by person** (all of Hoda's in one place, all of Chris's in another, etc.), so the sender can send one complete message per teammate.
 
 The goal is **one clean pass**: each message is comprehensive enough that the recipient never has to come back confused or having missed something — so it pairs every plain-language ask with the **RFP's own words** (verbatim quote + section/page). It also tells each person, in one line, **what the others are working on**, so they know who to coordinate with.
 
-Output is a **PDF grouped by person** (Jake's record/reference) **plus each message as plain copy-paste-ready text in chat** (Slack doesn't paste cleanly from a PDF).
+Output is a **PDF grouped by person** (the sender's record/reference) **plus each message as plain copy-paste-ready text in chat** (Slack doesn't paste cleanly from a PDF).
 
 ## When to use it
 
-Use once a **submission checklist exists** for the RFP (that's where owners come from), and — ideally — after the **rough-draft proposal deck** has been built, because the deck's stub + inline-filler list is the precise inventory of what's still outstanding. Use it at the start of proposal development, when Jake is ready to reach out to the team. Don't use it before there's a checklist to route against.
+Use once a **submission checklist exists** for the RFP (that's where owners come from), and — ideally — after the **rough-draft proposal deck** has been built, because the deck's stub + inline-filler list is the precise inventory of what's still outstanding. Use it at the start of proposal development, when the sender is ready to reach out to the team. Don't use it before there's a checklist to route against.
 
 ## How to use it
 
@@ -32,7 +32,7 @@ Use once a **submission checklist exists** for the RFP (that's where owners come
 2. **The rough-draft deck's outstanding items** — its stubs (pricing, CPM schedule, financials, exceptions, VPAT) and inline-filler (headshots, PM, effort %, registration fields, reference contacts). This is the "what's still missing" list.
 3. **The RFP itself** — for the **verbatim requirement language** behind each ask.
 4. **The engineering brief** (if one exists) — verbatim technical language + page refs for the engineers' asks.
-5. **`reference-team-and-signature.md`** — Jake's identity + the internal (first-name) sign-off. **CLAUDE.md** — the per-person communication register and the current roster.
+5. **`reference-team-and-signature.md`** — the internal (first-name) sign-off convention; the sender's own name goes in it. **CLAUDE.md** — the per-person communication register and the current roster.
 
 ## Who gets a message (deriving recipients)
 
@@ -45,21 +45,21 @@ Intersect the checklist's owner routing with the deck's stub/inline-filler list.
 - **Marianne** — contract/PSA exceptions, insurance terms, price approval, and the **binding signature** (cover/transmittal letter).
 - **Peter** — final price sign-off + exceptions approval. Keep his to one or two lines.
 - **Chris / Frank** (and Seth if assigned) — pricing estimate inputs, the detailed CPM schedule, and technical specifics (PCI/payment gateway, data-migration sizing, integrations, app-vs-web).
-- **Hoda** — headshots and case-study screenshots / design assets, **only if Jake can't source them himself** (often he can — if so, skip her entirely). Never ask Hoda (or anyone) to decide *which* case studies to feature or to source reference contacts — that stays with Jake + Claude.
+- **Hoda** — headshots and case-study screenshots / design assets, **only if the sender can't source them themselves** (often they can — if so, skip her entirely). Never ask Hoda (or anyone) to decide *which* case studies to feature or to source reference contacts — that stays with the sender + Claude.
 - **Staffing** — who the PM is + % effort per person (a question to leadership, e.g., Marianne — asked, not assigned).
 
-Never invent a recipient or an ask — only route items that are real in **this RFP's** checklist/deck/RFP. **A general role is not an ask:** if a person has no grounded checklist item for this RFP, drop them. Use current staff only (never Adan or Katie — historical names only). **Selecting case studies and reconciling references is Jake + Claude's job, not a team ask.** And **drop any ask Jake can self-serve** (e.g., headshots or case-study images he already has) — don't message someone for something Jake can get himself.
+Never invent a recipient or an ask — only route items that are real in **this RFP's** checklist/deck/RFP. **A general role is not an ask:** if a person has no grounded checklist item for this RFP, drop them. Use current staff only (never Adan or Katie — historical names only). **Selecting case studies and reconciling references is the sender + Claude's job, not a team ask.** And **drop any ask the sender can self-serve** (e.g., headshots or case-study images they already have) — don't message someone for something the sender can get themselves.
 
 **Firm-registration fields: don't re-ask for what's on file.** Pull confirmed company values (address, phone, tax ID, org type, license, etc.) from `reference-team-and-signature.md` and pre-fill them in the message ("I've got our address (…) and phone (…)"). Only ask Tina for the fields still marked `[to confirm]` there. As she supplies them, they get saved back to that reference doc so the next RFP doesn't ask again.
 
 ## The "what I'm asking each person for" map (stated once)
 
-At the top of the PDF, include a compact map — one line per person summarizing **what Jake is asking that person for**, NOT an assertion of what they "own" or "handle." Framing matters: Jake is junior (an intern), so the map and every message must describe *Jake's own requests* and never define teammates' responsibilities or narrate who does what. Keep individual messages free of "so-and-so handles X / approves Y / signs Z" statements — those presume knowledge of others' roles and step on toes.
+At the top of the PDF, include a compact map — one line per person summarizing **what the sender is asking that person for**, NOT an assertion of what they "own" or "handle." Framing matters: the map and every message describe *the sender's own requests* and never define teammates' responsibilities or narrate who does what. Keep individual messages free of "so-and-so handles X / approves Y / signs Z" statements — those presume knowledge of others' roles and step on toes.
 
 ## Per-person message template (concise — Slack, not an essay)
 
 ```
-Hey [Name] — putting together the [RFP] proposal (due [RFP due date]); could you get me the below by [Jake's internal deadline]?
+Hey [Name] — putting together the [RFP] proposal (due [RFP due date]); could you get me the below by [internal deadline]?
 
 What I need:
 
@@ -69,22 +69,22 @@ What I need:
 
 Everything we've put together for this one is in our Google Drive folder: [link].
 Thanks.
-— Jake
+— [Sender's first name]
 ```
 
-Formatting Jake prefers (apply in both the `.txt` and the PDF): **no "@Name — RFP proposal" title line** (the person is already identified by the Slack DM / the section header); **a blank line between each bullet** so they don't run together; and **"Thanks." not "Thanks!"** — no exclamation point.
+Formatting to keep (apply in both the `.txt` and the PDF): **no "@Name — RFP proposal" title line** (the person is already identified by the Slack DM / the section header); **a blank line between each bullet** so they don't run together; and **"Thanks." not "Thanks!"** — no exclamation point.
 
 Keep it tight: 2–5 asks per person is normal; group related asks into one bullet. Skimmable in Slack. **Ask, don't direct**, and never add a line describing what another teammate handles/approves/signs.
 
 ## Register by person (from CLAUDE.md)
 
-Across all of these, keep an **intern-appropriate voice: humble, asking, never presuming.** Phrase asks as questions; don't tell a senior teammate what they do, approve, or sign.
+Across all of these, keep a **humble, asking voice that never presumes.** Phrase asks as questions; don't tell a senior teammate what they do, approve, or sign.
 
 - **Peter (CEO):** one or two lines, respectful; ask whether he'd like to review/approve, don't announce that he "signs off."
 - **Marianne (Managing Director):** direct, specific; working details are fine — still asked, not assigned.
 - **Engineers (Chris / Frank / Seth):** technical, precise, **verbatim quotes with page references, no fluff** — they want the exact RFP language, not a paraphrase.
 - **Tina / Nick (Ops/Admin):** a clean, polite checklist — but with the **same rigor as the engineers**: name each document concretely, say in one line what it's for, and cite the RFP section. "A checklist" does not mean "vague."
-- **Hoda:** headshots + case-study screenshots only (not "which case studies fit" — that's Jake + Claude).
+- **Hoda:** headshots + case-study screenshots only (not "which case studies fit" — that's the sender + Claude).
 
 ## Make every ask self-explanatory
 
@@ -99,21 +99,21 @@ The whole point of this skill is that the recipient never has to come back and a
 
 ## What to offer — the shared Google Drive folder
 
-Everything we've generated for the RFP (scoring, engineering brief, submission checklist, rough-draft deck, etc.) lives in one **shared Google Drive folder**. Rather than offering individual documents — and rather than pushing our internal drafts at people — give each person **the link to that folder** so they can pull whatever context they want themselves: *"Everything we've put together for this one is in our Google Drive folder: [link]."* Jake supplies the folder link per RFP.
+Everything we've generated for the RFP (scoring, engineering brief, submission checklist, rough-draft deck, etc.) lives in one **shared Google Drive folder**. Rather than offering individual documents — and rather than pushing our internal drafts at people — give each person **the link to that folder** so they can pull whatever context they want themselves: *"Everything we've put together for this one is in our Google Drive folder: [link]."* Use the RFP's Drive folder link from its `resources/_document-manifest.md` (`Drive folder:` line); if there is none, ask the sender for it.
 
 One link works for everyone; it's cleaner and less presumptuous than deciding what each person needs.
 
-**Feedback loop → future skills.** Log the recurring "can you send me / where do I find X?" replies. When the same request shows up across RFPs, that's a signal to build a new skill/deliverable so teammates get it automatically and never have to ask again. Surface those candidates to Jake (per CLAUDE.md Rule 6, don't create the new skill without asking first).
+**Feedback loop → future skills.** Log the recurring "can you send me / where do I find X?" replies. When the same request shows up across RFPs, that's a signal to build a new skill/deliverable so teammates get it automatically and never have to ask again. Surface those candidates to the sales team (per CLAUDE.md Rule 6, don't create the new skill without asking first).
 
 ## Guardrails
 
 - **Concise, not essays.** These are Slack messages. Comprehensive on substance, short in form.
-- **Humble, intern-appropriate voice.** Ask, don't direct. Never presume to state what a teammate handles, owns, approves, or signs — phrase everything as a question ("could you…", "who should…"). This protects a junior sender from stepping on toes.
+- **Humble, asking voice.** Ask, don't direct. Never presume to state what a teammate handles, owns, approves, or signs — phrase everything as a question ("could you…", "who should…"). This keeps the sender from stepping on toes, whoever they are.
 - **Real asks only — grounded in *this* RFP.** Never invent a requirement, an owner, or a deliverable, and never turn a person's standing role into an ask the RFP doesn't require. Every ask traces to a line in *this RFP's* checklist (or the deck/RFP). No checklist line → no message.
 - **Current staff only.** Use the CLAUDE.md roster; never address Adan or Katie as current staff.
-- **Internal voice + signature.** First-name, collaborative Slack tone; sign-off from `reference-team-and-signature.md` (first name only).
+- **Internal voice + signature.** First-name, collaborative Slack tone; sign-off with the sender's first name only, per `reference-team-and-signature.md`.
 - **Source line.** Carry a "Source (found via)" line at the top of the PDF (internal tracking, per Rule 9). It never goes to an external party — but these are internal, so it stays.
-- **Don't send anything.** This skill drafts; Jake sends. No Slack automation.
+- **Don't send anything.** This skill drafts; the sender sends. No Slack automation.
 
 ## Output
 
@@ -128,9 +128,11 @@ For the Rancho Palos Verdes recreation-platform RFP, the skill reads the RPV sub
 
 > **Chris / Frank** — *"…could you get me: (1) a rough cost basis for a City-owned recreation platform + managed hosting; (2) the detailed CPM schedule to a Jan 5, 2027 go-live; (3) our PCI approach + which gateway. RFP: 'The vendor shall maintain full PCI DSS compliance for all their payment systems…' (§III, p.6). (4) Do we need to integrate with the City's Tyler Munis ERP? 'The City operates with Tyler Munis ERP as their accounting software.' (§III, p.5)… Everything we've put together is in our Google Drive folder: [link]."*
 
-…plus grouped messages for Marianne (exceptions, insurance, prevailing-wage read, pricing once engineering's estimate is in, who signs), Peter (would he like to approve pricing/exceptions), and Tina (the company-registration fields still marked `[to confirm]`). **Nick is NOT messaged** — the RPV RFP has no financials requirement, so there is no grounded item for him. (Contrast USM, which *did* have a real hook — "Financial statements — furnish only if requested" at §IV.B.9 — where Nick would get a concrete, defined, clearly-conditional ask.) Headshots and case-study images are Jake's to source, so there's no Hoda message either. Every message closes with the shared Google Drive folder link, and the top of the page carries a "what I'm asking each person for" map. Output: `RFPs/[stage]/rancho-palos-verdes-recreation-software/materials-request_2026-07-08_rancho-palos-verdes-recreation-software.pdf` + `.txt`.
+…plus grouped messages for Marianne (exceptions, insurance, prevailing-wage read, pricing once engineering's estimate is in, who signs), Peter (would he like to approve pricing/exceptions), and Tina (the company-registration fields still marked `[to confirm]`). **Nick is NOT messaged** — the RPV RFP has no financials requirement, so there is no grounded item for him. (Contrast USM, which *did* have a real hook — "Financial statements — furnish only if requested" at §IV.B.9 — where Nick would get a concrete, defined, clearly-conditional ask.) Headshots and case-study images were the sender's to source, so there's no Hoda message either. Every message closes with the shared Google Drive folder link, and the top of the page carries a "what I'm asking each person for" map. Output: `RFPs/[stage]/rancho-palos-verdes-recreation-software/materials-request_2026-07-08_rancho-palos-verdes-recreation-software.pdf` + `.txt`.
 
 ## Notes and edit history
+
+**v1.7 — November 2026.** Jake left Seamgen, so the skill has no single owner. Messages are written for whichever sales teammate asks and sends them, signed with their first name. The "intern" framing is gone, but the humble, ask-don't-direct voice it produced stays as a rule for every sender. The Drive folder link now comes from the RFP's document manifest. No change to grounding, per-person registers or output.
 
 **v1.6 — July 2026, Jake + Claude.** Folder reorg (type-based → by-RFP): both outputs (PDF + `.txt`) now save to the RFP's own folder `RFPs/[stage]/[rfp-slug]/` (was `team-requests/`). See CLAUDE.md v1.13.
 
