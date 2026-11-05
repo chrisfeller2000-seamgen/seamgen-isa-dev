@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { auditDocuments, auditRecord, auditSkippedRecord, createAuditLog } from '../workspace/scripts/rfp-audit.mjs';
 import { detailRows, salesRows, writeWorkbook } from './rfp-audit.mjs';
@@ -15,7 +15,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 function weeklyRun(workspaceDir) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [
-      '--import', path.join(repoRoot, 'devtools', 'fixtures', 'weekly-run.mjs'),
+      '--import', pathToFileURL(path.join(repoRoot, 'devtools', 'fixtures', 'weekly-run.mjs')).href,
       path.join(repoRoot, 'workspace', 'scripts', 'weekly-rfp-pursue-decision.mjs'),
     ], {
       cwd: repoRoot,
