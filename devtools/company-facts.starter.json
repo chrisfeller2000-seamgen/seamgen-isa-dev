@@ -1,0 +1,132 @@
+{
+  "version": 1,
+  "comment": "Starter for resources/proposal-sources/company-facts.json on the VM. Copy it outside Git, confirm each fact with the named person, and fill in status, verifiedBy, verifiedDate and source. Never commit the filled-in copy. Check it with: node devtools/company-facts.mjs <file>. Every fact repeats a claim already in rfp-scoring-skill.md. Only facts with verifiedBy have been checked, and only on the date shown.",
+  "facts": [
+    {
+      "id": "sam-registration",
+      "type": "registration",
+      "name": "SAM.gov entity registration (UEI)",
+      "holder": "Seamgen",
+      "status": "unconfirmed",
+      "confirmWith": "Tina",
+      "notes": "Seamgen's GSA MAS contract lists UEI YH6HUMDSGL97. An active MAS contract normally requires an active SAM.gov registration, but this has not been checked on SAM.gov itself. Check the registration's status, expiry date and points of contact for UEI YH6HUMDSGL97, then record held with the expiry date. A separate SBA profile under UEI N7NGKMMQ4GJ9 (CAGE 6V9K1) showed an expired registration last updated 2025-06-03; it appears to be an older or duplicate entity record and should not be used in bids."
+    },
+    {
+      "id": "gsa-mas-it",
+      "type": "registration",
+      "name": "GSA Multiple Award Schedule contract 47QTCA19D00DQ",
+      "holder": "Seamgen",
+      "status": "held",
+      "expires": "2029-06-17",
+      "verifiedBy": "J Garibay",
+      "verifiedDate": "2026-11-10",
+      "source": "GSA eLibrary contractor page, gsaelibrary.gsa.gov/ElibMain/contractorInfo.do?contractNumber=47QTCA19D00DQ",
+      "confirmWith": "Marianne",
+      "notes": "Expiry is the current option period end; the ultimate contract end is 2039-06-17. SINs: 54151S Information Technology Professional Services, 54151HEAL Health Information Technology Services, OLM Order-Level Materials. All three are open to state and local cooperative and disaster purchasing. Schedule 70 no longer exists; GSA folded it into MAS, so cite the MAS contract number, not Schedule 70."
+    },
+    {
+      "id": "small-business-541511",
+      "type": "registration",
+      "name": "Small business size status under NAICS 541511",
+      "holder": "Seamgen",
+      "status": "not-held",
+      "verifiedBy": "J Garibay",
+      "verifiedDate": "2026-11-10",
+      "source": "GSA eLibrary contractor page for MAS contract 47QTCA19D00DQ, Socio-Economic: Other Than Small Business",
+      "notes": "Seamgen is other than small, so small-business set-asides are not open to it as prime. Small-business goals, preferences and subcontracting plans do not bar it. Ignore the expired SBA profile under UEI N7NGKMMQ4GJ9, which still says small, and seamgen.com's claim of SBA certification."
+    },
+    {
+      "id": "sba-certifications",
+      "type": "certification",
+      "name": "SBA certification (8(a), WOSB/EDWOSB, HUBZone or VetCert)",
+      "holder": "Seamgen",
+      "status": "not-held",
+      "verifiedBy": "J Garibay",
+      "verifiedDate": "2026-11-10",
+      "source": "GSA eLibrary contractor page for MAS contract 47QTCA19D00DQ (Other Than Small Business); SBA Small Business Search profile under the old UEI N7NGKMMQ4GJ9 listed none",
+      "notes": "8(a), WOSB/EDWOSB and HUBZone require small-business status, which Seamgen does not have. Set-asides limited to these programs are not open to Seamgen."
+    },
+    {
+      "id": "microsoft-csp",
+      "type": "certification",
+      "name": "Microsoft Cloud Solution Provider",
+      "holder": "Seamgen",
+      "status": "unconfirmed",
+      "confirmWith": "Marianne"
+    },
+    {
+      "id": "esri-partner",
+      "type": "certification",
+      "name": "Esri partner agreement",
+      "holder": "Seamgen",
+      "status": "unconfirmed",
+      "confirmWith": "Marianne",
+      "notes": "Claimed in Proposal - Assets.txt and never verified. A partner agreement is a company relationship, not an Esri technical certification."
+    },
+    {
+      "id": "esri-technical-certification",
+      "type": "certification",
+      "name": "Esri technical certification",
+      "holder": "Seamgen staff",
+      "status": "not-held",
+      "verifiedBy": "Seth Lutske",
+      "verifiedDate": "2026-07-27",
+      "source": "Seth's confirmation, recorded in rfp-scoring-skill.md v1.8",
+      "confirmWith": "Seth Lutske and Pete Nystrom",
+      "notes": "Seth confirmed he holds none and no other holder has been named. Pete Nystrom has not been asked."
+    },
+    {
+      "id": "insurance-general-liability",
+      "type": "insurance",
+      "name": "Commercial general liability insurance",
+      "holder": "Seamgen",
+      "status": "unconfirmed",
+      "confirmWith": "Marianne"
+    },
+    {
+      "id": "insurance-professional-liability",
+      "type": "insurance",
+      "name": "Professional liability (errors and omissions) insurance",
+      "holder": "Seamgen",
+      "status": "unconfirmed",
+      "confirmWith": "Marianne"
+    },
+    {
+      "id": "insurance-cyber-liability",
+      "type": "insurance",
+      "name": "Cyber liability insurance",
+      "holder": "Seamgen",
+      "status": "unconfirmed",
+      "confirmWith": "Marianne",
+      "notes": "SW Wisconsin (2627-09) required $5M cyber liability and is a standing no until the limit is known."
+    },
+    {
+      "id": "insurance-workers-compensation",
+      "type": "insurance",
+      "name": "Workers' compensation insurance",
+      "holder": "Seamgen",
+      "status": "unconfirmed",
+      "confirmWith": "Marianne"
+    },
+    {
+      "id": "ref-florida-dep",
+      "type": "reference",
+      "client": "Florida Department of Environmental Protection",
+      "clientType": "government",
+      "project": "Sea Level Rise Projection / GIS platform",
+      "status": "unconfirmed",
+      "confirmWith": "Marianne",
+      "notes": "Seamgen's one clean government reference. Confirm the contact will take a reference call, and record the completion month and contract value."
+    },
+    {
+      "id": "ref-us-endowment",
+      "type": "reference",
+      "client": "U.S. Endowment for Forestry and Communities",
+      "clientType": "nonprofit",
+      "project": "Carbon tool built to NIST 800, FITARA and FISMA",
+      "status": "unconfirmed",
+      "confirmWith": "Marianne",
+      "notes": "A nonprofit, not a government agency. Counts only where an RFP's wording admits nonprofit or federally compliant work."
+    }
+  ]
+}

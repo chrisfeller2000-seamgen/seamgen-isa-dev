@@ -2,7 +2,7 @@
 name: rfp-scoring
 purpose: Evaluate whether Seamgen should pursue a Request for Proposal (RFP), using a two-stage rubric that produces a numeric score, a pursue/no-bid recommendation, and structured notes that feed downstream email templates.
 audience: This skill is written to be read by both Claude (who applies the rubric) and a human teammate (who reads, sanity-checks, and edits the rubric over time).
-version: 1.9 — November 2026
+version: 1.10 — November 2026
 owner: Jake (Seamgen)
 ---
 
@@ -181,9 +181,12 @@ Gate 2 asks what the **agency** wants. It has never asked what **we are**. Those
 
 **Never claim public-sector experience we don't have to clear this gate.** Overstating the reference bench is the one failure mode that survives scoring and then loses the bid at evaluation — or worse, wins it dishonestly.
 
-**Seamgen's known qualifications** (verify these are still current before relying on them):
-- GSA Multiple Award Schedule (MAS) contract, active (GSA folded the old Schedule 70 into MAS)
-- **Not** an SBA small business (this list wrongly said it was until November 2026)
+**The company facts record decides what is current.** `resources/proposal-sources/company-facts.json` holds each registration, certification, insurance policy and public-sector reference. Each entry records its status, who confirmed it, when, and where the proof is kept. A credential counts as held today only when its entry says *held*, it was confirmed within the last year, and it hasn't expired. A reference counts only when its entry says *available* under the same rule. When the record is present, its confirmed references replace the one-reference standing fact above. A listed reference that hasn't been reconfirmed leaves Gate 6 open, with the client named, and doesn't fail it. The Assets file and case studies show past delivery. They never prove a credential is held today.
+
+**Seamgen's known qualifications** (rely on one only when its company-facts entry is current):
+- GSA Multiple Award Schedule (MAS) contract 47QTCA19D00DQ, SINs 54151S, 54151HEAL and OLM. GSA folded the old Schedule 70 into MAS, so never cite Schedule 70.
+- **Not** a small business: GSA lists Seamgen as Other Than Small Business. This list wrongly said otherwise until November 2026. Seamgen holds no 8(a), WOSB, HUBZone or VetCert certification either.
+- SAM.gov registration under UEI YH6HUMDSGL97: unconfirmed. An expired registration under a different UEI, N7NGKMMQ4GJ9, is an old record and says nothing about the current one.
 - Microsoft Cloud Solution Provider
 - NAICS codes: 541511, 541512, 541513, 541519, 511210
 
@@ -562,6 +565,8 @@ Notes for email debrief:
 ---
 
 ## Notes and edit history
+
+**v1.10 — November 10, 2026, J Garibay + Claude.** Credentials and references now come from a dated company facts record (`resources/proposal-sources/company-facts.json`, see `docs/domains/rfp/company-facts.md` in the dev repo). A held credential must cite a current held entry, not Assets or a case study; a stale or expired entry leaves Gate 6 open with what to reconfirm. With the record present, its confirmed government references replace the one-reference standing fact. The known-qualifications list now names MAS contract 47QTCA19D00DQ and its SINs, records Other Than Small Business from GSA eLibrary, and marks SAM.gov registration under UEI YH6HUMDSGL97 unconfirmed.
 
 **v1.9 — November 9, 2026, J Garibay + Claude.** Factual correction. Seamgen is not an SBA small business; Gate 6, the known-qualifications list and Category 7 had said it was. A true small-business restriction now fails Gate 6. The HigherGov prefilter drops `SBA` only on federal SAM listings, where it means a total set-aside; on state and local listings (8 of 10 in the November 6 run were only goals, preferences or subcontracting requirements) `SBA` and `SBP` pass with a `small-business-set-aside` flag for scoring to judge (`tools/highergov-config.json`). "GSA Schedule 70" is now "GSA MAS": GSA consolidated Schedule 70 into the Multiple Award Schedule, and Seamgen's MAS contract is active. Esri status is still unverified and unchanged.
 

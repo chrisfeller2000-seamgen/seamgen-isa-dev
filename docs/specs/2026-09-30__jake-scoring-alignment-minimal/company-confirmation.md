@@ -13,7 +13,7 @@ Before relying on a fact for a mandatory RFP requirement, obtain dated supportin
 | Specific technical operations | Named engineer's dated confirmation of the actual operation and project. Keep exact delivery, adjacent experience, and unanswered questions separate. |
 | Submission access | A confirmed allowed method, existing account, or registration feasible before the deadline. A buyer's contact email is not an accepted submission method. |
 
-Store approved private evidence outside Git in the existing company files or a separately reviewed source-loading path. Do not invent an attestation or silently append one based on a model answer. The current loader reads Case Studies and Assets, not People or an arbitrary new qualifications file.
+Store approved private evidence outside Git in the existing company files or a separately reviewed source-loading path. Do not invent an attestation or silently append one based on a model answer. The loader reads Case Studies, Assets and, since November 2026, the dated [company facts](../../domains/rfp/company-facts.md) record for registrations, certifications, insurance and references. It does not read People.
 
 Until supporting evidence is supplied, leave the relevant eligibility fact unknown. A clear independent gate failure can still justify No-bid; an unresolved mandatory requirement cannot justify an unconditional pursue result.
 

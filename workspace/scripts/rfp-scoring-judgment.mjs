@@ -6,6 +6,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import crypto from 'node:crypto';
 import { CATEGORY_BANDS, finalizeRfpScore, scoringSources, unscoredRfp } from './rfp-scoring-policy.mjs';
+import { COMPANY_FACTS_FILE, companyFactsSource } from './rfp-company-facts.mjs';
 
 const runFile = promisify(execFile);
 // ISA's model (openai/gpt-6-luna) has a ~1.05M-token context window. Real solicitation
@@ -96,6 +97,8 @@ const EVIDENCE_RULES = [
   'A mandatory minimum that the supplied case library and the policy\'s standing company facts clearly cannot meet (for example 3+ government references, or years of a product or service Seamgen has never delivered) is a known failure: set meetsMandatoryQualifications false, citing the requirement, unless a named partner covers it.',
   'Leave eligibility unknown only when the requirement itself is unclear, or when passing would rest on a credential that needs a current company record.',
   'Current held credentials and named verified partners need the separate company-record evidence required by subrules.',
+  'A held credential, registration or insurance policy cites its "Company fact" excerpt from the company-facts source that says Status: held, with holder and verifiedDate copied from that excerpt; Assets and case studies never prove a credential is held today. A fact that is unconfirmed, over a year old, expired, or absent makes held null, not true. A fact with Status: not-held makes held false.',
+  'When a company-facts source is supplied, availableGovernmentReferences counts only its government or nonprofit references with Reference status: available, verified within a year, that the RFP wording accepts; without that source, the policy\'s one standing government reference applies.',
   'Facts present only in metadata must reference metadata excerpts, never buyer-document excerpts.',
 ].join(' ');
 
@@ -218,6 +221,17 @@ export async function loadScoringContext(workspace) {
     }
   }
   if (!companySources.some(source => source.kind === 'case-study' && source.text.trim())) throw new Error('The real case-study library is unavailable; no invented fallback score.');
+  // Dated qualifications and references (rfp-company-facts.mjs). Optional: without it
+  // no credential can be claimed as held and Jake's one-reference standing fact applies.
+  // A malformed record stops scoring rather than silently dropping facts.
+  try {
+    const file = path.join(workspace, 'resources', 'proposal-sources', COMPANY_FACTS_FILE);
+    const stat = await fs.lstat(file);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 2e6) throw new Error('Unsafe company source.');
+    companySources.push(companyFactsSource(await fs.readFile(file, 'utf8')));
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
   return { policies, companySources };
 }
 
