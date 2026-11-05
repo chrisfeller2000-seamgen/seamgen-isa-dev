@@ -2,8 +2,8 @@
 name: rfp-preliminary-scoring
 purpose: Run the HigherGov intake, then score everything that survives its prefilter against the standard rubric at metadata depth — producing one ranked list of what's worth a real look, fast, before any documents are fetched.
 audience: This skill is written to be read by both Claude (who runs the tool and applies the rubric) and a human teammate (who reads the ranked list and decides what to pursue).
-version: 1.1 — October 2026
-owner: Jake (Seamgen)
+version: 1.2 — November 2026
+owner: Seamgen sales team (no single owner or approver)
 ---
 
 # RFP Preliminary Scoring Skill
@@ -18,7 +18,7 @@ Say *"run preliminary scoring"* and this happens:
 4. **Record** — write each score back into its `candidate.md`.
 5. **Report** — one ranked list: what came in, what was killed and why, what survived and how it scored.
 
-**This is the cheap pass, not the real one.** Every score it produces is **`metadata-only`** — derived from a HigherGov summary, with no solicitation document read. Its job is to tell Jake which handful of opportunities deserve the expensive treatment: document fetch, full-text re-score, and a pursue decision.
+**This is the cheap pass, not the real one.** Every score it produces is **`metadata-only`** — derived from a HigherGov summary, with no solicitation document read. Its job is to tell the sales team which handful of opportunities deserve the expensive treatment: document fetch, full-text re-score, and a pursue decision.
 
 ## What it is not
 
@@ -30,7 +30,7 @@ Say *"run preliminary scoring"* and this happens:
 
 - **Daily-ish**, to see what posted since the last run.
 - **After a saved-search change**, to re-seed and see what the new filter actually brings in.
-- **When Jake asks for "the recap"** — this skill absorbed the previously-planned `rfp-daily-recap`.
+- **When someone asks for "the recap"** — this skill absorbed the previously-planned `rfp-daily-recap`.
 
 ---
 
@@ -115,7 +115,7 @@ A broad search over several weeks can produce hundreds of candidates. Two rules:
 
 **Gates first is a real efficiency, not a shortcut.** It's how the rubric is designed — Stage 2 only runs if Stage 1 passes.
 
-**Never cap silently.** If a run is too large to finish, stop and say so with numbers: *"148 candidates; gates applied to all; 31 survived; 20 fully scored, 11 not yet — say the word and I'll finish them."* A report that looks complete but isn't is worse than an honest partial one. Surface the number **before** grinding through hundreds, so Jake can redirect.
+**Never cap silently.** If a run is too large to finish, stop and say so with numbers: *"148 candidates; gates applied to all; 31 survived; 20 fully scored, 11 not yet — say the word and I'll finish them."* A report that looks complete but isn't is worse than an honest partial one. Surface the number **before** grinding through hundreds, so the person who asked can redirect.
 
 ---
 
@@ -175,6 +175,8 @@ A no-bid RFP gets no `RFPs/` folder — the reasoning lives in the pipeline reco
 ---
 
 ## Notes and edit history
+
+**v1.2 — November 2026, Seamgen.** Jake has left Seamgen: the owner is now the sales team, with no single owner or approver, and the skill's output is for the sales team rather than Jake. Scoring bands and thresholds are unchanged.
 
 **v1.1 — October 2026, Seamgen.** Documents are now fetched at **50+** instead of 75+. The 75+ rule limited Jake's slow, browser-driven fetch; ISA fetches through the HigherGov API in seconds, and listing-only scores of good software RFPs often land at 60–70. Scoring bands and decision thresholds are unchanged.
 

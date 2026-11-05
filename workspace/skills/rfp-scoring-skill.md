@@ -2,8 +2,8 @@
 name: rfp-scoring
 purpose: Evaluate whether Seamgen should pursue a Request for Proposal (RFP), using a two-stage rubric that produces a numeric score, a pursue/no-bid recommendation, and structured notes that feed downstream email templates.
 audience: This skill is written to be read by both Claude (who applies the rubric) and a human teammate (who reads, sanity-checks, and edits the rubric over time).
-version: 1.8 — July 2026
-owner: Jake (Seamgen)
+version: 1.9 — November 2026
+owner: Seamgen sales team (no single owner or approver)
 ---
 
 # RFP Scoring Skill
@@ -563,6 +563,8 @@ Notes for email debrief:
 
 ## Notes and edit history
 
+**v1.9 — November 2026, Seamgen.** Jake has left Seamgen: the owner is now the sales team, with no single owner or approver. No change to gates, categories, points, thresholds or recommendations.
+
 **v1.8 — July 28, 2026, Jake + Claude.** Prompted by Jake being taken apart in a meeting with Peter on questions the rubric had no way to ask. Three changes plus a factual correction.
 
 **(1) The wired-RFP read is now scored, and required.** Category 7 previously carried the concept in a single 0-point band — *"wired for someone else (sole-source language…)"* — which in practice never fired, because sole-source language is rare and the real pattern is subtler. Peter supplied the pattern and the name: a **"fake RFP"** describes what it wants loosely, because a specification strict enough to name one supplier would exclude most of the market and invite a protest. **The tell is a gap — the RFP names a platform or product posture and then stops short of requiring credentials in it.** The analysis itself lives in the new `skills/rfp-solution-landscape-skill.md` (recipe #16); this category consumes its verdict as a bounded deduction (`Leaning wired` −2 to −4, `Wired` −5 to −8) and the output now carries a **`Wired-RFP read:`** line on every full-text score, including when the answer is `Open`. **Deliberately not a kill gate:** Gate 6a is a gate because a reference count is countable, whereas wiredness is a judgement, and a false positive kills a winnable pursuit with no appeal. **⚠ The change inverts a natural reading** — the 07-26 Suwannee brief scored "no public-sector reference minimum" as favourable, and it may be camouflage. Suwannee is the calibration case in both directions: the tell is real, but the District's own last award went to a custom .NET/SQL shop with no GIS practice at 95/100 against 20 bidders, so it lands at `Leaning wired` (−3), not `Wired`.
@@ -589,7 +591,7 @@ Notes for email debrief:
 
 **Known limitations of v1.0:**
 - Category weights are educated guesses. After 10–15 scored RFPs, review which categories correlated with wins and re-weight.
-- The $100K minimum is a Jake-decided floor. If Peter or Marianne have different intuition, revisit.
+- The $100K minimum is a floor Jake set in July 2026. If Peter or Marianne have different intuition, revisit.
 - No category currently rewards existing agency relationships beyond the "Competitive Position" bucket. If relationships turn out to matter more than the current 10-point weight allows, consider promoting to its own category.
 - Sensitive-industry list is a placeholder. Update if a real case forces the question.
 

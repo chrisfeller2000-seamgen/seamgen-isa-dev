@@ -2,8 +2,8 @@
 name: rfp-email-pursue
 purpose: Generate the brief "pursue" email sent to Peter, Marianne and Sales when Seamgen is pursuing an RFP. The email names the opportunity (title + source + link to the RFP's Google Drive folder), says what the agency runs today and what they hope to get, why it fits Seamgen, and what could stop us winning. One code-built Key dates line carries the questions and proposal deadlines; clarifying questions do NOT go in this email (they come from the rfp-email-agency-questions skill on request).
 audience: This skill is written to be read by both Claude (who drafts the email) and a human teammate (who reads, sanity-checks, and edits the template over time).
-version: 1.8 — November 2026
-owner: Jake (Seamgen)
+version: 1.9 — November 2026
+owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-scoring skill (this template reads from that skill's output)
 ---
 
@@ -55,7 +55,7 @@ Paste the RFP Scoring Skill output and say "draft the pursue email." Claude prod
   - Beat 3: **Why it fits us.**
   - Beat 4: **Blockers.**
 - **Sensitive-industry flag (optional, one line):** if the scoring output raised a sensitive-industry flag but the RFP still scored as a pursue, add a single "Note for Peter/Marianne:" line before the close. The flag isn't a kill — Peter and Marianne decide — so it must reach them visible.
-- **Close:** signature per `reference-team-and-signature.md`.
+- **Close:** "Cheers," and the sender's first name, left as a placeholder for whoever sends it.
 
 ## Which link to use — Google Drive, not HigherGov
 
@@ -68,8 +68,8 @@ This changed in v1.6 because Peter and Marianne said plainly they don't want to 
 **Finding the link**, in order:
 
 1. The `Drive folder:` line in the RFP's `RFPs/<stage>/<rfp-slug>/resources/_document-manifest.md`.
-2. A Drive search under the `Favorable RFP's` parent folder (ID `1FgeVVURDnS-JyQTyapa7pCl3BN4_PmaW`, on the **Sales shared drive**) for the RFP's slug. Note there is an abandoned empty folder of the same name in Jake's My Drive — resolve by ID, not by name.
-3. Ask Jake.
+2. A Drive search under the `Favorable RFP's` parent folder (ID `1FgeVVURDnS-JyQTyapa7pCl3BN4_PmaW`, on the **Sales shared drive**) for the RFP's slug. Note there is an abandoned empty folder of the same name in a former employee's My Drive — resolve by ID, not by name.
+3. Ask the requester.
 
 **Fallback when there is no Drive folder.** A folder only exists once the RFP reaches `2-intermediate-stage/`. If the pursue email is going out earlier — an RFP still in `1-pre-submission/` on a metadata-only score — use the agency's **own original posting URL**, and the HigherGov listing only if that's unknown too.
 
@@ -134,23 +134,17 @@ Blockers: [Most severe first, max 3, one line each — or "None identified."]
 Note for Peter/Marianne: this one falls in a sensitive category ([defense / gambling /
 tobacco / etc.]) and still scored as a pursue — flagging it for your call before we invest.
 
-[Signature per reference-team-and-signature.md]
+Cheers,
+[Sender's first name]
 ```
 
-## Creating the draft in Gmail
+## Giving the email as text
 
-Once the email is written, **create it as a draft in Gmail** so Jake doesn't have to retype it. Also print it in chat exactly as before — the chat copy is how he reviews it; the draft is the convenience.
+When someone asks ISA in chat to write a pursue email, **print it in chat as text to copy**, in a code block. The sender pastes it into their own mail, adds the recipients, and signs it.
 
-**Claude never sends this email. Only ever a draft.** See the Connectors section of `CLAUDE.md`, which governs and overrides anything here.
+**ISA never creates a Gmail draft and never sends this email from chat.** (The Friday job's automated pursue email is separate: it is code-built and sent by the weekly job, per the pursue email spec.)
 
-| Field | Value |
-|---|---|
-| **To** | **Jake alone — `joliker@seamgen.com`.** Do **not** put Peter, Marianne or Sales in To, Cc or Bcc, even though the email is written to them. Jake swaps in the real recipients himself; that swap is the last human checkpoint before it goes out. (Gmail rejects a draft with no recipient at all, which is why this is self-addressed rather than empty — see Connectors in `CLAUDE.md`.) |
-| **Cc / Bcc** | **Empty.** |
-| **Subject** | The template's subject line. |
-| **Body** | First line `Intended recipients: Peter, Marianne, Sales`, then a blank line, then the email exactly as written — including the internal signature from `reference-team-and-signature.md` ("Cheers, / Jacob"). |
-
-Report the draft link when it's done. If the Gmail connector turns out to offer no draft capability, **stop and tell Jake** — don't send it, and don't route it anywhere else instead.
+Above the code block, put one line: `Intended recipients: Peter, Marianne, Sales`. Inside the code block, give the subject line and the email exactly as written, ending with the internal signature placeholder (`Cheers,` / `[Sender's first name]`).
 
 ## Worked example: Yonkers (v1.6 format)
 
@@ -189,6 +183,8 @@ Note what the Blockers section does here: it surfaces, in three lines, the exact
 - **The full Blockers analysis** — severity labels, the requirement quoted, what would clear it, and who owns clearing it. This email carries the headline; the brief carries the argument.
 
 ## Notes and edit history
+
+**v1.9 — November 2026.** Jake has left Seamgen, so the skill has no single owner or approver. **No more Gmail drafts:** when someone asks in chat, ISA prints the email as text to copy, with the intended recipients on a line above it and a placeholder signature ("Cheers, / [Sender's first name]") instead of Jake's. The draft addressed to `joliker@seamgen.com` and the "stop and tell Jake" fallback are gone. "Ask Jake" for a missing Drive link is now "ask the requester". The Friday job's automated email is unchanged.
 
 **v1.8 — November 2026.** Brought in line with ISA's Friday pursue email. **Key dates are back** as one code-built line (questions deadline when the documents give one, then the proposal deadline), which Chris asked for on October 13, 2026 (pursue email spec, Jira ISA-6). The clarifying-questions list now comes from `rfp-email-agency-questions` on request in chat, because the meeting brief was retired on October 12, 2026. The meeting brief's full Blockers analysis is kept as a reference only.
 

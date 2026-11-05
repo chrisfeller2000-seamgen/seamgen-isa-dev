@@ -2,9 +2,9 @@
 name: rfp-email-submission
 purpose: Draft the external transmittal email that accompanies a submitted proposal — naming the RFP, stating how the proposal is organised against the RFP's own required structure, requesting confirmation of receipt, and offering availability during evaluation.
 audience: This skill is written to be read by both Claude (who drafts the email) and a human teammate (who checks it against the RFP's submission rules before anything is sent).
-version: 1.2 — July 2026
-owner: Jake (Seamgen)
-depends_on: rfp-submission-checklist skill (submission mechanics), reference-team-and-signature.md (external signature)
+version: 1.3 — November 2026
+owner: Seamgen sales team (no single owner or approver)
+depends_on: rfp-submission-checklist skill (submission mechanics)
 ---
 
 # Proposal Submission Email Skill
@@ -38,7 +38,7 @@ So establish which of three situations applies **before writing a word**:
 |---|---|
 | **Email IS the submission method** (the RFP names an address to send proposals to) | The delivery itself. The attachments are the proposal. This is the Rancho Palos Verdes case. |
 | **Portal submission required, email permitted as courtesy** | A transmittal note *after* the portal upload succeeds. Never say "please find attached" — the proposal was not attached, it was uploaded. |
-| **Portal required, email discouraged or silent** | **Do not send it.** Confirm the portal receipt instead. Tell Jake rather than sending anything that could look like an alternate submission. |
+| **Portal required, email discouraged or silent** | **Do not send it.** Confirm the portal receipt instead. Tell the requester rather than sending anything that could look like an alternate submission. |
 
 **Read the RFP's submission section, or the RFP's `submission-checklist` deliverable, and say in your output which situation applies and where the rule came from (§/page).** If you cannot establish it, stop and ask — do not guess.
 
@@ -66,7 +66,7 @@ At the moment of submission, once the proposal package is final and the binding 
 - **Beat 3 — confirm receipt.** *"Kindly confirm receipt at your convenience."* Always include it: it creates a written record that the submission arrived, which matters if a deadline is ever disputed.
 - **Beat 4 — availability.** Offer further information during evaluation.
 - **Beat 5 — thanks + forward-looking close**, naming the agency.
-- **Signature:** external block from `reference-team-and-signature.md` — full name + title.
+- **Signature:** the sender's external block — full name + title, left as a placeholder for whoever sends it.
 
 **Keep it to roughly five short paragraphs.** The proposal does the work; this email delivers it politely and proves it is organised the way they asked.
 
@@ -111,40 +111,36 @@ Thank you for the opportunity; we look forward to the possibility of partnering 
 
 Kind regards,
 
-Jacob Oliker
-AI Sales Consultant
+[Sender's name]
+[Title]
+Seamgen
+[Phone]
+[Email]
 ```
 
-*The external block from `reference-team-and-signature.md` v1.2 — confirmed against Jake's real RPV email, not inferred.*
+*The signature stays a placeholder: no single person sends these, so ISA never fills in a name, title, phone, or address. The sender adds their own.*
 
 **If the proposal was uploaded to a portal rather than attached,** replace beat 1's opening with: *"Seamgen's proposal in response to [RFP] was submitted through [portal] on [date/time], organized per RFP [§X.X]."* Do not write "please find attached" when nothing is attached.
 
 ---
 
-## Creating the draft in Gmail
+## Giving the email as text
 
-Once the email is written, **create it as a draft in Gmail** so Jake doesn't have to retype it. Also print it in chat exactly as before — the chat copy is how he reviews it; the draft is the convenience.
+Once the email is written, **print it in chat as text to copy**, in a code block. The sender pastes it into their own mail, attaches the proposal if email is the submission method, adds the recipient, and signs it.
 
-**Claude never sends this email. Only ever a draft.** See the Connectors section of `CLAUDE.md`, which governs and overrides anything here.
+**ISA never creates a Gmail draft and never sends this email.** It goes to the buyer, and a misordered or misdirected submission email can't be withdrawn.
 
-**The three-situation gate above runs first, and it decides whether a draft is created at all:**
+**The three-situation gate above runs first, and it decides whether ISA gives the email at all:**
 
-| Situation | Draft? |
+| Situation | Give the email? |
 |---|---|
-| **Email IS the submission method** | Yes. Note in chat that the attachments are Jake's to add — Claude does not attach the proposal. |
-| **Portal required, email permitted as courtesy** | Yes, but **only after Jake confirms the portal upload succeeded**. A courtesy transmittal drafted before the upload lands is an invitation to send it in the wrong order. |
-| **Portal required, email discouraged or silent** | **No draft.** Say why, cite the §/page, and stop. Creating a draft here manufactures the exact risk the gate exists to prevent — a stray email that makes a compliant proposal look like an alternate submission. |
+| **Email IS the submission method** | Yes. Say in chat that the sender attaches the proposal — ISA does not attach it. |
+| **Portal required, email permitted as courtesy** | Yes, but **only after the requester confirms the portal upload succeeded**. A courtesy transmittal written before the upload lands is an invitation to send it in the wrong order. |
+| **Portal required, email discouraged or silent** | **No.** Say why, cite the §/page, and stop. Writing the email here manufactures the exact risk the gate exists to prevent — a stray email that makes a compliant proposal look like an alternate submission. |
 
-| Field | Value |
-|---|---|
-| **To** | **Jake alone — `joliker@seamgen.com`.** The agency contact's address goes nowhere near this draft, in To, Cc or Bcc. Jake adds it himself — the last human checkpoint before anything reaches a buyer. (Gmail rejects a draft with no recipient at all, which is why this is self-addressed rather than empty — see Connectors in `CLAUDE.md`.) |
-| **Cc / Bcc** | **Empty.** |
-| **Subject** | The template's subject line (RFP number + title per the pattern). |
-| **Body** | First line `Intended recipient: [agency contact name, title, agency]`, then a blank line, then the email exactly as written — including the **full external signature block** from `reference-team-and-signature.md` ("Kind regards, / Jacob Oliker / AI Sales Consultant"). |
+Above the code block, put one line: `Intended recipient: [agency contact name, title, agency, and address as the RFP gives them]`. Keep the agency address out of the code block, so nothing is pre-addressed to the buyer. Inside the code block, give the subject line and the email exactly as written, ending with the external signature placeholder.
 
-**Rule 9's external exception holds inside the draft.** No `Source (found via)` line, no HigherGov link, and no Google Drive link — the Drive folder is internal and never reaches an agency. The `Intended recipient:` line is scaffolding for Jake; he deletes it before sending.
-
-Report the draft link when it's done. If the Gmail connector turns out to offer no draft capability, **stop and tell Jake** — don't send it, and don't route it anywhere else instead.
+**Rule 9's external exception holds.** No `Source (found via)` line, no HigherGov link, and no Google Drive link — the Drive folder is internal and never reaches an agency.
 
 ## Worked example: Rancho Palos Verdes (the real email)
 
@@ -182,7 +178,7 @@ Run these against the RFP's submission section or the RFP's submission checklist
 - **Attachment naming and count.** Many RFPs mandate separate marked files (Yonkers required exactly four, each carrying the legal company name). Check size caps too — Yonkers capped at 500 MB.
 - **Signatures in place.** The binding signature on the proposal is **Marianne's**, with Peter's final approval (CLAUDE.md v1.2). This email is a transmittal, not the binding document — sending it does not substitute for a signed proposal, and an unsigned proposal is commonly rejected outright.
 - **Right contact.** Some RFPs disqualify a bidder for contacting anyone other than the named procurement officer.
-- **Show Jake the draft before it goes.** This is an external, irreversible send to a government contact.
+- **The sender reads the email before it goes.** This is an external, irreversible send to a government contact.
 
 ## After sending
 
@@ -193,6 +189,8 @@ Run these against the RFP's submission section or the RFP's submission checklist
 ---
 
 ## Notes and edit history
+
+**v1.3 — November 2026.** Jake has left Seamgen, so the skill has no single owner or approver. **No more Gmail drafts:** ISA prints the email in chat as text to copy, with the intended recipient on a line above it, and the external signature is a placeholder instead of "Jacob Oliker / AI Sales Consultant". The draft addressed to `joliker@seamgen.com` and the "stop and tell Jake" fallback are gone; the three-situation gate now decides whether ISA gives the email at all, and the portal-upload confirmation comes from the requester. The Rancho Palos Verdes worked example keeps Jake's real signature as a historical record.
 
 **v1.2 — July 22, 2026, Jake + Claude.** Two corrections from the first live test of the Gmail connector. **(1) The draft is addressed to Jake, not left empty.** v1.1 said to leave To and Cc blank; Gmail refuses — `create_draft` returns *"At least one recipient (To, Cc, or Bcc) must be specified."* Drafts now go to `joliker@seamgen.com` and nobody else, so a transmittal sitting in Gmail carries no agency address at all. The three-situation gate above still runs first and still decides whether a draft is created; self-addressing does not soften it. **(2) The signature question from v1.0 is closed in favour of the real email.** `reference-team-and-signature.md` is now **v1.2** and carries "Kind regards, / Jacob Oliker / AI Sales Consultant" — the block this skill's own worked example had all along. The template no longer uses `[Full name]` / `[Title]` placeholders.
 
