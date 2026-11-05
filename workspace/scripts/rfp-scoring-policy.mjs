@@ -65,14 +65,23 @@ export function scoringSources(input) {
   ];
 }
 
-function cite(evidence, sources, { required = true, kind } = {}) {
-  if (!Array.isArray(evidence) || (required && !evidence.length)) throw new Error('Missing scoring evidence.');
-  for (const item of evidence) {
-    const source = sources.get(item.sourceId);
-    if (!source || (kind && !(Array.isArray(kind) ? kind : [kind]).includes(source.kind)) || !norm(item.quote) || !norm(source.text).includes(norm(item.quote))) {
-      throw new Error('Scoring citation does not match the supplied evidence.');
-    }
-  }
+// `at` is the answer field being checked. Its path goes into the error, because a rejected
+// answer is sent back to the model with this message (previousAnswerRejected) and kept in
+// the audit. Until November 3, "Missing scoring evidence." came from about 25 checks with
+// no field named, so the retry could only guess what to fix: on October 23 and 30, 21 of
+// 45 retried answers were rejected again.
+function cite(evidence, sources, { required = true, kind, at = 'evidence' } = {}) {
+  if (!Array.isArray(evidence) || (required && !evidence.length)) throw new Error(`Missing scoring evidence at ${at}.`);
+  evidence.forEach((item, i) => citeOne(item, sources, { kind, at: `${at}[${i}]` }));
+}
+
+function citeOne(item, sources, { kind, at }) {
+  const kinds = kind ? (Array.isArray(kind) ? kind : [kind]) : null;
+  const source = sources.get(item?.sourceId);
+  const problem = !source ? 'unknown source'
+    : kinds && !kinds.includes(source.kind) ? `needs a ${kinds.join(' or ')} excerpt, cites ${source.kind}`
+      : !norm(item.quote) || !norm(source.text).includes(norm(item.quote)) ? 'quote is not in the source' : null;
+  if (problem) throw new Error(`Scoring citation does not match the supplied evidence at ${at}: ${problem}.`);
 }
 
 export function assessProjectValue(frontmatter = {}, documents = []) {
@@ -155,18 +164,18 @@ function sourceMap(input) {
 // Judgments are persisted with the decision. Validate even non-decisive
 // citations so a no-bid route cannot retain invented supporting evidence.
 function validateAllCitations(judgment, sources) {
-  const pending = [judgment], visited = new Set();
+  const pending = [[judgment, '']], visited = new Set();
   while (pending.length) {
-    const value = pending.pop();
+    const [value, at] = pending.pop();
     if (!value || typeof value !== 'object' || visited.has(value)) continue;
     visited.add(value);
-    if (Object.hasOwn(value, 'sourceId') || Object.hasOwn(value, 'quote')) cite([value], sources);
-    pending.push(...Object.values(value));
+    if (Object.hasOwn(value, 'sourceId') || Object.hasOwn(value, 'quote')) citeOne(value, sources, { at });
+    for (const [key, item] of Object.entries(value)) pending.push([item, Array.isArray(value) ? `${at}[${key}]` : at ? `${at}.${key}` : key]);
   }
 }
 
-function requireNamedPartner(partner, sources, label) {
-  cite(partner.evidence, sources, { kind: 'company' });
+function requireNamedPartner(partner, sources, label, at) {
+  cite(partner.evidence, sources, { kind: 'company', at: `${at}.evidence` });
   if (!partner.evidence.some(item => norm(item.quote).includes(norm(partner.name)))) throw new Error(`${label} partner is not named in the cited record.`);
 }
 
@@ -177,9 +186,15 @@ function applySubrules(gate, judgment, sources, timeline) {
   const { product, eligibility, submission } = judgment.subrules;
   if (!product || !eligibility || !submission) throw new Error('Missing Gate 2a, 4, or 6a assessment.');
   // A definite assessment needs evidence. "Unknown" has nothing to cite and never passes a gate.
-  cite(product.evidence, sources, { required: product.hardProductObligations !== null });
-  cite(submission.evidence, sources, { required: submission.status !== 'unknown' });
-  cite(eligibility.evidence, sources);
+  cite(product.evidence, sources, { required: product.hardProductObligations !== null, at: 'subrules.product.evidence' });
+  cite(submission.evidence, sources, { required: submission.status !== 'unknown', at: 'subrules.submission.evidence' });
+  // Eligibility is unknown when neither the qualification answer nor the reference count is
+  // given; Gate 6 then stays open below. The prompt has always said an unknown answer may
+  // have empty evidence, but until November 3 this check demanded evidence anyway, so a
+  // model that followed the prompt was rejected. Listings rarely state qualifications:
+  // on October 30, 127 of 165 listing-stage answers left eligibility unknown.
+  cite(eligibility.evidence, sources, { required: eligibility.meetsMandatoryQualifications !== null || eligibility.publicReferences !== null,
+    at: 'subrules.eligibility.evidence' });
 
   // Gate 2a: existing installs or mandatory demos need a real integrator partner or a conditional question.
   if (![true, false, null].includes(product.hardProductObligations)) throw new Error('Invalid product obligations.');
@@ -187,7 +202,7 @@ function applySubrules(gate, judgment, sources, timeline) {
     if (!norm(product.partner.name) || product.partner.verified !== true || product.partner.sellsThroughIntegrators !== true) {
       throw new Error('Product partner is not verified for integrator delivery.');
     }
-    requireNamedPartner(product.partner, sources, 'Product');
+    requireNamedPartner(product.partner, sources, 'Product', 'subrules.product.partner');
   }
   if (product.hardProductObligations === true && !product.partner && !judgment.conditional) gate.gate2 = false;
   if (product.hardProductObligations === null && gate.gate2 !== false) gate.gate2 = null;
@@ -208,11 +223,11 @@ function applySubrules(gate, judgment, sources, timeline) {
     if (!norm(eligibility.partner.name) || eligibility.partner.verified !== true || !Number.isInteger(eligibility.partner.governmentReferences)) {
       throw new Error('Unverified reference partner.');
     }
-    requireNamedPartner(eligibility.partner, sources, 'Reference');
+    requireNamedPartner(eligibility.partner, sources, 'Reference', 'subrules.eligibility.partner');
   }
   if (eligibility.publicReferences >= 3 && (!eligibility.partner || eligibility.partner.governmentReferences < eligibility.publicReferences)) gate.gate6 = false;
   if (eligibility.publicReferences > 0 && eligibility.publicReferences < 3 && !eligibility.partner) {
-    cite(eligibility.companyEvidence, sources, { kind: ['company', 'case-study'] });
+    cite(eligibility.companyEvidence, sources, { kind: ['company', 'case-study'], at: 'subrules.eligibility.companyEvidence' });
     // Jake's standing fact covers one; a second needs the model to confirm the RFP accepts it.
     const available = eligibility.availableGovernmentReferences ?? GOVERNMENT_REFERENCES;
     if (!Number.isInteger(available) || available < eligibility.publicReferences) {
@@ -226,12 +241,13 @@ function applySubrules(gate, judgment, sources, timeline) {
   // references. Named/current credentials and partners still need their
   // separate company-record checks, not a project keyword.
   if (eligibility.meetsMandatoryQualifications === true && eligibility.requiresCompanyProof) {
-    cite(eligibility.companyEvidence, sources, { kind: ['company', 'case-study'] });
+    cite(eligibility.companyEvidence, sources, { kind: ['company', 'case-study'], at: 'subrules.eligibility.companyEvidence' });
   }
   if (!eligibility.credentials) return;
   if (!Array.isArray(eligibility.credentials)) throw new Error('Invalid credential evidence.');
-  for (const claim of eligibility.credentials) {
-    cite(claim.requirementEvidence, sources);
+  for (const [i, claim] of eligibility.credentials.entries()) {
+    const at = `subrules.eligibility.credentials[${i}]`;
+    cite(claim.requirementEvidence, sources, { at: `${at}.requirementEvidence` });
     if (!norm(claim.name) || ![true, false, null].includes(claim.held)) throw new Error('Invalid credential claim.');
     if (claim.held !== true) {
       gate.gate6 = claim.held === false || gate.gate6 === false ? false : null;
@@ -240,7 +256,7 @@ function applySubrules(gate, judgment, sources, timeline) {
     if (!norm(claim.holder) || parseDeadlineDate(claim.verifiedDate).status !== 'valid' || claim.verifiedDate > timeline.assessmentDate) {
       throw new Error('Held credentials require a named holder and dated company evidence.');
     }
-    cite(claim.companyEvidence, sources, { kind: 'company' });
+    cite(claim.companyEvidence, sources, { kind: 'company', at: `${at}.companyEvidence` });
     if (!claim.companyEvidence.some(item => [claim.holder, claim.name, claim.verifiedDate].every(value => norm(item.quote).includes(norm(value))))) {
       throw new Error('Credential holder, credential, or verification date is not in the cited record.');
     }
@@ -254,9 +270,9 @@ function resolveGates(judgment, sources, timeline, value) {
   const gate = {}, gateReasons = [];
   for (const name of GATE_NAMES) {
     const item = judgment.gates[name];
-    if (!item || ![true, false, null].includes(item.pass) || !norm(item.reason)) throw new Error('Invalid gate judgment.');
+    if (!item || ![true, false, null].includes(item.pass) || !norm(item.reason)) throw new Error(`Invalid gate judgment at gates.${name}.`);
     // An unknown gate still needs a reason, but has nothing to cite and never passes.
-    cite(item.evidence, sources, { required: item.pass !== null });
+    cite(item.evidence, sources, { required: item.pass !== null, at: `gates.${name}.evidence` });
     gate[name] = item.pass;
     gateReasons.push({ gate: name.replace('gate', 'Gate '), pass: item.pass, reason: item.reason });
   }
@@ -269,7 +285,7 @@ function resolveGates(judgment, sources, timeline, value) {
         || (['range', 'ceiling'].includes(value.status) && (estimate > value.high || (value.low !== null && estimate < value.low)))) {
       throw new Error('Tiny-scope inference contradicts the official project value.');
     }
-    cite(judgment.value.evidence, sources);
+    cite(judgment.value.evidence, sources, { at: 'value.evidence' });
     if (!norm(judgment.value.reason)) throw new Error('A tiny-scope estimate needs its basis.');
     gate.gate5 = false; gateReasons[4] = { gate: 'Gate 5', pass: false, reason: judgment.value.reason };
   }
@@ -288,7 +304,7 @@ function resolveGates(judgment, sources, timeline, value) {
 function closedOrWatch(judgment, sources) {
   if (!Object.hasOwn(BID_STATUS, judgment.bidStatus)) throw new Error('Unknown bid eligibility.');
   if (judgment.bidStatus === 'open') return null;
-  cite(judgment.bidEvidence, sources);
+  cite(judgment.bidEvidence, sources, { at: 'bidEvidence' });
   // Watch is Jake's light screen for pre-solicitation notices, not a way to park a live bid.
   if (judgment.bidStatus === 'watch' && !judgment.bidEvidence.some(item => PRE_SOLICITATION.test(item.quote))) {
     throw new Error('A watch item needs evidence of an RFI, Sources Sought, or pre-solicitation notice.');
@@ -301,14 +317,22 @@ function requiredDocuments(judgment, sources, phase) {
   if (!Array.isArray(missing)) throw new Error('Expected a required-document check.');
   // Before documents are fetched, the judge may name documents to retrieve from the
   // listing. They are notes for the fetch step and never block preliminary selection.
-  for (const requirement of missing) {
-    cite(requirement.evidence, sources, { kind: phase === 'preliminary' ? 'metadata' : 'document' });
+  for (const [i, requirement] of missing.entries()) {
+    const at = `requiredDocuments[${i}]`;
     if (!norm(requirement.name) || !Array.isArray(requirement.documentIds) || requirement.documentIds.some(id => sources.get(id)?.kind !== 'document')) {
-      throw new Error('Invalid required-document evidence.');
+      throw new Error(`Invalid required-document evidence at ${at}.`);
     }
+    // After the documents are read, a missing document may be known only from the HigherGov
+    // listing ("see Attachment B, Statement of Work"), so it may cite the listing; a missing
+    // scope document still makes the result Needs documents below. Until November 3 only a
+    // buyer-document citation was accepted, while the prompt said listing-only facts cite
+    // the listing, so the answer was rejected whatever the model did and the RFP was left
+    // unscored. A document we have is still cited from the buyer documents.
+    const kind = phase === 'preliminary' ? 'metadata' : requirement.documentIds.length ? 'document' : ['document', 'metadata'];
+    cite(requirement.evidence, sources, { kind, at: `${at}.evidence` });
     // After the documents are read, the judge says whether each one defines the scope
     // (a specification, statement of work or requirements list) or is a form or addendum.
-    if (phase !== 'preliminary' && typeof requirement.scope !== 'boolean') throw new Error('Required document must say whether it defines the scope.');
+    if (phase !== 'preliminary' && typeof requirement.scope !== 'boolean') throw new Error(`Required document must say whether it defines the scope at ${at}.scope.`);
   }
   return missing;
 }
@@ -322,7 +346,7 @@ function categoryPoints(categories, sources) {
     if (!item || !band || !Number.isInteger(item.points) || item.points < band[0] || item.points > band[1] || !norm(item.reason)) {
       throw new Error(`Invalid ${key} category or rubric band.`);
     }
-    cite(item.evidence, sources);
+    cite(item.evidence, sources, { at: `categories.${key}.evidence` });
     points[key] = item.points;
   }
   if (points.caseStudy > 5) {
@@ -332,7 +356,7 @@ function categoryPoints(categories, sources) {
     // library evidence can establish the named project, never buyer text.
     const libraryEvidence = match.evidence.filter(item => sources.get(item.sourceId)?.kind === 'case-study');
     if (!libraryEvidence.length) throw new Error('Case-study citation needs actual library evidence.');
-    cite(libraryEvidence, sources, { kind: 'case-study' });
+    cite(libraryEvidence, sources, { kind: 'case-study', at: 'categories.caseStudy.evidence' });
     if (!libraryEvidence.some(item => norm(item.quote).includes(norm(match.project)))) throw new Error('Case-study project is not in the cited library evidence.');
   }
   for (const [key, bandsNeedingProof] of [['tech', ['proven', 'mostlyKnown', 'agnostic']], ['compliance', ['demonstrated', 'adjacent']]]) {
@@ -347,8 +371,8 @@ function categoryPoints(categories, sources) {
 // The judged project size must agree with official value evidence and the deal band.
 function validateDealSize(deal, dealBand, points, value, sources, phase, reasons) {
   if (!deal || !['stated', 'inferred', 'uncertain'].includes(deal.kind)) throw new Error('Missing project-value judgment.');
-  cite(deal.evidence, sources);
-  if (phase === 'full-text' && deal.kind === 'stated') cite(deal.evidence, sources, { kind: 'document' });
+  cite(deal.evidence, sources, { at: 'value.evidence' });
+  if (phase === 'full-text' && deal.kind === 'stated') cite(deal.evidence, sources, { kind: 'document', at: 'value.evidence' });
   if (deal.kind === 'uncertain') {
     if (points !== 0) throw new Error('Uncertain possibly-tiny scope earns zero deal points.');
     reasons.push('Project value is uncertain; Peter review.');
@@ -384,18 +408,18 @@ function competitivePosition(position, basePoints, sources, phase, reasons) {
   if (phase === 'preliminary' && (position.verdict !== 'Insufficient evidence' || position.wiredDeduction)) throw new Error('Do not derive a wired verdict from metadata.');
   if (position.verdict !== 'Insufficient evidence') {
     if (!Array.isArray(position.counterEvidence) || !position.counterEvidence.length) throw new Error('A landscape verdict requires counter-evidence checks.');
-    cite(position.counterEvidence, sources);
-    if (position.verdict !== 'Open') cite(position.tells, sources);
+    cite(position.counterEvidence, sources, { at: 'competitive.counterEvidence' });
+    if (position.verdict !== 'Open') cite(position.tells, sources, { at: 'competitive.tells' });
   } else reasons.push('Landscape research insufficient; competitive score remains provisional on this point.');
-  if (position.effortDeduction) cite(position.evidence, sources);
+  if (position.effortDeduction) cite(position.evidence, sources, { at: 'competitive.evidence' });
   const score = Math.max(0, basePoints + position.effortDeduction + position.wiredDeduction);
   return { score, base: basePoints, ...position, signals: [position.verdict] };
 }
 
 function reviewFlags(flags = [], sources) {
-  return flags.map(flag => {
-    if (!['sensitive-industry', 'ceo-connection'].includes(flag.type) || !norm(flag.reason)) throw new Error('Invalid review flag.');
-    cite(flag.evidence, sources);
+  return flags.map((flag, i) => {
+    if (!['sensitive-industry', 'ceo-connection'].includes(flag.type) || !norm(flag.reason)) throw new Error(`Invalid review flag at flags[${i}].`);
+    cite(flag.evidence, sources, { at: `flags[${i}].evidence` });
     return flag;
   });
 }
@@ -408,7 +432,7 @@ const categoryTotal = categories => Object.values(categories).reduce((a, b) => a
 function conditionalOutcome(base, judged, { sources, runDate, phase, deal, value }) {
   // The output contract shows the rule as 2|2a, and models answer 2 as a number.
   const conditional = { ...judged, rule: String(judged.rule ?? '') };
-  cite(conditional.evidence, sources);
+  cite(conditional.evidence, sources, { at: 'conditional.evidence' });
   if (!norm(conditional.question) || !['2', '2a'].includes(conditional.rule)) throw new Error('Invalid conditional route.');
   const noBid = { ...base, recommendation: 'No-bid', qualification_status: 'failed-gate', gate: { ...base.gate, gate2: false } };
   if (conditional.qaStatus === 'closed' || conditional.commercialOnly === true) return noBid;

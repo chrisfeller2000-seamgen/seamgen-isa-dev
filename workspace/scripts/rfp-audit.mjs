@@ -56,7 +56,10 @@ function stage(result) {
     value: result.value || null,
     error: result.scoring_error ? { stage: result.scoring_error, detail: result.scoring_error_detail || null } : null,
     model: provenance.model || null,
-    attempts: provenance.attempts ?? null,
+    // Model calls made; a failed scoring records them too, since November 3.
+    attempts: provenance.attempts ?? result.scoring_attempts ?? null,
+    // Each answer the validator rejected, with its reason, whether or not a later try passed.
+    rejections: (result.scoring_rejections || []).map(item => ({ attempt: item.attempt, reason: item.reason, answer: shortQuotes(item.answer ?? null) })),
     seconds: finite(provenance.seconds ?? result.scoring_seconds),
     // Which rules scored it, so an audit after a rule change compares like with like. The
     // prompt hash covers the code's own rules too; the skill hashes say which file changed.

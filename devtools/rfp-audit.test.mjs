@@ -142,6 +142,21 @@ test('audit lines cut long evidence quotes and keep file names, never paths or l
   assert.deepEqual(record.listing.gates.gate1, { pass: null, reason: null });
   assert.deepEqual(record.listing.gates.gate2, { pass: false, reason: 'Product buy' });
   assert.equal(record.listing.judgment.gates.gate2.evidence[0].quote, `${'x'.repeat(300)}…`);
+  assert.deepEqual(record.listing.rejections, []);
+
+  // A scoring that failed twice: both tries and both rejected answers are kept.
+  const reason = 'Missing scoring evidence at subrules.eligibility.evidence.';
+  const failed = auditRecord({
+    run: { date: '2026-10-16', week: 42 },
+    entry: { slug: 's', title: 'T', agency: 'A', state: '', links: {}, tier: 'check', reason: 'unscored', recommendation: 'Needs review', score: null, scoreIfYes: null, scoredFrom: 'listing' },
+    candidate: { frontmatter: {} },
+    preliminary: { recommendation: 'Needs review', scoring_error: 'invalid-judgment', scoring_error_detail: reason, scoring_attempts: 2,
+      scoring_rejections: [1, 2].map(attempt => ({ attempt, reason, answer: { gates: { gate2: { evidence: [{ sourceId: 'metadata', quote }] } } } })) },
+  });
+  assert.equal(failed.listing.attempts, 2);
+  assert.deepEqual(failed.listing.rejections.map(item => [item.attempt, item.reason]), [[1, reason], [2, reason]]);
+  assert.equal(failed.listing.rejections[0].answer.gates.gate2.evidence[0].quote, `${'x'.repeat(300)}…`);
+  assert.equal(detailRows([failed])[0]['Rejected answers'], `listing try 1: ${reason}\nlisting try 2: ${reason}`);
 
   const documents = auditDocuments('partial-documents', { documents: [
     { source_file_name: 'RFP.pdf', local_path: '/home/azureuser/x/RFP.pdf', download_url: 'https://signed.example/RFP.pdf', downloaded: true, extracted: true, role: 'solicitation', document_status: 'downloaded and extracted', extraction_method: 'pdftotext' },

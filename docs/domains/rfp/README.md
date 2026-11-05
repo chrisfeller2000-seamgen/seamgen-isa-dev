@@ -41,9 +41,10 @@ Each line holds:
 - **The listing and full-text scoring:**
   - each gate's pass/fail/open with its reason;
   - category points, the reasons and the deadline;
-  - any scoring error, the number of tries and seconds taken;
+  - any scoring error, the number of tries (a failed scoring too, since November 3) and seconds taken;
   - the model, a hash of the whole prompt (the code's rules included), and short hashes of the four scoring skills.
 - **The model's own answer:** evidence quotes cut to 300 characters.
+- **Rejected answers** (`rejections`): each answer the validator turned down, with its try number and reason, whether or not a later try passed. Up to 40,000 characters each.
 - **The documents:** why the set was incomplete, and file names, roles, and whether each was read. Local paths and download links stay in the manifest.
 
 That is about 3 MB a week. If the file can't be written, the job logs one line and the Friday update goes out without it.
@@ -72,7 +73,7 @@ The job now limits the damage:
 - **Telegram.** If the gateway refuses the connection, the send is tried five times, three minutes apart. Other failures are not retried, because the message may already have been posted.
 - **Job log.** Each scoring failure writes one `[rfp-scoring]` line to `cron.log` with the stage and the error, with URLs and credentials removed. Reports and candidate files still record only the stage.
 
-An answer that fails validation (`invalid-judgment`) is not an outage. Since October 14 the model gets one more try, with the validator's reason in the request (`previousAnswerRejected`); a second rejection stays unscored. On October 14 these rejections, mostly "Missing scoring evidence.", left 20 of 185 RFPs unchecked. A document set over the size limit (`context-unavailable`) is not retried. Whether a fresh connection recovers after an update has replaced the install has not been tested against a real OpenClaw.
+An answer that fails validation (`invalid-judgment`) is not an outage. Since October 14 the model gets one more try, with the validator's reason in the request (`previousAnswerRejected`); a second rejection stays unscored. On October 14 these rejections, mostly "Missing scoring evidence.", left 20 of 185 RFPs unchecked. On October 23 and 30, 21 of 45 retried answers were rejected again. That message came from about 25 checks and named none of them, so the retry could only guess what to fix. Since November 3 every citation rejection names the answer field and the problem, for example `Missing scoring evidence at gates.gate3.evidence.` or `… at requiredDocuments[0].evidence[0]: needs a document excerpt, cites metadata.` Unknown eligibility (no qualification answer and no reference count) also no longer needs a citation, as the prompt always said; Gate 6 stays open. A document set over the size limit (`context-unavailable`) is not retried. Whether a fresh connection recovers after an update has replaced the install has not been tested against a real OpenClaw.
 
 ## Invariants and sharp edges
 
