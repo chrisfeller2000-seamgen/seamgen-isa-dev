@@ -35,7 +35,7 @@ const HIGHERGOV_STATE_PATH = path.join(PIPELINE_DIR, 'state.json');
 const HIGHERGOV_SEEN_PATH = path.join(PIPELINE_DIR, 'seen.csv');
 const FAVORABLE_RFP_ROOT_FOLDER_ID = '1FgeVVURDnS-JyQTyapa7pCl3BN4_PmaW';
 const REPORT_FROM = 'isa@seamgen.com';
-// Who gets the Friday pursue email (Peter, Marianne and Sales), comma-separated, set by the
+// Who gets the Friday pursue email (Marianne and Sales), comma-separated, set by the
 // cron wrapper. Without it the email is recorded as failed and nothing is sent.
 const addresses = value => String(value || '').split(',').map(address => address.trim()).filter(Boolean);
 const RFP_EMAIL_TO = addresses(process.env.RFP_EMAIL_TO);
@@ -1796,7 +1796,7 @@ async function main() {
 const TELEGRAM_GATEWAY_DOWN = /Gateway not reachable|ECONNREFUSED|gateway is draining/i;
 
 // `previous` is latest.json from an earlier run. A pursue email that already went out in
-// the same ISO week is not sent again: it goes to Peter, so a re-run must not repeat it.
+// the same ISO week is not sent again: it goes to Marianne and Sales, so a re-run must not repeat it.
 function emailAlreadySent(previous, results) {
   return Boolean(previous && ['sent', 'already-sent'].includes(previous.email?.status)
     && previous.week === results.week && String(previous.runDate).slice(0, 4) === String(results.runDate).slice(0, 4));
