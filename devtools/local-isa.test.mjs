@@ -2,7 +2,16 @@ import assert from 'node:assert/strict';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { assertSafeConfig, makeSafeConfig, resolveLocalRoot } from './local-isa.mjs';
+import { assertSafeConfig, makeSafeConfig, nodeBinaryPackage, resolveLocalRoot } from './local-isa.mjs';
+
+test('local ISA installs the Node binary package for the current platform', () => {
+  assert.equal(nodeBinaryPackage('win32', 'x64'), 'node-win-x64');
+  assert.equal(nodeBinaryPackage('win32', 'ia32'), 'node-win-x86');
+  assert.equal(nodeBinaryPackage('linux', 'x64'), 'node-linux-x64');
+  assert.equal(nodeBinaryPackage('linux', 'arm64'), 'node-linux-arm64');
+  assert.equal(nodeBinaryPackage('darwin', 'x64'), 'node-darwin-x64');
+  assert.equal(nodeBinaryPackage('darwin', 'arm64'), 'node-bin-darwin-arm64');
+});
 
 test('local ISA can keep WSL runtime state off a Windows-mounted checkout', () => {
   const checkout = path.join(os.tmpdir(), 'isa-checkout');

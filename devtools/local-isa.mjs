@@ -33,7 +33,18 @@ const authPlanPath = path.join(repoRoot, 'devtools', 'openai-auth-ref-plan.json'
 const nodeVersion = '24.18.0';
 const openclawVersion = '2026.9.4';
 const gatewayPort = 19001;
-const nodePath = path.join(nodeRoot, 'node_modules', 'node', 'bin', process.platform === 'win32' ? 'node.exe' : 'node');
+// The npm `node` package fetches this binary package from an install script, and
+// npm 12 blocks install scripts by default. Installing the binary package directly
+// needs no script. The names follow node-bin-setup, which the `node` package uses.
+function nodeBinaryPackage(platform = process.platform, arch = process.arch) {
+  const os = platform === 'win32' ? 'win' : platform;
+  const cpu = os === 'win' && arch === 'ia32' ? 'x86' : arch;
+  const prefix = platform === 'darwin' && arch === 'arm64' ? 'node-bin' : 'node';
+  return `${prefix}-${os}-${cpu}`;
+}
+
+const nodePackageRoot = path.join(nodeRoot, 'node_modules', nodeBinaryPackage());
+const nodePath = path.join(nodePackageRoot, 'bin', process.platform === 'win32' ? 'node.exe' : 'node');
 const openclawPath = path.join(openclawRoot, 'node_modules', 'openclaw', 'openclaw.mjs');
 const command = process.argv[2];
 
@@ -66,9 +77,11 @@ function npmCli() {
 async function installRuntime() {
   await fs.mkdir(localRoot, { recursive: true, mode: 0o700 });
   if (!await exists(nodePath)) {
-    await run(process.execPath, [npmCli(), 'install', '--prefix', nodeRoot, '--no-save', '--no-audit', '--no-fund', `node@${nodeVersion}`]);
+    await run(process.execPath, [npmCli(), 'install', '--prefix', nodeRoot, '--no-save', '--no-audit', '--no-fund', `${nodeBinaryPackage()}@${nodeVersion}`]);
   }
-  const installedNode = await fs.readFile(path.join(nodeRoot, 'node_modules', 'node', 'package.json'), 'utf8');
+  // npm can exit 0 without the binary, so check the file and not only the package metadata.
+  if (!await exists(nodePath)) throw new Error(`Node ${nodeVersion} installation is incomplete: ${nodePath} is missing.`);
+  const installedNode = await fs.readFile(path.join(nodePackageRoot, 'package.json'), 'utf8');
   if (JSON.parse(installedNode).version !== nodeVersion) throw new Error(`Expected Node ${nodeVersion} in the isolated runtime.`);
 
   const packagePath = path.join(openclawRoot, 'node_modules', 'openclaw', 'package.json');
@@ -284,4 +297,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   try { await main(); } catch (error) { console.error(error.message); process.exitCode = 1; }
 }
 
-export { assertSafeConfig, makeSafeConfig, resolveLocalRoot };
+export { assertSafeConfig, makeSafeConfig, nodeBinaryPackage, resolveLocalRoot };
