@@ -119,7 +119,7 @@ Formatting: Slack supports `*bold*`, `_italic_`, `` `code` ``, and `<https://url
 ## Things worth knowing
 
 **Messages come from a bot, not from you.** Teammates will see them from
-*Seamgen RFP Assistant*, not from Jake. That's normal and it's what makes the app
+*Seamgen RFP Assistant*, not from a person. That's normal and it's what makes the app
 easy for an admin to approve. If you'd rather messages appear to come from *you*
 personally, that needs a different kind of token (a "user token") — tell Claude and
 it can switch the setup, but be aware admins approve those far less often.
@@ -265,7 +265,7 @@ Run `rclone config` and answer:
 | `scope>` | **`1`** (full access) |
 | `service_account_file>` | *leave blank* |
 | `Edit advanced config?` | **`n`** |
-| `Use web browser to automatically authenticate?` | **`y`** — sign in as joliker@seamgen.com |
+| `Use web browser to automatically authenticate?` | **`y`** — sign in with a Seamgen Google account that has access to the Sales shared drive |
 | `Configure this as a Shared Drive (Team Drive)?` | **`y`** |
 | *(shared drive list)* | pick **Sales** |
 | `Keep this "seamgen-sales" remote?` | **`y`**, then `q` to quit |

@@ -2,8 +2,8 @@
 name: rfp-document-fetch
 purpose: Pull an opportunity's complete set of agency source documents into its RFP folder using the Chrome browser bridge, then re-score the RFP on the full text instead of the metadata summary.
 audience: This skill is written to be read by both Claude (who drives the browser and files the documents) and a human teammate (who reads it to understand what was fetched and why something was skipped).
-version: 1.9 — October 2026
-owner: Jake (Seamgen)
+version: 1.10 — November 2026
+owner: Seamgen sales team (no single owner or approver)
 ---
 
 # RFP Document Fetch Skill
@@ -33,7 +33,7 @@ Do **not** use it to bulk-collect documents across the whole saved search. The A
 ## Before you start
 
 - **The browser bridge must be live.** It launches its own Chrome profile at `C:\Users\<operator-windows-user>\.cache\chrome-devtools-mcp\chrome-profile` — currently `C:\Users\Jg125\...` — separate from the operator's everyday Chrome, but persistent, so logins survive between sessions. **Resolve this path against the current Windows user, never a name copied from this file**; it read `C:\Users\jolik\...` until 2026-09-22, long after that profile stopped existing.
-- **Jake must be signed in to HigherGov** in that browser. If a page redirects to `/signin/`, stop and ask him to sign in; never ask for or handle credentials yourself.
+- **Someone on the sales team must be signed in to HigherGov** in that browser. If a page redirects to `/signin/`, stop and ask the person who asked for the fetch to sign in; never ask for or handle credentials yourself.
 - **Finish in one session.** Document links expire in about an hour (see "Why the links expire" below), so finding and downloading can't be split across days.
 - **If you are ISA on the VM**, the browser bridge described here may not be what you have. However the documents are obtained, Steps 7–9 and "Keeping the originals" below apply unchanged.
 
@@ -195,7 +195,7 @@ HigherGov is a mirror, not the origin. The **Overview** section has an **"Open"*
   1. Create (or use) `RFPs/1-pre-submission/<rfp-slug>/resources/` as the destination.
   2. File whatever ancillary documents *were* retrieved — they're still useful.
   3. Write the manifest with an explicit `## Not retrieved` entry naming **the solicitation itself** as missing.
-  4. **Notify Jake by opportunity name**, giving the HigherGov link, the original posting site and link, and a one-line "drop the RFP here: [path]".
+  4. **Notify the person who asked, by opportunity name**, giving the HigherGov link, the original posting site and link, and a one-line "drop the RFP here: [path]".
   5. **Leave the score at `metadata-only`.**
 
 **Never produce a full-text score from ancillary documents.** A score built on a contract form and an insurance certificate would carry the confidence of a real read with none of the substance, which is worse than an honest provisional score.
@@ -252,7 +252,7 @@ Expect the score to move. Metadata summaries routinely omit the due time, the co
 - **Score holds at 50+** → keep the RFP folder and promote it to `RFPs/2-intermediate-stage/<rfp-slug>/` (documents in hand, re-scored on full text — that's exactly what tier 2 means).
 - **Full text kills it** → draft the no-bid (`skills/rfp-email-nobid-skill.md`) and **purge the downloaded documents**. This is the standing download-once → cache → purge-after-no-bid policy; dead RFPs don't keep 40 MB of PDFs on disk. This purge is the **only** time an RFP's documents are removed, and it follows a no-bid decision; it is never part of tidying up after a task (see "Keeping the originals").
 
-Either way, tell Jake what the documents changed about the score. "It stayed a Strong Pursue" is a useful result; "the full text revealed a mandatory on-site requirement" is a more useful one.
+Either way, tell the person who asked what the documents changed about the score. "It stayed a Strong Pursue" is a useful result; "the full text revealed a mandatory on-site requirement" is a more useful one.
 
 ### Step 12 — Mirror the documents to Google Drive
 
@@ -265,7 +265,7 @@ Promotion to intermediate stage is what earns an RFP a folder under **`Sales (sh
 1. **Create the subfolder.** Name it the local `<rfp-slug>` verbatim, minus any leading `(NN) ` score prefix — internal scores shouldn't be the first thing leadership reads off a folder name.
 2. **Copy in the contents of `resources/` — and nothing else.** The agency's documents only. Scoring PDFs, meeting briefs, engineering briefs and key-dates notes stay local. This is the same separation Rule 10 draws on disk, and the reason the RFP folder has a `resources/` subfolder at all.
 3. **Write the `Drive folder:` line** into `resources/_document-manifest.md`, alongside `HigherGov page:` and `Agency portal:` (Step 9).
-4. **Report the folder link** to Jake with the score result.
+4. **Report the folder link** to the person who asked, with the score result.
 
 **Transfer the files with `tools/Sync-RfpToDrive.ps1`:**
 
@@ -275,11 +275,11 @@ Promotion to intermediate stage is what earns an RFP a folder under **`Sales (sh
 
 It finds the RFP's folder in whatever tier it currently sits in, copies `resources/` (excluding the manifest), and verifies the counts. `-WhatIf` previews.
 
-**Do not upload through the Drive connector** — it routes file bytes through Claude's context and is not viable at RFP scale (LADBS alone is 43 MB). **Do not use the browser bridge for this either**: it uploads one file per tool call and jams after roughly five, when the native Windows file-picker sticks open and blocks Chrome; a hung `take_screenshot` is the tell, and only Jake can clear it. That path is a last resort for a single small file, not a transfer mechanism.
+**Do not upload through the Drive connector** — it routes file bytes through Claude's context and is not viable at RFP scale (LADBS alone is 43 MB). **Do not use the browser bridge for this either**: it uploads one file per tool call and jams after roughly five, when the native Windows file-picker sticks open and blocks Chrome; a hung `take_screenshot` is the tell, and only a person at the bridge machine can clear it. That path is a last resort for a single small file, not a transfer mechanism.
 
-If the transfer can't run at all, **still create the folder and record its link**, then tell Jake the files need moving. An empty folder with a known link is recoverable; a missing folder silently breaks the pursue email.
+If the transfer can't run at all, **still create the folder and record its link**, then tell the person who asked that the files need moving. An empty folder with a known link is recoverable; a missing folder silently breaks the pursue email.
 
-**Access is not automatic.** The Drive connector cannot set permissions. Jake shares the parent `Favorable RFP's` folder with Peter and Marianne once, by hand, and subfolders inherit it. If that hasn't happened yet, say so rather than handing over a link that returns "Request access."
+**Access is not automatic.** The Drive connector cannot set permissions. Someone with manager access on the Sales shared drive shares the parent `Favorable RFP's` folder with Peter and Marianne once, by hand, and subfolders inherit it. If that hasn't happened yet, say so rather than handing over a link that returns "Request access."
 
 ### Step 13 — Log the deadlines to the calendar
 
@@ -304,15 +304,15 @@ The documents this skill files are the **originals**: the files exactly as the a
 
 **When this applies:** only when the agency portal is actually being *worked* — that is, during the **building stage**, via `skills/rfp-document-refresh-skill.md`. It is kept here because both skills share it.
 
-**It does not fire during scoring.** At fetch time the portal is recorded, not opened (Step 6). A portal discovered to be locked while scoring is a line in the manifest's `## Not retrieved`, **not** an interrupt and not an action item for Jake. Raising an account-setup request for an opportunity that hasn't survived scoring yet is work spent in the wrong order.
+**It does not fire during scoring.** At fetch time the portal is recorded, not opened (Step 6). A portal discovered to be locked while scoring is a line in the manifest's `## Not retrieved`, **not** an interrupt and not an action item for the sales team. Raising an account-setup request for an opportunity that hasn't survived scoring yet is work spent in the wrong order.
 
 Once the ladder does apply, classify what you hit and either proceed or stop. **Never work around a barrier.**
 
 | What you find | What to do |
 |---|---|
 | Documents openly downloadable | Pull them into `resources/`, note the portal in the manifest. Proceed. |
-| **Sign-in required** on a portal **the inventory records as held** — check the **Procurement portal accounts** table in `reference-team-and-signature.md`, which is the single source of truth for this and includes **DemandStar** | Not a blocker. Tell Jake which portal needs signing into in the bridge browser. He signs in once, the session persists across sessions, and the fetch resumes. **Do not route this to Tina** — there is no account to set up. |
-| **Bot / security challenge** (e.g. Cloudflare "verify you are not a bot") | **Stop. Do not attempt to bypass it** — it is an explicit anti-automation control, and defeating it is not something this system does. Notify Jake to pull those documents manually, or to clear the check himself in the bridge window. |
+| **Sign-in required** on a portal **the inventory records as held** — check the **Procurement portal accounts** table in `reference-team-and-signature.md`, which is the single source of truth for this and includes **DemandStar** | Not a blocker. Tell the person who asked which portal needs signing into in the bridge browser. They sign in once, the session persists across sessions, and the fetch resumes. **Do not route this to Tina** — there is no account to set up. |
+| **Bot / security challenge** (e.g. Cloudflare "verify you are not a bot") | **Stop. Do not attempt to bypass it** — it is an explicit anti-automation control, and defeating it is not something this system does. Ask the person who asked to pull those documents manually, or to clear the check themselves in the bridge window. |
 | **Account registration required** (new vendor account, registration forms, W-9 up front) | Stop and notify. Route to **Tina**, who owns vendor and portal account setup, with **Nick** for financial-responsibility items. Credentials go to Secret Server — never into this folder. |
 | **Paywall**, or documents released only on written request | Stop and notify, quoting the portal's stated process verbatim. |
 
@@ -324,17 +324,17 @@ Every stop produces the same message, and it is short:
 > Needed: [the specific next step, and who owns it]
 > Deadline pressure: [the relevant date, if one is near]
 
-**Silence is never an acceptable outcome.** An unfetchable document set gets reported, not skipped. A fetch that quietly returns three of five documents and lets Jake believe he has everything is worse than one that stops and says so.
+**Silence is never an acceptable outcome.** An unfetchable document set gets reported, not skipped. A fetch that quietly returns three of five documents and lets the sales team believe they have everything is worse than one that stops and says so.
 
 ---
 
 ## Guardrails
 
-- **Read-only browsing.** Navigate, read, download. Never submit a form, register an account, accept terms, or click anything that commits Seamgen — without asking Jake first.
+- **Read-only browsing.** Navigate, read, download. Never submit a form, register an account, accept terms, or click anything that commits Seamgen — without asking the person who asked first.
 - **Downloading on a portal we hold is permitted, including where it lists us publicly.** Jake's decision, 2026-07-27: on portals in the inventory, pull documents freely even though doing so typically adds Seamgen to the agency's planholder list, which competitors can see. Appearing on a list for a bid we are genuinely considering is not a cost worth a round trip. **This does not extend to anything else** — form submission, new-account registration and accepting terms all still stop and ask.
-- **Never spend money without a named, per-bid confirmation from Jake.** *Free* downloading is authorised above; **paid** access is not, and the two look identical until a price appears. Some portals charge for a bid package — DemandStar is **$5 once per bid** — and a general "yes to buying documents" authorises **no specific order**. Report what appeared and what it costs, stop, and wait for a yes on that bid. The full procedure lives in `skills/rfp-document-refresh-skill.md` → "The purchase gate."
+- **Never spend money without a named, per-bid confirmation from the requester.** *Free* downloading is authorised above; **paid** access is not, and the two look identical until a price appears. Some portals charge for a bid package — DemandStar is **$5 once per bid** — and a general "yes to buying documents" authorises **no specific order**. Report what appeared and what it costs, stop, and wait for a yes on that bid. The full procedure lives in `skills/rfp-document-refresh-skill.md` → "The purchase gate."
 - **Never persist signed URLs.** They carry AWS credentials.
-- **Never handle credentials.** Jake signs in; you don't ask for passwords, and you don't screenshot a login screen.
+- **Never handle credentials.** A person signs in; you don't ask for passwords, and you don't screenshot a login screen.
 - **Targeted, not bulk.** Only opportunities actually being pursued.
 - **Same-session fetch.** Signed links expire in about an hour.
 
@@ -390,11 +390,13 @@ This skill uses the browser because it needs no new code and it can reach agency
 - `text_extract` returns the real full solicitation text (538,829 characters on the tested record).
 - `pipeline/state.json` already carries an empty `documentsPending[]` array waiting for it.
 
-What's missing is the PowerShell — `Get-HGDocuments` and `ConvertTo-HGAttachment`, specified as Phase 4 in `future-edits.md`. When Seamgen's volume justifies building it, the API becomes the primary path for HigherGov-hosted documents and this browser recipe stays as the fallback for agency portals and for the roughly 1-in-5 opportunities the API returns nothing usable for. **Building it requires Jake's approval** — it's new code, and this folder is a document library, not an engineering project.
+What's missing is the PowerShell — `Get-HGDocuments` and `ConvertTo-HGAttachment`, specified as Phase 4 in `future-edits.md`. When Seamgen's volume justifies building it, the API becomes the primary path for HigherGov-hosted documents and this browser recipe stays as the fallback for agency portals and for the roughly 1-in-5 opportunities the API returns nothing usable for. **Building it requires the sales team's approval** — it's new code, and this folder is a document library, not an engineering project.
 
 ---
 
 ## Notes and edit history
+
+**v1.10 — November 2026, Seamgen.** Jake has left Seamgen, so this skill has no single owner or approver. Sign-ins, notices, reports, purchase confirmations and "ask first" checks now go to the person who asked for the fetch, or the sales team, instead of Jake. No change to the fetch steps or rules.
 
 **v1.9 — October 12, 2026.** Two things, both from the California Monitoring Program incident.
 

@@ -861,7 +861,7 @@ function buildHigherGovCandidateContent(record, prefilter, slug) {
   body.push(`# ${title}`);
   body.push('');
   body.push('> **For Claude.** This is a HigherGov intake record, not the full solicitation.');
-  body.push('> Score it with `skills/rfp-scoring-skill.md`. `Source (found via)` is **HigherGov** - do not ask Jake.');
+  body.push('> Score it with `skills/rfp-scoring-skill.md`. `Source (found via)` is **HigherGov** - no need to ask anyone.');
   body.push('> **Recompute "Days until due" against today**; `days_until_due_at_capture` was correct at capture, not now.');
   body.push('> Any field marked `unknown` was not available from HigherGov - write "unknown", never guess.');
   if (confidence === 'metadata-only') {

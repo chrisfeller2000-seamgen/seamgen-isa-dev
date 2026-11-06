@@ -1,9 +1,9 @@
 ---
 name: rfp-submission-checklist
 purpose: Generate a "packing list" for the actual proposal submission — every document, form, signature, cost item, and file that must be included in the proposal package before it can be submitted to the agency. Used during Phase 8 (Proposal development) as a living checklist that prevents responsiveness rejections.
-audience: This skill is written to be read by both Claude (who drafts the checklist) and Jake (who uses the checklist to run the submission through to completion). The CHECKLIST ITSELF is written for Jake, Marianne, Peter, and anyone else who touches the proposal package.
-version: 1.6 — July 2026
-owner: Jake (Seamgen)
+audience: This skill is written to be read by both Claude (who drafts the checklist) and the proposal lead (the sales teammate who asked, who uses the checklist to run the submission through to completion). The CHECKLIST ITSELF is written for the proposal lead, Marianne, Peter, and anyone else who touches the proposal package.
+version: 1.7 — November 2026
+owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-scoring skill (confirms pursue), rfp-engineering-brief skill (informs technical content items), Adan's RFP Playbook (standard Seamgen inclusions). Also references: the RFP itself (primary source), any clarifying-questions responses from the agency, and any addenda.
 ---
 
@@ -35,22 +35,22 @@ Do **not** use this skill:
 
 Tell Claude: "generate the submission checklist for [RFP name]."
 
-Before Claude generates anything, **run the prerequisite check below.** If any prerequisite is missing, pause and ask Jake for approval before continuing.
+Before Claude generates anything, **run the prerequisite check below.** If any prerequisite is missing, pause and ask the person who asked for approval before continuing.
 
 ---
 
 ## Prerequisite check (run BEFORE generating the checklist)
 
-Verify each of the following. Confirm to Jake which are present and which are missing.
+Verify each of the following. Confirm to the person who asked which are present and which are missing.
 
 **Hard requirement** (halt if missing — do not proceed without this):
 
-- **The RFP itself.** Cannot build a checklist without the agency's stated submission requirements. If the RFP is not attached or accessible in the folder, stop and ask Jake to provide it.
+- **The RFP itself.** Cannot build a checklist without the agency's stated submission requirements. If the RFP is not attached or accessible in the folder, stop and ask the person who asked to provide it.
 
-**Soft requirements** (missing is okay if Jake explicitly approves):
+**Soft requirements** (missing is okay if the person who asked explicitly approves):
 
 - **RFP Scoring output** — evidence this RFP passed the pursue decision. If missing, ask: "The RFP hasn't been scored yet. That normally means we haven't confirmed this is a pursue. Do you want me to proceed anyway?"
-- **Pursue approval from management** — confirmation Peter/Marianne have green-lit proposal development. If Jake cannot confirm, ask: "Have Peter and Marianne approved developing a proposal for this? If not, this checklist may be premature."
+- **Pursue approval from management** — confirmation Peter/Marianne have green-lit proposal development. If the person who asked cannot confirm, ask: "Have Peter and Marianne approved developing a proposal for this? If not, this checklist may be premature."
 - **Engineering scope brief** — informs the technical content section of the checklist. Without it, technical items will be generic rather than tailored to what Chris or Frank flagged. If missing, ask specifically:
 
   > "The engineering brief hasn't been generated yet for this RFP. Without it, the checklist's technical content section will be generic — it won't include Chris or Frank's specific technical considerations. **Yes I understand** (proceed with a generic technical section) or **No let me get that first** (halt so you can generate the engineering brief first)?"
@@ -60,7 +60,7 @@ Verify each of the following. Confirm to Jake which are present and which are mi
 - Any clarifying-questions-to-agency emails and their responses. These often change what needs to appear in the proposal (e.g., agency specified WCAG AA level in Q&A).
 - Any RFP addenda published since the original release.
 
-**Rule:** Never generate the checklist without either (a) all soft requirements met, or (b) Jake's explicit "yes I understand" for each missing item. When in doubt, ask.
+**Rule:** Never generate the checklist without either (a) all soft requirements met, or (b) the requester's explicit "yes I understand" for each missing item. When in doubt, ask.
 
 ---
 
@@ -88,7 +88,7 @@ Six sections in this exact order:
 
 ### Section 1: Header
 
-- **Opportunity sourced from (found via)** — the platform the RFP was found on (HigherGov, PlanetBids, RAMP, OpenGov, County of San Diego, CA eProcure, GSA eBuy) or "forwarded by [name]." Carry it from the scoring output's Source field; if unknown, ask Jake. This sits at the top so every checklist shows where the opportunity originated.
+- **Opportunity sourced from (found via)** — the platform the RFP was found on (HigherGov, PlanetBids, RAMP, OpenGov, County of San Diego, CA eProcure, GSA eBuy) or "forwarded by [name]." Carry it from the scoring output's Source field; if unknown, ask the person who asked. This sits at the top so every checklist shows where the opportunity originated.
 - **RFP name and number**
 - **Agency**
 - **Proposal due date and time (with time zone)**
@@ -132,7 +132,7 @@ Examples of items:
 
 The purpose here is not to duplicate the engineering brief — it's to make sure every technical requirement the engineering brief flagged actually appears in the written proposal.
 
-If the engineering brief was skipped (Jake said "yes I understand"), this section becomes a shorter generic list based on the RFP alone. Mark it in the section header: `[Generated without engineering brief — verify manually]`.
+If the engineering brief was skipped (the requester said "yes I understand"), this section becomes a shorter generic list based on the RFP alone. Mark it in the section header: `[Generated without engineering brief — verify manually]`.
 
 ### Section 5: Legal and Procurement Items
 
@@ -167,7 +167,7 @@ Many RFPs bundle **fillable/signable forms as pages inside the RFP itself** — 
 - ⚠ flag if the RFP says a missing/unsigned form renders the proposal non-responsive
 - **Where it goes:** into the proposal package as attachments — a combined signed-forms PDF or separate uploads, per the submission method in Section 1. (The proposal-deck skill mirrors this list in its "Appendix: Required Forms & Certifications" so nothing is dropped.)
 
-**Extraction note:** pinpoint the exact pages/exhibits; Jake extracts those pages from the source RFP PDF (or uses the agency's separately-posted fillable versions) to sign — Claude locates and lists, Jake signs.
+**Extraction note:** pinpoint the exact pages/exhibits; the proposal lead extracts those pages from the source RFP PDF (or uses the agency's separately-posted fillable versions) for signature — Claude locates and lists; the authorized signatory signs (see Ownership options).
 
 **Only list forms that require completion/signature by the offeror.** A sample contract or "successful offeror only" affidavit (e.g., a Contract Affidavit executed at award, not at proposal) is noted but not put on the extract-and-sign list. **If none are present, state: "No embedded signable forms detected in this RFP."** (Example: Rancho Palos Verdes — the only signature artifact is the PSA executed at award, so this section reads "none detected"; USM-MDSG, by contrast, carries Exhibits B, D, K, O, and P.)
 
@@ -194,20 +194,20 @@ Also include a **"stop and verify with Marianne or Peter before submitting"** li
 ```
 ☐ [Item name — verbatim from source when possible]
    Source: [where this requirement came from — RFP § and page, or "Adan's Playbook," or "Engineering Brief"]
-   Owner: [Jake / Peter / Marianne / Chris / Frank / Hoda / External / Multiple]
+   Owner: [Proposal lead / Peter / Marianne / Tina / Nick / Chris / Frank / Hoda / External / Multiple]
    Notes: [Any specific requirements — page limit, format, content specifics, deadline within the deadline]
 ```
 
 Ownership options:
 
-- **Jake** — general project management, timelines, proposal drafting, firm-experience/reference forms, most standard forms
+- **Proposal lead** (the sales teammate running the submission; write their name on the checklist) — general project management, timelines, proposal drafting, firm-experience/reference forms, most standard forms
 - **Peter** — final approval on pursuit and price; final sign-off. (Marianne executes the binding signature — see below.)
 - **Marianne** — legal/procurement affidavits, insurance, contract review, and **authorized signatory for binding documents** (transmittal letter, affidavits), with Peter's final approval
 - **Tina** *(Operations/Admin)* — company registration fields (offeror address, phone, email, tax ID), business license, W-9, vendor-portal/account setup, Secret Server credentials
 - **Nick** *(Operations/Admin)* — evidence of financial responsibility (financial statements, D&B report, audited financials); pairs with Tina on portal/account registration
 - **Chris / Frank** — technical approach sections, architecture diagrams, integration plans
 - **Hoda** — design system samples, visual deliverables, UX artifacts; and past-work/case-study matching to the RFP's experience asks
-- **Firm experience / case studies** — default owner trio is **Jake + Frank + Hoda** (Hoda matches past work, Frank confirms technical precedent, Jake assembles)
+- **Firm experience / case studies** — default owner trio is **proposal lead + Frank + Hoda** (Hoda matches past work, Frank confirms technical precedent, the proposal lead assembles)
 - **External** — third-party items (bonded surety letters, notarized documents)
 - **Multiple** — items that need input from more than one person (e.g., cost sheet = Marianne + engineers)
 
@@ -216,6 +216,8 @@ Ownership options:
 ## Worked example: Utah State University Online Website Redesign (RFP #DG012336)
 
 *This is a real RFP processed as an illustration. The USU RFP has an explicit "Offeror's Checklist" on page 20, which makes it a clean example. In a real case, Claude would also pull from the engineering brief — here I'll show what a checklist looks like when the engineering brief was skipped (with Jake's approval).*
+
+*Jake was the proposal lead on this July 2026 example, so his name appears as owner below. That is history: in a new checklist, those items go to the current proposal lead by name.*
 
 **Generated file:** `RFPs/[stage]/usu-online-website-redesign/submission-checklist_2026-07-08_usu-online-website-redesign.pdf`
 
@@ -453,6 +455,8 @@ SECTION 6: PRE-SUBMISSION VERIFICATION
 ---
 
 ## Notes and edit history
+
+**v1.7 — November 2026.** Jake left Seamgen, so the skill has no single owner. Prerequisite approvals now come from the person who asked, and the "Jake" ownership role is now **Proposal lead**: the sales teammate running the submission, named on each checklist. Tina and Nick were added to the owner placeholder. Signing now points at the authorized signatory rather than Jake. The USU worked example keeps Jake as owner, with a note that it is history.
 
 **v1.6 — July 2026, Jake + Claude.** Folder reorg (type-based → by-RFP): the checklist PDF now saves to the RFP's own folder `RFPs/[stage]/[rfp-slug]/` (was `submission-checklists/`). See CLAUDE.md v1.13.
 
