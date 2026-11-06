@@ -1,86 +1,120 @@
 ---
 name: rfp-email-agency-questions
-purpose: Generate the formal email sent to the RFP agency's point of contact, submitting clarifying questions during the RFP's Q&A window. This is the external-facing email that follows the internal pursue-to-Peter email.
-audience: This skill is written to be read by both Claude (who drafts the email) and a human teammate (who reads, sanity-checks, and edits the template over time).
-version: 1.5 — July 2026
-owner: Jake (Seamgen)
-depends_on: rfp-scoring skill (this template reads from that skill's output), and typically the pursue-to-Peter email (the agency questions may reflect Peter's additions)
+purpose: When someone asks in chat, generate the clarifying questions Seamgen would submit during an RFP's Q&A, state the Q&A deadline, and give the formal email to the agency's point of contact as text to copy. ISA never creates a draft or sends anything.
+audience: This skill is written to be read by both ISA (who writes the questions and the email text) and a human teammate (who reads, sanity-checks, and edits the template over time).
+version: 1.6 — November 2026
+owner: Seamgen sales team (no single owner or approver)
+depends_on: rfp-scoring skill (the scored judgment for this RFP), the RFP's downloaded documents, and the Engineering Scope Brief when one exists
 ---
 
-# Clarifying-Questions-to-Agency Email Skill
+# Clarifying-Questions-to-Agency Skill
 
 ## What this skill does
 
-Generates the formal email that Seamgen sends to the agency's designated point of contact, submitting clarifying questions during the RFP's official Q&A window.
+When a teammate asks ISA in chat for an RFP's Q&A questions, ISA:
 
-**This email is different from the internal pursue-to-Peter email.** The pursue email is internal, informal, and invites Peter to add questions. This email is external, formal, and represents Seamgen to the buyer. Tone, salutation, and structure all shift accordingly.
+1. States the **Q&A deadline** and whether the window is still open.
+2. Writes **5–7 clarifying questions**, each tied to the RFP text that prompted it.
+3. Gives the formal email to the agency's point of contact **as plain text in chat**, ready to copy into the sender's own email.
+
+**ISA never creates a Gmail draft and never sends this email.** It goes to the buyer, and a clumsy or premature question to an agency contact makes an impression that can't be withdrawn. Whoever sends it pastes it into their own mail, edits it, and adds the recipient themselves.
+
+**This email is external and formal.** It represents Seamgen to the buyer. ISA's Friday pursue email is internal; this one is not, and tone, salutation, and structure shift accordingly.
 
 ## When to use it
 
-Use this skill after:
+Use it when someone asks for Q&A or clarifying questions on an RFP Seamgen is pursuing. Usually that is a Strong Pursue from the Friday pursue email, or a "Conditional — Ask the Agency" RFP that needs its one question sent (see `rfp-scoring`).
 
-1. The RFP Scoring Skill returned a Pursue recommendation.
-2. The pursue-to-Peter email was sent.
-3. Peter has responded (or not, after a reasonable window), and the final question list is set.
-4. There is still time to submit — either the RFP's formal Q&A window is open, OR (the common case) the RFP has no formal Q&A window and Seamgen is proactively initiating questions to engage the agency and get our name in front of them.
+**Timing:** many RFPs post no formal Q&A window, and reaching out anyway is a business-development move that gets our name in front of the buyer. When the RFP posts a questions deadline, the questions must go in before it. When it doesn't, they should go early enough that the answers can still shape the proposal.
 
-**Note on timing:** Most of the time these questions are Seamgen-initiated — there is no posted "questions due" deadline, and reaching out is itself a business-development move. When the RFP *does* post a formal Q&A deadline, submit before it. When it doesn't, submit early enough that responses can still shape the proposal before the proposal due date.
+Do **not** write the questions:
+- after a formal Q&A window has closed (say so instead: the agency won't answer), or so close to the proposal due date that answers couldn't be used;
+- for no-bid RFPs.
 
-Do **not** use this skill:
-- Before Peter has had a chance to weigh in on the questions.
-- After a formal Q&A window has closed (the agency won't respond), or so close to the proposal due date that answers couldn't be incorporated.
-- For no-bid RFPs (obviously).
+If the person asks anyway after the window closed, say the window has closed, and give the questions only if they confirm they still want them (for example, to prepare for an interview).
 
-## How to use it
+## Where to find the inputs
 
-Provide the question sources (see "Converging the question sources" below) and the agency contact info. Say "draft the agency clarifying questions email."
+Read these for the RFP, in this order. Don't ask the person for anything ISA can read itself.
 
-Claude will produce the email using the template below.
+1. **The RFP documents:** `RFPs/<stage>/<slug>/resources/` and its `_document-manifest.json`. These are the source of truth; every question points back to them. They persist between weekly runs, and a copy is in the RFP's Drive folder.
+2. **The scored judgment.** Where it is depends on when the RFP was scored, because each weekly run deletes the previous week's candidate files:
+   - **Scored in this week's run:** `scoring_judgments` in the `RFP-pipeline/candidates/<slug>/candidate.md` front matter.
+   - **Scored in an earlier week:** that week's `reports/new-rfp-qualification/audit/<run date>.jsonl`, where the RFP's line holds the full-text judgment with quotes cut to 300 characters. Go back to the documents for the full wording.
+   - **Either way:** the RFP's entry in `reports/new-rfp-qualification/<run date>.json` (`latest.json` for this week), which has the plain-language blockers and `questionsDue`.
 
-## Converging the question sources (one list, no duplicates)
+   Useful parts of the judgment:
+   - `questions`: the questions deadline the scorer cited (`due`, `time`, `evidence`). The scorer can miss one, so check the documents too;
+   - `buyer`: what they use today, what they want, and how the evaluation favours us;
+   - open gates and blockers: each is a candidate question when only the agency can resolve it;
+   - `conditional`: the "Ask the Agency" question and its `qaDueDate`, when the RFP is product-framed;
+   - the evaluation criteria and weights the scorer cited.
+3. **The Engineering Scope Brief**, if one was written: its "Ambiguities Requiring Clarification" section.
+4. **Anything the person adds in chat**: an addendum, a question from Peter or Marianne, a gap noticed while drafting.
 
-By the time this email is drafted, clarifying questions may have been generated in up to three places. **This email is the single point where they converge into one list — deduplicated, not concatenated.**
+**Never invent** a deadline, contact, page number, or requirement. If the documents aren't downloaded, say so and work from the listing only with that stated plainly.
 
-Pull from:
-1. **The pursue-to-Peter email thread** — the starter questions, plus anything Peter added.
-2. **The Engineering Scope Brief** — its "Ambiguities Requiring Clarification" section, if a brief was generated. These are the most rigorous: each is tied to a specific RFP section and page.
-3. **Anything new** that has surfaced since (an agency addendum, a gap noticed while drafting).
+## Stating the Q&A deadline
 
-Merge rules:
-- **Dedupe by topic, not by wording.** If the pursue starter list and the engineering brief both ask about the current CMS, that becomes *one* question in the final email — not two.
-- **When two sources overlap, prefer the engineering brief's version** — it's sourced and precise. But strip its internal "Why it matters for engineering" note; that's for Jake and Peter, never for the agency.
-- **Keep every distinct engineering ambiguity.** Each one affects timeline or price, so a dropped ambiguity is an un-costed risk.
-- **Then apply the "Rules for questions in this email" below** (answerable by the contact, non-offending, numbered, logically grouped).
+Lead the reply with one line, taken from the documents, never from memory:
 
-The pursue starter questions and the engineering brief's ambiguities are *expected* to overlap — this step collapses them into the clean list the agency actually receives.
+- **Posted:** `Questions due: <day, date, time and time zone as written> (<n> days left)`, with the § and page it comes from.
+- **Passed:** `Questions were due <date>; the window has closed.` Then stop, per "When to use it".
+- **None posted:** `The documents give no questions deadline.` Add the proposal due date, so the person can judge how early to send.
+- **Not readable:** `Couldn't confirm a questions deadline: <reason, e.g. documents not downloaded>.`
+
+Also give **how questions must be submitted** when the RFP says (email to a named contact, a portal Q&A form, a required form or subject line), and the contact's name and address as written in the RFP. If submission is portal-only, say so: the email text below becomes the list to paste into the portal.
+
+## Generating the questions
+
+Aim for **5–7 questions**. Fewer than 4 looks lazy; more than 8 gets ignored. If the RFP really needs more, group them under headers (rule 5).
+
+**Prioritise questions that shape the proposal:** who built the current thing, what's in or out of scope, what "ideal" looks like. Skip trivia. Cover these four categories where the RFP leaves real doubt:
+
+| Category | Typical question |
+|---|---|
+| **Incumbent and history** | Who supports the current system, and is it being replaced or extended? |
+| **Technical specifics** | Named platforms, must-integrate systems, hosting and data-migration volume |
+| **Scope** | What the agency provides versus what the vendor produces; options and phases |
+| **Success criteria** | What would the agency build without constraints? (This reveals priorities the RFP doesn't state.) |
+
+Also:
+- **AI-forward RFPs** (AI, AEO/GEO, chatbots, ML, agentic work) get at least one AI-specific question.
+- **Every open gate or blocker the agency could resolve** gets a question: an unclear reference requirement, a product-versus-custom framing, an unstated budget. A blocker only Seamgen can fix (a certification we lack) is not a question for the agency.
+- **Every "RFP is silent — to be confirmed in Q&A"** line from the scorer's `buyer` field gets a matching question.
+- **Merge the Engineering Brief's ambiguities by topic, not wording.** Where it overlaps a question above, use the brief's version (it is sourced) and drop its internal "Why it matters for engineering" note. Keep every distinct engineering ambiguity: each one affects timeline or price.
+- Then apply the **Rules for questions in this email** below, especially rule 8: cut any question that mainly exposes a weakness.
+
+## What ISA replies with
+
+Three parts, in this order:
+
+1. **The Q&A deadline line**, the submission method, and the contact, as above.
+2. **Sources (internal, don't send):** one line per question: its number, then the verbatim RFP quote with § and page, or `RFP is silent; nearest context §X` for a question about something the RFP omits. Where it resolves a blocker or open question, say which one in plain words, never as a gate number. This is how the person checks the questions before sending. Don't give file paths here either: name the document and page.
+3. **Email to copy:** the template below, filled in, in a code block so it copies cleanly.
+
+Keep anything internal out of part 3: no sources, gate names, scores, HigherGov or Drive links, or "found via" line (rule 7).
 
 ## The pattern (from Katie, June 22, 2026 — Rancho Palos Verdes)
 
-Katie's agency-facing email has a distinct shape from the internal emails:
+Katie's agency-facing email has a distinct shape from internal emails:
 
-- **Recipients:** The specific agency contact named in the RFP (in Katie's case, "jlucas" — Mr. Lucas at Rancho Palos Verdes). Sales team CC'd for internal record.
-- **Subject line:** Not shown in the source, but should reference the RFP name/number so it doesn't get lost in the agency's inbox.
-- **Salutation:** Formal. "Dear Mr. Lucas," — not "Hello" or "Hi." First-name basis is not appropriate for a first external touch.
-- **Opening:** One sentence stating who Seamgen is and which RFP the email is regarding. This matters because RFP contacts often handle multiple procurements simultaneously.
-- **Body:** Two beats.
-  - Beat 1: "I am submitting the following questions for clarification:" followed by a **numbered** list of questions (not bullets — numbered so the agency can respond by number).
-  - Beat 2: Two closing asks.
-    - "Please confirm receipt of these questions."
-    - "Do you have an expected date for when the responses will be shared?"
-- **Close:** "I look forward to reviewing your responses and using this information to develop a comprehensive proposal that meets [Agency]'s requirements and objectives." + signature.
+- **Recipient:** the specific agency contact named in the RFP (Mr. Lucas at Rancho Palos Verdes).
+- **Subject line:** references the RFP name and number, so it doesn't get lost in the agency's inbox.
+- **Salutation:** formal. "Dear Mr. Lucas," — not "Hello" or "Hi". First-name basis is not appropriate for a first external touch.
+- **Opening:** one sentence saying who Seamgen is and which RFP the email is about. RFP contacts often run several procurements at once.
+- **Body:** two beats.
+  - "I am submitting the following questions for clarification:" followed by a **numbered** list, so the agency can answer by number.
+  - Two closing asks: "Please confirm receipt of these questions." and "Do you have an expected date for when the responses will be shared?"
+- **Close:** "I look forward to reviewing your responses and using this information to develop a comprehensive proposal that meets [Agency]'s requirements and objectives." Then the sender's signature.
 
-**Why this shape works:**
+**Why this shape works:** everything makes the agency's job easier. Numbered questions can be answered in order. Confirming receipt catches lost emails. Asking for a response date avoids awkward follow-ups. The closing sentence marks Seamgen as a serious, professional bidder.
 
-Everything about this email is designed to make the agency's job easier. Numbered questions can be answered in order. Confirming receipt catches lost emails. Asking for a response timeline avoids awkward follow-ups later. And the closing sentence reminds the agency that Seamgen is a serious, professional bidder — not a bot.
-
-The tone is important. Katie writes as if she's already Mr. Lucas's colleague, not begging for a scrap of information. Confidence without arrogance. That's the register to preserve.
+The tone matters. Katie writes as if she's already Mr. Lucas's colleague, not begging for a scrap of information. Confidence without arrogance.
 
 ## Template
 
 ```
-To: [Agency contact email]
-CC: Sales
-
 Subject: [RFP number/name] — Clarifying Questions from Seamgen
 
 Dear [Mr./Ms./Dr.] [Last name],
@@ -94,10 +128,7 @@ I am submitting the following questions for clarification:
 3. [Question 3]
 4. [Question 4]
 5. [Question 5]
-6. [Question 6]
-7. [Question 7]
-   [Optional sub-question, indented with two spaces and a bullet, e.g.]
-   - [Follow-up detail on the same question]
+   - [Optional sub-question on the same topic]
 
 Please confirm receipt of these questions.
 
@@ -108,42 +139,27 @@ and objectives.
 Do you have an expected date for when the responses will be shared?
 
 Kind regards,
-Jacob Oliker
-AI Sales Consultant
+[Sender's name]
+[Title]
 Seamgen
-(925) 389-1515
-joliker@seamgen.com
+[Phone]
+[Email]
 ```
 
-*Signature is the canonical external block from `reference-team-and-signature.md` (v1.2), taken from Jake's own sent mail — note **Jacob**, the lowercase "regards", and the **AI** in the title. If it changes, update it there, not here.*
+**The signature stays a placeholder.** No single person sends these, so ISA never fills in a name, title, phone, or address. The sender adds their own. If the person asking has told ISA who will send it, ISA may fill it in from what they said, never from memory.
 
-## Creating the draft in Gmail
-
-Once the email is written, **create it as a draft in Gmail** so Jake doesn't have to retype it. Also print it in chat exactly as before — the chat copy is how he reviews it; the draft is the convenience.
-
-**Claude never sends this email. Only ever a draft.** See the Connectors section of `CLAUDE.md`, which governs and overrides anything here. That rule matters more here than on the internal emails: **this one goes to the buyer**, and a clumsy or premature question to an agency contact is a real impression that can't be withdrawn.
-
-| Field | Value |
-|---|---|
-| **To** | **Jake alone — `joliker@seamgen.com`.** The agency contact's address goes nowhere near this draft, in To, Cc or Bcc, even when the RFP states it plainly. Jake puts it in himself — the last human checkpoint before anything reaches a buyer. (Gmail rejects a draft with no recipient at all, which is why this is self-addressed rather than empty — see Connectors in `CLAUDE.md`.) |
-| **Cc / Bcc** | **Empty.** |
-| **Subject** | The template's subject line (RFP number + "Clarifying Questions" per the pattern). |
-| **Body** | First line `Intended recipient: [agency contact name, title, agency]`, then a blank line, then the email exactly as written — including the **full external signature block** from `reference-team-and-signature.md`, not the internal first-name-only one. |
-
-**Rule 9's external exception holds inside the draft.** No `Source (found via)` line, no HigherGov link, and no Google Drive link ever appears in this email — we never tell an agency we found their RFP on a sourcing platform, and the Drive folder is internal. The `Intended recipient:` line is scaffolding for Jake; it goes above the email body and he deletes it before sending.
-
-Report the draft link when it's done. If the Gmail connector turns out to offer no draft capability, **stop and tell Jake** — don't send it, and don't route it anywhere else instead.
+Put the agency contact's name and address **above** the code block (part 1), not inside the email, so nothing is pre-addressed to the buyer.
 
 ## Rules for questions in this email
 
-The questions here differ subtly from the pursue-to-Peter starter list. In the internal email, questions could be exploratory. In this external email, every question should be:
+Questions discussed internally can be exploratory. In this external email, every question should be:
 
 1. **Answerable by the agency contact.** Don't ask "what will the political dynamics of this project look like?" Ask concrete, procurement-appropriate things.
 2. **Actually needed to shape the proposal.** If you can figure it out from the RFP, don't ask. The agency will note (and dislike) sloppy questions.
 3. **Free of assumptions that could offend.** "Is the incumbent being considered?" is fine. "Are you unhappy with the incumbent?" is not.
 4. **Numbered, not bulleted.** Numbering lets the agency respond by number and lets other bidders reading the public Q&A file see clearly what was asked.
 5. **Grouped logically if there are many.** If you have 10+ questions, group them under headers (Discovery, Technical, Budget, Timeline). If fewer, a flat numbered list is fine.
-6. **Light page pointers yes, internal sourcing no.** Where a question points at a specific part of the RFP, a brief pointer is good — it signals we actually read the document (Katie's Q3 did exactly this: "the technical requirements listed starting on page 5"). But do **not** paste the internal verbatim-quote blocks or the "why it matters for engineering" notes from the pursue email / engineering brief into this external email. Those are navigation aids for Jake, Peter, and Chris — the agency just needs the clear question, optionally with a page pointer.
+6. **Light page pointers yes, internal sourcing no.** Where a question points at a specific part of the RFP, a brief pointer is good — it signals we actually read the document (Katie's Q3 did exactly this: "the technical requirements listed starting on page 5"). But do **not** paste the verbatim quotes from the Sources part, or the engineering brief's "why it matters for engineering" notes, into this external email. Those are for the Seamgen team checking the questions — the agency just needs the clear question, optionally with a page pointer.
 7. **No "found via" line.** Every *internal* deliverable carries a "Source (found via)" field naming the sourcing platform (per the CLAUDE.md global rule). This external email is the **sole exception** — never tell the agency we found their RFP on HigherGov/PlanetBids/etc. It's internal tracking only and reads oddly to the recipient.
 
 8. **Never ask a question that exposes a weakness or invites scrutiny.** *(Added v1.5, from Marianne's review of the Suwannee questions.)* Every question is read by the evaluators and, once answered publicly, by every competitor. **Before each one, ask: does the answer change what we do — or does asking it change what they think of us?** If it's the second, cut it.
@@ -171,7 +187,7 @@ The questions here differ subtly from the pursue-to-Peter starter list. In the i
 **Inputs:**
 - RFP: City of Rancho Palos Verdes Recreation Management Software Platform
 - Agency contact: jlucas (Mr. Lucas)
-- Final question list: 12 questions, refined from the pursue-to-Peter starter list.
+- Final question list: 12 questions, refined from an internal starter list. (This predates the 5–7 guideline. A list this long today would be grouped under headers, per rule 5.)
 
 **Generated email (matches Katie's real email almost verbatim):**
 
@@ -231,7 +247,7 @@ Kind Regards,
 [Your name]
 ```
 
-*(The closing above is Katie's, kept as a historical record. A generated email signs with the current external block — "Kind regards, / Jacob Oliker / AI Sales Consultant" — per `reference-team-and-signature.md` v1.2.)*
+*(The closing above is Katie's, kept as a historical record. Katie's real email was addressed to the contact; the text ISA gives has no `To:` line and ends with the placeholder signature from the template.)*
 
 **What Katie did well here** (and worth preserving in future emails):
 
@@ -241,6 +257,8 @@ Kind Regards,
 - Question 12 asks for the public Q&A file — this is a pro move because it lets Seamgen see what competitors are asking about, revealing where the agency is receiving pushback.
 
 ## Notes and edit history
+
+**v1.6 — November 2026.** Reworked for the team after Jake left Seamgen. **(1) Chat only, text to copy.** ISA no longer creates a Gmail draft. It gives the email as text in chat for the sender to paste into their own mail and address themselves. The agency contact goes above the text, never in it. **(2) No single owner or approver**, and no named signer: the signature is a placeholder the sender fills in. Steps that waited on Peter's additions to the pursue email are gone. **(3) The question sources are what ISA actually has.** These are the RFP documents, the scored judgment (`scoring_judgments` and the results-file entry), and the Engineering Scope Brief. The old sources no longer carry questions: the pursue email dropped them in its v1.3, and the meeting brief was retired on October 12, 2026. **(4) The meeting brief's question guidance moved here:** 5–7 questions, four categories, one AI question on AI-forward RFPs, and a cited source for each. Open gates, blockers and "silent" incumbent lines now become questions too. **(5) The reply leads with the Q&A deadline** (or says none is posted, or that it has passed) and the submission method, then the sources, then the email. This also covers portal-only Q&A, a v1.0 known limitation. Rules 1–11 and Katie's worked example are unchanged.
 
 **v1.5 — July 31, 2026, Jake + Claude.** Four new question rules (8–11), all from **Marianne's line-by-line review** of the Suwannee River WMD questions on the morning of the deadline. Until now the skill governed *how* to phrase a question and *whether the agency could answer it* — it had nothing to say about whether asking was **in our interest**, and that turned out to be the gap.
 
@@ -262,10 +280,7 @@ Kind Regards,
 
 **v1.0 — July 2026, Jake + Claude.** First draft. Template derived from Katie's Rancho Palos Verdes agency-questions email of June 22, 2026, sent to jlucas at the City.
 
-**Known limitations of v1.0:**
-- Signature block is hard-coded generic. Real emails should include Jake's actual title, phone, and email.
-- The template CCs Sales by default. If specific RFPs need different internal CCs (e.g., adding Adan or Marianne for larger opportunities), update as needed.
-- Does not handle the case where the RFP requires questions be submitted through the procurement portal instead of by email. When that happens, the same question list can be used, but the delivery mechanism is different — no email is sent, just the portal submission. Consider adding a portal-submission variant.
+**Known limitations of v1.0** (the signature, Cc and portal items were resolved in v1.6):
 - Assumes English-language, US-domestic RFPs. Adjust register for international agencies or state agencies with distinct communication norms.
 
 **How to edit this skill:** Change the text. It's Markdown. Save. Bump the version number and add a note at the bottom describing what changed and why.
