@@ -7,8 +7,8 @@ export WORKSPACE_DIR="${WORKSPACE_DIR:-/home/azureuser/.openclaw/workspace}"
 export PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH:-}"
 export GOG_ACCOUNT="${GOG_ACCOUNT:-isa@seamgen.com}"
 export GOG_KEYRING_BACKEND="${GOG_KEYRING_BACKEND:-file}"
-# Who gets the Friday pursue email, comma-separated (Jira ISA-6). Peter
-# (peter.schepers@seamgen.com) joins later; Chris held him back on October 13.
+# Who gets the Friday pursue email, comma-separated (Jira ISA-6): Marianne and
+# Sales. Peter is not a recipient; Chris held him back on October 13.
 export RFP_EMAIL_TO="${RFP_EMAIL_TO:-mariannefaro@seamgen.com,sales@seamgen.com}"
 # Copied on it: Chris and the other ISA developer.
 export RFP_EMAIL_CC="${RFP_EMAIL_CC:-cfeller@seamgen.com,jgaribay@seamgen.com}"
