@@ -8,7 +8,7 @@ export GOG_KEYRING_BACKEND="${GOG_KEYRING_BACKEND:-file}"
 if [[ -z "${GOG_KEYRING_PASSWORD:-}" && -f /home/azureuser/.openclaw/credentials/gog-keyring-password ]]; then
   export GOG_KEYRING_PASSWORD="$(< /home/azureuser/.openclaw/credentials/gog-keyring-password)"
 fi
-export REPORT_RECIPIENT="${REPORT_RECIPIENT:-sales@seamgen.com,sam.saes@youtility.nl,peter.schepers@youtility.nl}"
+export REPORT_RECIPIENT="${REPORT_RECIPIENT:-sales@seamgen.com,sam.saes@youtility.nl,peter.schepers@youtility.nl,hugo.wellens@youtility.nl}"
 export REPORT_FROM="${REPORT_FROM:-isa@seamgen.com}"
 export TELEGRAM_TARGET="${TELEGRAM_TARGET:--1003890997073}"
 
