@@ -16,6 +16,10 @@ export TELEGRAM_TARGET="${TELEGRAM_TARGET:--1003890997073}"
 # Fetch HigherGov documents for preliminary 50+ candidates and AI-score their full text.
 # Nothing else runs full-text scoring on a schedule. This adds roughly 2-3 hours to the run.
 export RFP_DOCUMENT_FETCH_ENABLED="${RFP_DOCUMENT_FETCH_ENABLED:-1}"
+# When HigherGov has no documents or no solicitation for one of those, request the agency's
+# own posting anonymously (posting-documents.mjs): at most 30 RFPs and 15 minutes a run, no
+# logins. Off until a measured run shows what it finds; turning it on is this line, set to 1.
+export RFP_POSTING_FETCH_ENABLED="${RFP_POSTING_FETCH_ENABLED:-0}"
 
 # If the run fails at any point, including the checks below, tell the sales group once, so
 # a missing Friday update isn't mistaken for "nothing found". Error details stay in the log.

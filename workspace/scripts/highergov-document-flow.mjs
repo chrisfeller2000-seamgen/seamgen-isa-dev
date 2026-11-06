@@ -286,6 +286,8 @@ async function saveDocumentRecord({
   const sourceDocumentId = normalizeText(record.id || record.document_id || record.document_key || '');
   const kind = classifyDocumentRecord(record);
   const baseRow = {
+    // Where the file came from: 'highergov' here, 'posting' for the agency's own site.
+    source: 'highergov',
     source_document_id: sourceDocumentId,
     source_file_name: normalizeText(record.file_name || record.name || record.title || ''),
     local_file_name: fileName,
@@ -391,7 +393,7 @@ function evaluateDocumentCompleteness({ manifest = [] } = {}) {
   return { complete: true, status: 'full-text', reasons: [] };
 }
 
-function buildDocumentManifestMarkdown({ candidateTitle = '', candidateSlug = '', versionKey = '', oppKey = '', sourceUrl = '', records = [] } = {}) {
+function buildDocumentManifestMarkdown({ candidateTitle = '', candidateSlug = '', versionKey = '', oppKey = '', sourceUrl = '', records = [], posting = null } = {}) {
   const rows = Array.isArray(records) ? records : [];
   const lines = [
     `# Document manifest for ${candidateTitle || candidateSlug}`,
@@ -400,13 +402,14 @@ function buildDocumentManifestMarkdown({ candidateTitle = '', candidateSlug = ''
     `- version_key: ${versionKey || 'unknown'}`,
     `- opp_key: ${oppKey || 'unknown'}`,
     `- highergov_page: ${sourceUrl || 'unknown'}`,
+    ...(posting ? [`- posting: ${posting.portal || posting.host || 'unknown site'} — ${posting.outcome}`] : []),
     `- generated_utc: ${new Date().toISOString()}`,
     '',
     '## Documents',
     '',
   ];
   for (const row of rows) {
-    lines.push(`- ${row.local_file_name || row.source_file_name || 'document'} | ${row.role || 'other'} | ${row.document_status || 'unknown'} | ${row.size_bytes || 0} bytes`);
+    lines.push(`- ${row.local_file_name || row.source_file_name || 'document'} | ${row.role || 'other'} | ${row.document_status || 'unknown'} | ${row.size_bytes || 0} bytes | ${row.source || 'highergov'}`);
   }
   return `${lines.join('\n')}\n`;
 }
@@ -426,6 +429,7 @@ async function writeDocumentManifestMarkdown(resourcesDir, manifest) {
     oppKey: manifest.opp_key,
     sourceUrl: manifest.highergov_page,
     records: manifest.documents || [],
+    posting: manifest.posting || null,
   });
   await fs.writeFile(filePath, markdown, 'utf8');
   return filePath;
@@ -433,14 +437,18 @@ async function writeDocumentManifestMarkdown(resourcesDir, manifest) {
 
 export {
   buildDocumentManifestMarkdown,
+  chooseLocalFileName,
   classifyDocumentRecord,
   countBy,
+  detectSignature,
+  documentStem,
   ensureCandidateResourcesDir,
   evaluateDocumentCompleteness,
   hashFile,
   listDocumentRecords,
   looksLikeSolicitationText,
   lookupOpportunityRecord,
+  safeExtension,
   saveDocumentRecord,
   sanitizeRemoteFilename,
   writeDocumentManifestJson,

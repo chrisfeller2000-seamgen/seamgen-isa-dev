@@ -162,10 +162,23 @@ test('audit lines cut long evidence quotes and keep file names, never paths or l
     { source_file_name: 'RFP.pdf', local_path: '/home/azureuser/x/RFP.pdf', download_url: 'https://signed.example/RFP.pdf', downloaded: true, extracted: true, role: 'solicitation', document_status: 'downloaded and extracted', extraction_method: 'pdftotext' },
     { source_file_name: 'Exhibit A.pdf', downloaded: false },
   ] });
-  assert.deepEqual(documents, { status: 'partial-documents', reasons: [], files: [
-    { name: 'RFP.pdf', role: 'solicitation', read: true, status: 'downloaded and extracted', method: 'pdftotext' },
-    { name: 'Exhibit A.pdf', role: null, read: false, status: 'not downloaded', method: null },
+  assert.deepEqual(documents, { status: 'partial-documents', reasons: [], posting: null, files: [
+    { name: 'RFP.pdf', role: 'solicitation', read: true, status: 'downloaded and extracted', method: 'pdftotext', source: 'highergov' },
+    { name: 'Exhibit A.pdf', role: null, read: false, status: 'not downloaded', method: null, source: 'highergov' },
   ] });
+
+  // A file from the agency's posting says so, and the attempt keeps its site and outcome, never
+  // the posting's URL, which can carry a token.
+  const posting = { host: 'example.gov', portal: '', access: 'unknown', outcome: 'documents-found', reason: '', listed: 2, downloaded: 1,
+    skipped: { offDomain: 0, duplicate: 0, unsupported: 0, overCap: 0, unmatched: 1 }, fetched_from: 'https://example.gov/files/x.pdf' };
+  const fromPosting = auditDocuments('partial-documents', { documents: [
+    { source_file_name: 'Other bid.pdf', source: 'posting', match: 'unmatched', downloaded: true, extracted: true, role: 'other',
+      fetched_from: 'https://example.gov/files/other.pdf', local_path: '/tmp/other.pdf' },
+  ] }, posting);
+  assert.deepEqual(fromPosting.files[0], { name: 'Other bid.pdf', role: 'other', read: true, status: 'downloaded', method: null, source: 'posting', match: 'unmatched' });
+  assert.deepEqual(fromPosting.posting, { host: 'example.gov', portal: null, access: 'unknown', outcome: 'documents-found', reason: null,
+    listed: 2, downloaded: 1, skipped: posting.skipped });
+  assert.doesNotMatch(JSON.stringify(fromPosting), /https?:|\/tmp\//);
 });
 
 test("the workbook's two tabs list the same RFPs in the same order: plain words for sales, the why for developers", async () => {

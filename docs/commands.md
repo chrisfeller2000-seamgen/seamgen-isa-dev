@@ -11,6 +11,7 @@ Run these from the repository root. `package.json` is the command source of trut
 | `npm run local:start` | Starts the isolated Gateway in the foreground at `127.0.0.1:19001`; Ctrl-C stops it. |
 | `npm run local:health` / `npm run local:chat -- "Hello Isa"` | Checks the local Gateway / asks the local agent a question. The chat uses the linked model key. |
 | `npm run local:sync` | Refreshes the isolated workspace from tracked source; refuses overwritten local changes. |
+| `npm run rfp:posting-probe -- <run date> [--live]` | From a pulled audit file, one row per agency posting site for the week's 50+ RFPs with missing documents, with what `rfp-portals.mjs` knows about it. No requests are made. `--live` makes the Friday job's dry-run requests to agency sites (first 1 KB of each file, nothing saved) and writes `.isa-local/posting-probe/<run date>.json`; run it only when agreed. |
 | `npm run rfp:audit -- <run date>` | Copies that Friday run's audit file from the VM (read-only) to `.isa-local/audit/` and writes a two-tab workbook next to it (Sales, Details). Given a local `.jsonl` path instead, only writes the workbook. Needs `npm ci` once for `exceljs`. |
 | `npm run live:pull` | Read-only download/compare of approved VM source. Does not change working files or the VM. |
 | `npm run live:accept` / `npm run live:import` | Records a reviewed VM baseline / imports reviewed VM source changes into this worktree. Read the [README](../README.md) safeguards first. |

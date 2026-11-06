@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { createAssessmentContext } from './rfp-deadline.mjs';
 import { auditDocuments, auditRecord, auditSkippedRecord, createAuditLog } from './rfp-audit.mjs';
 import { extractDocumentText } from './document-text.mjs';
+import { createPostingBudget, fetchPostingDocuments, postingRowMatchesRfp, postingWithoutFetch } from './posting-documents.mjs';
 import { RFP_PIPELINE_ID, findHubSpotDeal } from './rfp-hubspot-match.mjs';
 import { DOCUMENT_FETCH_THRESHOLD, intakeText, unscoredRfp } from './rfp-scoring-policy.mjs';
 import { createModelOutageGuard, createOpenClawJudge, scoreRfp } from './rfp-scoring-judgment.mjs';
@@ -48,6 +49,10 @@ const DELIVERY_PREVIEW = String(process.env.RFP_DELIVERY || '').toLowerCase() ==
 // Tests install a recorded writer here instead of calling ISA's model.
 const writerSymbol = Symbol.for('isa.rfp.testWriter');
 const DOCUMENT_FETCH_ENABLED = ['1', 'true', 'yes', 'on'].includes(String(process.env.RFP_DOCUMENT_FETCH_ENABLED || '').toLowerCase());
+// Anonymous requests to the agency's own posting when HigherGov has no documents or no
+// solicitation (posting-documents.mjs). Off until a measured run shows what it finds; with
+// it off, the report still names a known login portal from rfp-portals.mjs.
+const POSTING_FETCH_ENABLED = ['1', 'true', 'yes', 'on'].includes(String(process.env.RFP_POSTING_FETCH_ENABLED || '').toLowerCase());
 const FULL_QUALIFY_REQUIRE_DOCS = !['0', 'false', 'no'].includes(String(process.env.RFP_FULL_QUALIFY_REQUIRE_DOCS || 'true').toLowerCase());
 const FULL_QUALIFY_MIN_DAYS = Number.parseInt(process.env.RFP_FULL_QUALIFY_MIN_DAYS || '10', 10) || 10;
 const FULL_QUALIFY_MIN_VALUE = Number.parseInt(process.env.RFP_FULL_QUALIFY_MIN_VALUE || '100000', 10) || 100000;
@@ -1365,13 +1370,18 @@ async function materializeCandidateDocuments({ candidate, config, resourcesDir, 
   };
 }
 
-export async function extractManifestEvidence(manifest, resourcesDir) {
+// `cache` keeps each file's extraction by path and hash, so adding the agency posting's
+// files and reading the set again doesn't re-read (or re-OCR, up to 10 minutes a file) the
+// HigherGov ones. `rfp` ({ number, title }) checks posting files are for this RFP.
+export async function extractManifestEvidence(manifest, resourcesDir, { cache = null, rfp = null } = {}) {
   const rows = Array.isArray(manifest?.documents) ? manifest.documents : [];
   const documents = [];
   let primaryDocument = null;
   for (const row of rows) {
     if (!row?.downloaded || !row.local_path) continue;
-    const extraction = await extractDocumentText(row.local_path);
+    const key = `${row.local_path}\n${row.hash || ''}`;
+    const extraction = cache?.get(key) || await extractDocumentText(row.local_path);
+    cache?.set(key, extraction);
     const text = extraction.text;
     row.extracted = Boolean(normalizeText(text));
     row.extracted_text_chars = text.length;
@@ -1384,6 +1394,15 @@ export async function extractManifestEvidence(manifest, resourcesDir) {
     if (!row.extracted) continue;
     // Re-classify with the text: agencies often name the RFP after the project.
     Object.assign(row, classifyDocumentRecord({ file_name: row.source_file_name || row.local_file_name, text }));
+    // A city's bid board lists every open bid's files. One that isn't about this RFP is kept
+    // on the manifest but never scored and never stands in for its solicitation.
+    if (row.match_required) {
+      row.match = rfp && postingRowMatchesRfp(text, rfp) ? 'matched' : 'unmatched';
+      if (row.match === 'unmatched') {
+        Object.assign(row, { role: 'other', required: false, priority: 0 });
+        continue;
+      }
+    }
     documents.push({ file: row.local_file_name || row.source_file_name, text });
     if (!primaryDocument && row.role === 'solicitation') primaryDocument = row;
   }
@@ -1393,6 +1412,36 @@ export async function extractManifestEvidence(manifest, resourcesDir) {
     evidenceText: documents.map((doc) => `## ${doc.file}\n${doc.text}`).join('\n\n'),
     documents,
     completeness,
+  };
+}
+
+/**
+ * True when the agency's posting is worth trying: HigherGov returned no documents, or
+ * returned files without a readable solicitation (a portal summary, a template, drawings).
+ * A HigherGov outage ('failed') is not a reason, and a set whose solicitation was read but
+ * a scope file is missing is not covered yet.
+ */
+export function postingNeeded(status, extracted) {
+  if (['document-list-empty', 'access-blocked'].includes(status)) return true;
+  if (status !== 'downloaded' || !extracted) return false;
+  const { completeness, manifest } = extracted;
+  return !completeness.complete
+    && (completeness.status === 'access-blocked' || (completeness.status === 'partial-documents' && !manifest.primary_document));
+}
+
+// A manifest for an RFP whose only documents came from its agency posting.
+function postingManifestBase(candidate) {
+  const frontmatter = candidate.frontmatter || {};
+  return {
+    candidate_slug: candidate.slug,
+    candidate_title: candidate.title,
+    version_key: normalizeText(frontmatter.version_key || ''),
+    opp_key: normalizeText(frontmatter.opp_key || ''),
+    captured_date: normalizeText(frontmatter.captured_date || ''),
+    highergov_page: normalizeText(frontmatter.source_url || ''),
+    source_path: normalizeText(frontmatter.solicitation_url || ''),
+    fetched_utc: new Date().toISOString(),
+    documents: [],
   };
 }
 
@@ -1490,6 +1539,8 @@ async function main() {
   // Shared by every scoring call below, so a model outage pauses the run once instead
   // of failing each remaining RFP.
   const outage = createModelOutageGuard();
+  // Shared by every agency-posting request: per-site spacing and a cap on the run's time.
+  const postingBudget = createPostingBudget();
 
   for (let i = 0; i < candidatePaths.length; i += 1) {
     const candidatePath = candidatePaths[i];
@@ -1575,7 +1626,54 @@ async function main() {
       apiKey,
     });
 
-    if (fetchResult.status !== 'downloaded' || !fetchResult.manifest) {
+    const rfpMatch = { number: candidate.frontmatter?.rfp_number || '', title };
+    const extractionCache = new Map();
+    const writeManifest = async (manifest) => {
+      await writeDocumentManifestJson(resourcesDir, manifest);
+      await writeDocumentManifestMarkdown(resourcesDir, manifest);
+    };
+    let extracted = null;
+    if (fetchResult.status === 'downloaded' && fetchResult.manifest) {
+      await writeManifest(fetchResult.manifest);
+      invalidateQualificationEvidenceCache(slug, resourcesDir);
+      extracted = await extractManifestEvidence(fetchResult.manifest, resourcesDir, { cache: extractionCache, rfp: rfpMatch });
+      await writeManifest(extracted.manifest);
+    }
+
+    // HigherGov had no documents, or no solicitation: try the agency's own posting. With
+    // fetching off, a site the job never requests is still named for the report.
+    let posting = null;
+    if (postingNeeded(fetchResult.status, extracted)) {
+      const highergovRows = extracted?.manifest.documents || [];
+      // The posting is extra evidence: anything going wrong there leaves the RFP as HigherGov
+      // left it and never stops the run.
+      const attempt = POSTING_FETCH_ENABLED
+        ? await fetchPostingDocuments({ postingUrl: candidate.portalUrl, highergovRows, resourcesDir, startIndex: highergovRows.length, budget: postingBudget })
+          .catch((error) => {
+            // The job log gets the error without URLs (a link can carry a token); the audit, a plain reason.
+            process.stderr.write(`[rfp-posting] step failed for ${slug}: ${String(error?.message || error).replace(/https?:\/\/\S+/g, '[url]').slice(0, 200)}\n`);
+            return { outcome: { ...postingWithoutFetch(candidate.portalUrl), outcome: 'posting-unavailable', reason: 'The posting step failed; see the job log.' }, rows: [] };
+          })
+        : { outcome: postingWithoutFetch(candidate.portalUrl), rows: [] };
+      posting = attempt.outcome;
+      if (attempt.rows.length) {
+        const base = extracted?.manifest || postingManifestBase(candidate);
+        const merged = { ...base, posting, documents: [...(base.documents || []), ...attempt.rows] };
+        await writeManifest(merged);
+        invalidateQualificationEvidenceCache(slug, resourcesDir);
+        extracted = await extractManifestEvidence(merged, resourcesDir, { cache: extractionCache, rfp: rfpMatch });
+        posting.skipped.unmatched = extracted.manifest.documents.filter(row => row.match === 'unmatched').length;
+      }
+      if (extracted) {
+        extracted.manifest.posting = posting;
+        await writeManifest(extracted.manifest);
+      }
+      if (POSTING_FETCH_ENABLED) {
+        process.stderr.write(`[rfp-posting] ${posting.host || '-'} ${posting.portal || 'unlisted'} ${posting.outcome} listed=${posting.listed} saved=${posting.downloaded}\n`);
+      }
+    }
+
+    if (!extracted) {
       await persistCandidateState(candidatePath, {
         preliminary_score: preliminaryScore,
         final_score: null,
@@ -1585,17 +1683,9 @@ async function main() {
         document_status: fetchResult.status,
         status: 'provisional',
       });
-      await addEntry({ documentStatus: fetchResult.status, documents: auditDocuments(fetchResult.status, fetchResult.manifest) });
+      await addEntry({ documentStatus: fetchResult.status, posting, documents: auditDocuments(fetchResult.status, fetchResult.manifest, posting) });
       continue;
     }
-
-    await writeDocumentManifestJson(resourcesDir, fetchResult.manifest);
-    await writeDocumentManifestMarkdown(resourcesDir, fetchResult.manifest);
-    invalidateQualificationEvidenceCache(slug, resourcesDir);
-
-    const extracted = await extractManifestEvidence(fetchResult.manifest, resourcesDir);
-    await writeDocumentManifestJson(resourcesDir, extracted.manifest);
-    await writeDocumentManifestMarkdown(resourcesDir, extracted.manifest);
 
     const completeness = extracted.completeness;
     if (!completeness.complete) {
@@ -1610,18 +1700,18 @@ async function main() {
         document_manifest_path: path.join(resourcesDir, '_document-manifest.json'),
         status: 'provisional',
       });
-      await addEntry({ documentStatus, documents: auditDocuments(documentStatus, extracted.manifest) });
+      await addEntry({ documentStatus, posting, documents: auditDocuments(documentStatus, extracted.manifest, posting) });
       continue;
     }
 
     const scoringBundle = await scoreCandidateFromText({ candidate, runDate, documents: extracted.documents, completeness, outage });
-    const documentsRead = auditDocuments('full-text', extracted.manifest);
+    const documentsRead = auditDocuments('full-text', extracted.manifest, posting);
     await persistValidatedScore(candidatePath, { preliminaryScore, result: scoringBundle,
       manifestPath: path.join(resourcesDir, '_document-manifest.json'), runDate });
     const qualifies = scoringBundle.qualification_status === 'qualified' && Number.isFinite(scoringBundle.total)
       && scoringBundle.total >= FULL_QUALIFY_THRESHOLD;
     if (!qualifies) {
-      await addEntry({ final: scoringBundle, documentStatus: 'full-text', documents: documentsRead });
+      await addEntry({ final: scoringBundle, documentStatus: 'full-text', posting, documents: documentsRead });
       continue;
     }
 
@@ -1660,7 +1750,7 @@ async function main() {
       }
       documentsLink = driveFolder.folderUrl || '';
     }
-    await addEntry({ final: scoringBundle, documentStatus: 'full-text', documentsLink, hubspotDeal, documents: documentsRead });
+    await addEntry({ final: scoringBundle, documentStatus: 'full-text', documentsLink, hubspotDeal, posting, documents: documentsRead });
   }
 
   if (process.env.RFP_REPORT_WEEK_OF) process.stderr.write(`[weekly-rfp] late delivery: counted as week ${week}; deadlines count from ${runDate}\n`);
