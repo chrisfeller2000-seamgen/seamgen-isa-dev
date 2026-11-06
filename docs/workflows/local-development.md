@@ -17,7 +17,7 @@ npm test
 npm run check
 ```
 
-Start `npm run local:start` in one terminal. In another terminal in the same checkout, run `npm run local:health` and `npm run local:chat -- "Hello Isa"`. Stop the foreground Gateway with Ctrl-C. It binds only to `127.0.0.1:19001`; scheduled jobs, channels, heartbeat, and agent shell/file tools are off. `npm run local:sync` refreshes its workspace from tracked Git source and refuses to overwrite edits made inside the isolated copy.
+Start `npm run local:start` in one terminal. In another terminal in the same checkout, run `npm run local:health` and `npm run local:chat -- "Hello Isa"`. Stop the foreground Gateway with Ctrl-C. It binds only to `127.0.0.1:19001`; scheduled jobs, channels, heartbeat, and agent shell/file tools are off. OpenClaw still saves its own built-in jobs (such as memory-core's "Memory Dreaming Promotion" and the weekly skill collection review) in the local state at startup, but the scheduler is disabled (`cron: { enabled: false }`), so they never run; the gateway log says `cron: disabled`. `npm run local:sync` refreshes its workspace from tracked Git source and refuses to overwrite edits made inside the isolated copy.
 
 ## Windows and WSL
 
@@ -39,4 +39,4 @@ Do **not** run the normal scripts in `workspace/scripts/` locally as a smoke tes
 
 If startup fails, first check `npm run local:version`, `npm run local:health`, the linked key source path, and whether another process owns port 19001. Do not solve local startup by copying the live OpenClaw config or credentials. See [commands](../commands.md), [security](../security.md), and [integrations](../integrations.md).
 
-The repository keeps text-file line endings at LF on every checkout so Windows line-ending conversion does not create false VM hash differences. Local ISA chat has been verified on macOS; Windows/WSL startup still needs its own check before claiming support. Do not use a live VM upload to test that platform setup.
+The repository keeps text-file line endings at LF on every checkout so Windows line-ending conversion does not create false VM hash differences. Local ISA chat has been verified on macOS, and on native Windows 11 (npm 12.0.1) on November 6: setup, health and a chat reply. WSL startup still needs its own check before claiming support. Do not use a live VM upload to test that platform setup.
