@@ -73,10 +73,12 @@ function stage(result) {
 
 /**
  * What the run did with the RFP's documents: the fetch or extraction status, why the set
- * was incomplete, and per file its name, role and whether its text was read. File names
- * only; the manifest's local paths and download links stay out of the audit.
+ * was incomplete, and per file its name, role, source and whether its text was read. File
+ * names only; the manifest's local paths and download links stay out of the audit.
+ * `posting` is what the agency-posting attempt found (posting-documents.mjs): the site and
+ * the outcome, never a URL, since a link can carry a token.
  */
-export function auditDocuments(status, manifest = null) {
+export function auditDocuments(status, manifest = null, posting = null) {
   const rows = Array.isArray(manifest?.documents) ? manifest.documents : [];
   return {
     status,
@@ -87,7 +89,14 @@ export function auditDocuments(status, manifest = null) {
       read: row.extracted === true,
       status: row.document_status || (row.downloaded ? 'downloaded' : 'not downloaded'),
       method: row.extraction_method || null,
+      // Where the file came from; a posting file that isn't about this RFP is 'unmatched'.
+      source: row.source || 'highergov',
+      ...(row.match ? { match: row.match } : {}),
     })),
+    posting: posting ? {
+      host: posting.host || null, portal: posting.portal || null, access: posting.access || null, outcome: posting.outcome,
+      reason: posting.reason || null, listed: posting.listed ?? 0, downloaded: posting.downloaded ?? 0, skipped: posting.skipped || null,
+    } : null,
   };
 }
 

@@ -19,9 +19,10 @@ const GENERIC = new Set([
   'tools', 'upgrade', 'web', 'website', 'websites',
 ]);
 
-const words = text => String(text || '').replace(/&amp;/gi, '&').toLowerCase()
+export const words = text => String(text || '').replace(/&amp;/gi, '&').toLowerCase()
   .replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
-const distinctive = text => new Set(words(text).filter(word => word.length > 1 && !GENERIC.has(word)));
+// Also used to check that a file from an agency's bid board is for this RFP (posting-documents.mjs).
+export const distinctive = text => new Set(words(text).filter(word => word.length > 1 && !GENERIC.has(word)));
 // "Transportation Corridor Agencies" -> "tca"
 const initials = text => words(text).filter(word => !['and', 'for', 'of', 'the'].includes(word)).map(word => word[0]).join('');
 

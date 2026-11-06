@@ -28,7 +28,7 @@ const CATEGORY_MAX = {
   ...Object.fromEntries(Object.entries(CATEGORY_BANDS).map(([key, bands]) => [key, Math.max(...Object.values(bands).map(range => range[1]))])),
   timeline: timelinePoints(365),
 };
-const DECISION_ORDER = ['Strong pursue', 'Worth a look', 'Ask the agency first', "Couldn't check yet", 'Screened out', 'Skipped before scoring'];
+const DECISION_ORDER = ['Strong pursue', 'Worth a look', 'Ask the agency first', 'Needs a portal login', "Couldn't check yet", 'Screened out', 'Skipped before scoring'];
 
 const clean = value => String(value ?? '').replace(/\s+/g, ' ').trim();
 const finite = value => (Number.isFinite(value) ? value : null);
@@ -73,7 +73,7 @@ function lostPoints(record) {
 }
 
 function whyText({ outcome, documents }) {
-  const extra = outcome.reason === 'documents' && documents?.reasons?.length ? ` ${documents.reasons.join(' ')}` : '';
+  const extra = ['documents', 'portal'].includes(outcome.reason) && documents?.reasons?.length ? ` ${documents.reasons.join(' ')}` : '';
   return `${outcome.why || ''}${extra}`;
 }
 
@@ -113,6 +113,10 @@ const DETAILS = [
   { header: 'Documents', width: 18, value: r => r.documents?.status },
   { header: 'Documents read', width: 10, value: r => (r.documents?.files?.length ? `${r.documents.files.filter(file => file.read).length} of ${r.documents.files.length}` : '') },
   { header: 'Missing documents', width: 40, wrap: true, value: r => (r.documents?.reasons || []).join(' ') },
+  // What the attempt at the agency's own posting found (posting-documents.mjs).
+  { header: 'Posting site', width: 34, wrap: true, value: r => (r.documents?.posting
+    ? `${r.documents.posting.portal || r.documents.posting.host || 'no link'} — ${r.documents.posting.outcome}${r.documents.posting.listed ? ` (saved ${r.documents.posting.downloaded} of ${r.documents.posting.listed})` : ''}`
+    : '') },
   { header: 'Scoring error', width: 40, wrap: true, value: r => [r.listing?.error, r.fullText?.error].filter(Boolean)
     .map(error => [error.stage, error.detail].filter(Boolean).join(': ')).join('\n') },
   { header: 'Tries (listing / documents)', width: 12, value: r => [r.listing?.attempts, r.fullText?.attempts].filter(value => value != null).join(' / ') },

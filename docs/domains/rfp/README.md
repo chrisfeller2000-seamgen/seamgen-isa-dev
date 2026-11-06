@@ -12,7 +12,11 @@ The weekly job in `workspace/scripts/weekly-rfp-pursue-decision.mjs` runs intake
 
 - **Strong pursue.**
 - **Worth a look.**
-- **Couldn't check yet:** documents missing or unreadable, or scoring didn't finish. Also "ask the agency first": the documents show a product buy (Jake's Gates 2 and 2a). The report gives the question to send and when the agency's questions are due. These are never picks, whatever they could score.
+- **Couldn't check yet:** documents missing or unreadable, or scoring didn't finish. These are never picks, whatever they could score. It also covers two RFPs with a clear next step:
+  - **"Ask the agency first":** the documents show a product buy (Jake's Gates 2 and 2a). The report gives the question to send and when the agency's questions are due.
+  - **"Documents need a portal login":** the documents are on the agency's portal behind a vendor account. These come first in the Markdown, under their own heading. Each names the portal ("the documents need a free Public Purchase account to download") and gives the listing score, the HigherGov listing and the agency posting.
+
+  Other missing documents say why in brackets when the posting attempt found out, such as a bot check, by email, or not listed (see [document qualification](document-qualification.md), "Agency posting").
 - **Screened out:** with a plain reason.
 
 From that file:
@@ -22,7 +26,8 @@ From that file:
 - **Already in HubSpot.** A Strong Pursue that matches a deal in HubSpot's RFP pipeline (`workspace/scripts/rfp-hubspot-match.mjs`) stays a pick. Its email card says "Already in HubSpot as …", so sales sees it and a wrong match costs nothing. A match needs the same agency and project: two distinctive words in common, or the agency's acronym. Generic words like *website* or *development* don't count. Until October 16 a match hid the pick; that day a commercial "… Website Design and Development" deal hid the week's only Strong Pursue.
 - **At most one pursue email per week.** A re-run in the same week sends nothing new; a failed send can be retried.
 - **The Telegram message** is a short summary of what happened: the email was sent (with each RFP's score and biggest blocker), it failed, or nothing was worth pursuing (with the closest one and why). ISA writes the "sent" version, checked like the email; the other two are code-built.
-- **Close calls.** Code then adds up to three "close calls": RFPs scoring 70 or more that weren't picked, so someone can ask for a closer look. Scores move about 5 points between runs. "Ask the agency first" RFPs and the quiet week's closest one are left out.
+- **Close calls.** Code then adds up to three "close calls": RFPs scoring 70 or more that weren't picked, so someone can ask for a closer look. Scores move about 5 points between runs. "Ask the agency first" RFPs, RFPs waiting on a portal login, and the quiet week's closest one are left out.
+- **Portal logins.** Last, code adds one line for the RFPs whose documents need a portal login: how many, and the top three by name with their portal ("4 RFPs need a portal login before their documents can be read: …. They're in the report."). ISA's checked text never carries it.
 - **The results file** records the email and the message, who wrote them, and why a code-built version was used. ISA's chat reads it to answer questions about the week's RFPs.
 - **Q&A questions are generated in chat, on request** (`workspace/skills/rfp-email-agency-questions-skill.md`), not by the weekly job. ISA states the questions deadline and how to submit, lists 5–7 questions with the RFP text behind each, and gives the agency email as text to copy. It never creates a Gmail draft. The pursue email's Key dates line comes from the scorer's `questions` field, which never affects points. It appears only when the documents state a questions deadline and the scorer cites it.
 
@@ -46,7 +51,7 @@ Each line holds:
   - the model, a hash of the whole prompt (the code's rules included), and short hashes of the four scoring skills.
 - **The model's own answer:** evidence quotes cut to 300 characters.
 - **Rejected answers** (`rejections`): each answer the validator turned down, with its try number and reason, whether or not a later try passed. Up to 40,000 characters each.
-- **The documents:** why the set was incomplete, and file names, roles, and whether each was read. Local paths and download links stay in the manifest.
+- **The documents:** why the set was incomplete, and file names, roles, whether each was read, and its `source` (`highergov` or `posting`, with `match` for posting files). `posting` records the attempt at the agency's posting: site, portal, access, outcome, files listed and saved, and what was skipped. Local paths and download links stay in the manifest.
 
 That is about 3 MB a week. If the file can't be written, the job logs one line and the Friday update goes out without it.
 

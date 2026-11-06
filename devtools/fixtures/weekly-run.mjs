@@ -44,6 +44,20 @@ const LISTINGS = [
   },
 ];
 
+// ISA_RFP_POSTING_SCENARIO: HigherGov has no documents for the portal listing, and its agency
+// posting (example.test) has them ('found'), lists another RFP's file ('unmatched'), or is
+// on a login portal the job never requests ('login-portal').
+const POSTING_SCENARIO = process.env.ISA_RFP_POSTING_SCENARIO || '';
+if (POSTING_SCENARIO === 'login-portal') LISTINGS[0].source_path = 'https://www.publicpurchase.com/gems/example,ca/bid/bidView?bidId=1';
+const POSTING_PAGES = {
+  found: '<html><body><h1>Synthetic Case Management Portal</h1><a href="/files/Synthetic%20RFP%20Solicitation.txt?token=abc">Synthetic RFP Solicitation</a> <a href="/files/Price%20Form.txt">Price Form</a></body></html>',
+  unmatched: '<html><body><a href="/files/Other%20RFP%20Solicitation.txt">Other RFP Solicitation</a></body></html>',
+};
+const POSTING_FILES = {
+  '/files/Synthetic RFP Solicitation.txt': 'solicitation.txt',
+  '/files/Other RFP Solicitation.txt': 'other.txt',
+};
+
 const DOCUMENTS = {
   '/solicitation.txt': `Request for Proposal: Synthetic Case Management Portal
 The agency seeks a custom-built, accessible case management portal with a secure data migration and API integration.
@@ -52,15 +66,19 @@ Proposals are due November 30, 2026. The estimated project value is $180,000.
   '/requirements.txt': `Statement of Work and Evaluation Criteria
 The solution must support role-based access, audit logs, reporting, API integration, and WCAG accessibility.
 `,
+  '/other.txt': `Request for Proposal: Synthetic Parking Enforcement Citations
+The city seeks a parking citation system. Proposals are due November 30, 2026.
+`,
 };
 
-globalThis.fetch = async (input) => {
+globalThis.fetch = async (input, init = {}) => {
   const url = new URL(String(input));
   if (url.hostname === 'www.highergov.com' && url.pathname === '/api-external/opportunity/') {
     const results = LISTINGS.filter(item => item.captured_date === url.searchParams.get('captured_date'));
     return Response.json({ results, meta: { pagination: { count: results.length, pages: 1 } } });
   }
   if (url.hostname === 'www.highergov.com' && url.pathname === '/api-external/document/') {
+    if (POSTING_SCENARIO) return Response.json({ results: [] });
     return Response.json({ results: [
       { id: 'document-1', file_name: 'Synthetic RFP Solicitation.txt', content_type: 'text/plain', download_url: 'https://fixture.invalid/solicitation.txt' },
       { id: 'document-2', file_name: 'Statement of Work Requirements.txt', content_type: 'text/plain', download_url: 'https://fixture.invalid/requirements.txt' },
@@ -68,6 +86,15 @@ globalThis.fetch = async (input) => {
   }
   if (url.hostname === 'fixture.invalid' && DOCUMENTS[url.pathname]) {
     return new Response(DOCUMENTS[url.pathname], { headers: { 'content-type': 'text/plain' } });
+  }
+  // The agency posting. Anything but a GET fails the run: the job never posts to an agency.
+  if (url.hostname === 'example.test' && POSTING_PAGES[POSTING_SCENARIO]) {
+    if ((init.method || 'GET') !== 'GET') throw new Error(`The weekly run sent a ${init.method} to an agency site.`);
+    if (url.pathname === '/robots.txt') return new Response('not found', { status: 404 });
+    if (url.pathname === '/agency-posting') return new Response(POSTING_PAGES[POSTING_SCENARIO], { headers: { 'content-type': 'text/html' } });
+    const file = POSTING_FILES[decodeURIComponent(url.pathname)];
+    if (file) return new Response(DOCUMENTS[`/${file}`], { headers: { 'content-type': 'text/plain' } });
+    return new Response('not found', { status: 404 });
   }
   throw new Error(`Unexpected network request in the offline weekly run: ${url.origin}${url.pathname}`);
 };
