@@ -484,7 +484,7 @@ async function driveSearchRaw(query, options = {}) {
     finalQuery = `${query} and '${options.parent}' in parents`;
   }
   const args = ['-a', 'isa@seamgen.com', 'drive', 'search', finalQuery, '--raw-query', '--plain', '--max', String(options.max || 100)];
-  const output = await runJson('gog', args, { timeoutMs: 120000 });
+  const output = options.gog ? await options.gog(args) : await runJson('gog', args, { timeoutMs: 120000 });
   const lines = output.split('\n').map((line) => line.trim()).filter(Boolean);
   if (!lines.length) return [];
   const headers = lines[0].split('\t');
@@ -1014,12 +1014,18 @@ export async function runHigherGovIntake() {
   };
 }
 
-async function loadFavorableRfpFolders() {
+async function loadFavorableRfpFolders({ gog } = {}) {
   if (loadFavorableRfpFolders.cache) return loadFavorableRfpFolders.cache;
+  // A failed listing reads as "no folders": the run then makes a new folder (possibly a
+  // duplicate) rather than skipping the RFP's documents, so the failure is logged here.
   const rows = await driveSearchRaw("mimeType = 'application/vnd.google-apps.folder' and trashed = false", {
     parent: FAVORABLE_RFP_ROOT_FOLDER_ID,
     max: 200,
-  }).catch(() => []);
+    gog,
+  }).catch((error) => {
+    process.stderr.write(`[weekly-rfp] drive folder listing failed: ${error?.message || error}\n`);
+    return [];
+  });
   loadFavorableRfpFolders.cache = rows
     .filter((row) => normalizeText(row.TYPE || row.Type || row.type || '').toLowerCase() === 'folder')
     .map((row) => ({
@@ -1047,11 +1053,28 @@ function buildRfpFolderAliases(issuer = '', title = '', slug = '') {
   return [...new Set(aliases)];
 }
 
-async function resolveRfpFolderId(issuer, title, slug = '') {
+/**
+ * The new folder's ID from `gog drive mkdir --plain`, which prints tab-separated lines:
+ * "id\t<folder id>", "name\t<name>", then "link\t<url>" when Drive returns one (gogcli
+ * v0.33.0). '' when there is no such line.
+ */
+export function mkdirFolderId(output = '') {
+  const line = String(output).split('\n').map((value) => value.trim()).find((value) => value.startsWith('id\t'));
+  const id = line ? line.slice(3).trim() : '';
+  return /^[A-Za-z0-9_-]{10,}$/.test(id) ? id : '';
+}
+
+/** Lets tests drop the cached folder list between cases; the weekly run never needs it. */
+export function resetRfpFolderCache() {
+  loadFavorableRfpFolders.cache = null;
+}
+
+// `gog` runs the Drive commands; tests pass a fake that records calls and returns gog's text.
+export async function resolveRfpFolderId(issuer, title, slug = '', { gog = (args) => runJson('gog', args, { timeoutMs: 120000 }) } = {}) {
   const aliases = buildRfpFolderAliases(issuer, title, slug);
   const desiredName = sanitizeDriveName(slug || normalizeRfpCore(title) || removeGenericRfpWords(title) || title || `${issuer || 'Unknown organization'} - ${title}`);
   const desiredNormalized = normalizeSearchText(desiredName);
-  const folders = await loadFavorableRfpFolders().catch(() => []);
+  const folders = await loadFavorableRfpFolders({ gog });
   const existing = folders.find((folder) => {
     if (!folder.normalized) return false;
     if (folder.normalized === desiredNormalized || desiredNormalized.includes(folder.normalized) || folder.normalized.includes(desiredNormalized)) {
@@ -1063,9 +1086,23 @@ async function resolveRfpFolderId(issuer, title, slug = '') {
     return existing.id;
   }
 
-  await runJson('gog', ['-a', 'isa@seamgen.com', 'drive', 'mkdir', desiredName, '--parent', FAVORABLE_RFP_ROOT_FOLDER_ID, '--plain'], { timeoutMs: 120000 }).catch(() => null);
+  // Use the ID mkdir prints. Listing the parent again right after creating a folder can miss
+  // it (November 6, 2026: the City of Chandler folder was created, the re-list didn't show it,
+  // and its documents were never uploaded), so the re-list is only a fallback for when mkdir
+  // failed or printed no ID, for example a timeout after Drive had already made the folder.
+  const mkdirOutput = await gog(['-a', 'isa@seamgen.com', 'drive', 'mkdir', desiredName, '--parent', FAVORABLE_RFP_ROOT_FOLDER_ID, '--plain'])
+    .catch((error) => {
+      process.stderr.write(`[weekly-rfp] drive mkdir failed for ${desiredName}: ${error?.message || error}\n`);
+      return '';
+    });
+  const madeId = mkdirFolderId(mkdirOutput);
+  if (madeId) {
+    loadFavorableRfpFolders.cache?.push({ id: madeId, name: desiredName, normalized: desiredNormalized });
+    return madeId;
+  }
+  if (mkdirOutput) process.stderr.write(`[weekly-rfp] drive mkdir printed no folder ID for ${desiredName}; listing the parent again\n`);
   loadFavorableRfpFolders.cache = null;
-  const refreshed = await loadFavorableRfpFolders().catch(() => []);
+  const refreshed = await loadFavorableRfpFolders({ gog });
   const created = refreshed.find((folder) => {
     if (!folder.normalized) return false;
     if (folder.normalized === desiredNormalized || folder.name === desiredName) return true;
@@ -1112,9 +1149,11 @@ async function mirrorLocalResourcesToDrive(folderId, slug) {
     if (!fileName) continue;
     const result = await copyLocalFileToFolder(filePath, folderId).catch((error) => ({
       copied: false,
+      failed: true,
       reason: error?.message || 'Drive upload failed.',
     }));
     if (result.copied) mirrored += 1;
+    else if (result.failed) process.stderr.write(`[weekly-rfp] drive upload failed for ${fileName}: ${result.reason}\n`);
   }
   return { mirrored, resourcesDir };
 }
