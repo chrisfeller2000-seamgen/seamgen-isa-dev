@@ -172,16 +172,26 @@ function Test-HGPrefilter {
     # 2) Set-aside - explicit DENY list only; unrecognized => pass + flag (fail open)
     $setAside = Get-Prop $Record 'set_aside'
     if (-not [string]::IsNullOrWhiteSpace($setAside)) {
-        foreach ($deny in $prof.setAsideDenyList) {
-            if ($setAside -match [regex]::Escape($deny)) {
+        # SBA is a total small-business set-aside only on federal SAM listings; on state and
+        # local listings it also marks goals, preferences and subcontracting requirements,
+        # so those pass with a flag. Keep in step with weekly-rfp-pursue-decision.mjs.
+        $sourceType = "$(Get-Prop $Record 'source_type')".ToLower()
+        $denyLists = @($prof.setAsideDenyList) + @(Get-Prop $prof.setAsideDenyBySource $sourceType)
+        foreach ($deny in $denyLists) {
+            if ($deny -and $setAside -match [regex]::Escape($deny)) {
                 return @{ pass=$false; killReason='set-aside-not-held'; flags=$flags.ToArray(); daysUntilDue=$null }
             }
+        }
+        $review = $false
+        foreach ($code in $prof.setAsideReviewList) {
+            if ($setAside -match [regex]::Escape($code)) { $review = $true; break }
         }
         $recognized = $false
         foreach ($ok in $prof.setAsidePassList) {
             if ($setAside -match [regex]::Escape($ok)) { $recognized = $true; break }
         }
-        if (-not $recognized) { $flags.Add('unrecognized-set-aside') }
+        if ($review) { $flags.Add('small-business-set-aside') }
+        elseif (-not $recognized) { $flags.Add('unrecognized-set-aside') }
     }
 
     # 3) Timeline - under minDaysToDue kills. A NULL due date does NOT kill (fail open).

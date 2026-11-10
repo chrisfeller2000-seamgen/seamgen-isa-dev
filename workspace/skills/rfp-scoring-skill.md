@@ -2,7 +2,7 @@
 name: rfp-scoring
 purpose: Evaluate whether Seamgen should pursue a Request for Proposal (RFP), using a two-stage rubric that produces a numeric score, a pursue/no-bid recommendation, and structured notes that feed downstream email templates.
 audience: This skill is written to be read by both Claude (who applies the rubric) and a human teammate (who reads, sanity-checks, and edits the rubric over time).
-version: 1.8 — July 2026
+version: 1.9 — November 2026
 owner: Jake (Seamgen)
 ---
 
@@ -155,7 +155,7 @@ Gate 2 asks what the **agency** wants. It has never asked what **we are**. Those
 **Why it's a kill gate:** Katie's LA Water & Power no-bid (June 2026) is the canonical example — the RFP required specific Emergency Management certifications that no one at Seamgen holds. Bidding without qualifications wastes everyone's time and can damage the agency relationship.
 
 **Pass:** Seamgen either meets the minimum qualifications directly, has demonstrably equivalent experience, or has a legitimate teaming partner who does.
-**Fail:** Missing hard qualifications (specific licenses, certifications, degrees, or set-aside categories Seamgen doesn't hold — SBA size, 8(a), veteran-owned, local vendor if geographically restricted).
+**Fail:** Missing hard qualifications (specific licenses, certifications, degrees, or set-aside categories Seamgen doesn't hold — small business / SBA, 8(a), veteran-owned, local vendor if geographically restricted). **Seamgen is not a small business**, so an RFP that limits prime bidders to small businesses fails this gate. Read the text, not HigherGov's `set_aside` code: on state and local listings `SBA` often marks only a small-business goal, preference or subcontracting/participation requirement, which Seamgen can meet as prime and which does not fail the gate. A partial set-aside (`SBP`) leaves part of the work open to everyone.
 
 **Common set-asides to check:** Small Business, 8(a), Woman-Owned, Veteran-Owned, HUBZone, Local Vendor Preference.
 
@@ -182,8 +182,8 @@ Gate 2 asks what the **agency** wants. It has never asked what **we are**. Those
 **Never claim public-sector experience we don't have to clear this gate.** Overstating the reference bench is the one failure mode that survives scoring and then loses the bid at evaluation — or worse, wins it dishonestly.
 
 **Seamgen's known qualifications** (verify these are still current before relying on them):
-- GSA Schedule 70 certified
-- SBA-certified Small Business
+- GSA Multiple Award Schedule (MAS) contract, active (GSA folded the old Schedule 70 into MAS)
+- **Not** an SBA small business (this list wrongly said it was until November 2026)
 - Microsoft Cloud Solution Provider
 - NAICS codes: 541511, 541512, 541513, 541519, 511210
 
@@ -241,7 +241,7 @@ Apply this only if all six kill gates passed. Score each category on its own sca
 
 **Scoring:**
 - **15 pts** — Direct match to one of the four anchors.
-- **10–13 pts** — Adjacent (federal civilian agency where Seamgen's GSA Schedule 70 applies; large private healthcare).
+- **10–13 pts** — Adjacent (federal civilian agency where Seamgen's GSA MAS contract applies; large private healthcare).
 - **5–9 pts** — Private sector in a domain Seamgen has case studies in.
 - **0–4 pts** — Agency type where Seamgen has no proof points.
 
@@ -321,8 +321,8 @@ Apply this only if all six kill gates passed. Score each category on its own sca
 - Is there a strong incumbent vendor? (Check HigherGov award history if available.)
 - Is the Q&A window still open? (Open = we can shape requirements.)
 - Has Seamgen worked with this agency before?
-- Do Seamgen's unique qualifications apply (GSA Schedule 70, SBA, Microsoft CSP)? **Not Esri — we hold no Esri certifications** (see Gate 6).
-- Is this a set-aside that favors Seamgen (small business, HUBZone if applicable)?
+- Do Seamgen's unique qualifications apply (GSA MAS, Microsoft CSP)? **Not Esri — we hold no Esri certifications** (see Gate 6).
+- Is the buy open to full and open competition? Seamgen holds no set-aside category, so any set-aside works against it (and most fail Gate 6).
 - **What does the proposal itself cost to produce, and is anything scored against us structurally?** (See below.)
 
 **Qualification burden and structural disadvantage — deduct for these.** The rubric measures fit and winnability; until v1.7 it measured nothing about what a proposal *costs to write*, so a high-effort, low-probability pursuit could score the same as a cheap, likely one. Two things to look for:
@@ -562,6 +562,8 @@ Notes for email debrief:
 ---
 
 ## Notes and edit history
+
+**v1.9 — November 9, 2026, J Garibay + Claude.** Factual correction. Seamgen is not an SBA small business; Gate 6, the known-qualifications list and Category 7 had said it was. A true small-business restriction now fails Gate 6. The HigherGov prefilter drops `SBA` only on federal SAM listings, where it means a total set-aside; on state and local listings (8 of 10 in the November 6 run were only goals, preferences or subcontracting requirements) `SBA` and `SBP` pass with a `small-business-set-aside` flag for scoring to judge (`tools/highergov-config.json`). "GSA Schedule 70" is now "GSA MAS": GSA consolidated Schedule 70 into the Multiple Award Schedule, and Seamgen's MAS contract is active. Esri status is still unverified and unchanged.
 
 **v1.8 — July 28, 2026, Jake + Claude.** Prompted by Jake being taken apart in a meeting with Peter on questions the rubric had no way to ask. Three changes plus a factual correction.
 
