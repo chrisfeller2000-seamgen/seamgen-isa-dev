@@ -118,7 +118,7 @@ Default to the full build-engagement skeleton; **the per-RFP section set and ord
 
 1. **Cover** — project title, client/agency, RFP #, date, Seamgen mark
 2. **Table of Contents** — roman numerals + page numbers
-3. **I. Company Overview** — Introduction letter (signed Marc Alringer, President) · About Us (Summary / Background / Design Philosophy / Competitive Advantage) · Company Information (GSA Schedule 70, SBA, UEI/DUNS/CAGE, NAICS) · Clients Highlight · What We Do · Relevant Experience
+3. **I. Company Overview** — Introduction letter (signed Marc Alringer, President) · About Us (Summary / Background / Design Philosophy / Competitive Advantage) · Company Information (GSA MAS contract, UEI/DUNS/CAGE, NAICS) · Clients Highlight · What We Do · Relevant Experience
 4. **II. Project Summary** — Understanding of the need (spun to their language) · Core Features · Technical Overview · Compliance (508/WCAG/GDPR/PCI as applicable) · Cybersecurity
 5. **III. Process & Work Plan** — approach + Phases 1–4 with deliverables
 6. **IV. Support & Maintenance** — if the RFP asks for ongoing support
@@ -154,7 +154,7 @@ Embed every image asset Jake provides (as a data URI, so the HTML stays self-con
 ## Guardrails
 
 - **Real facts only.** Never invent case studies, capabilities, quotes, metrics, team members, or firm credentials. Ground everything in `resources/`. Spinning is rewording, not fabricating.
-- **Firm credentials** (GSA Schedule 70, SBA small business, NAICS 541511/512/513/519/511210, Esri, Microsoft CSP) come from the scoring skill's known-qualifications + `resources/` — verify they're current before relying on them.
+- **Firm credentials** (GSA MAS contract, NAICS 541511/512/513/519/511210, Microsoft CSP; **never** claim small-business or SBA status, which Seamgen does not hold, and don't claim Esri certification or partnership until it is verified) come from the scoring skill's known-qualifications + `resources/` — verify they're current before relying on them.
 - **Cost stays a placeholder** unless Jake supplies real numbers (pricing comes from Marianne + engineers + Peter).
 - The deck is a **draft for Marianne and Peter review before submission** — state this on the handoff, not on a client-facing slide.
 - Personnel: use current staff only (see the roster reconciliation — People.txt is a template with placeholder/former entries).

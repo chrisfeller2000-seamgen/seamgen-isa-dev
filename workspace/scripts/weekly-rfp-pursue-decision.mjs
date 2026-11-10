@@ -767,13 +767,17 @@ export function getHigherGovPrefilter(record, config) {
 
   const setAside = recordString(record, 'set_aside');
   if (setAside) {
-    for (const deny of profile.setAsideDenyList || []) {
-      if (setAside.toLowerCase().includes(String(deny).toLowerCase())) {
-        return { pass: false, killReason: 'set-aside-not-held', flags, daysUntilDue: null };
-      }
+    const matches = (list) => (list || []).some((code) => setAside.toLowerCase().includes(String(code).toLowerCase()));
+    // HigherGov's SBA code means a total small-business set-aside only on federal SAM
+    // listings. On state and local listings it also marks small-business goals,
+    // preferences and subcontracting requirements, which Seamgen (not a small
+    // business) can still bid, so those pass with a flag and the scorer reads the text.
+    const sourceDenyList = (profile.setAsideDenyBySource || {})[recordString(record, 'source_type').toLowerCase()];
+    if (matches(profile.setAsideDenyList) || matches(sourceDenyList)) {
+      return { pass: false, killReason: 'set-aside-not-held', flags, daysUntilDue: null };
     }
-    const recognized = (profile.setAsidePassList || []).some((allowed) => setAside.toLowerCase().includes(String(allowed).toLowerCase()));
-    if (!recognized) flags.push('unrecognized-set-aside');
+    if (matches(profile.setAsideReviewList)) flags.push('small-business-set-aside');
+    else if (!matches(profile.setAsidePassList)) flags.push('unrecognized-set-aside');
   }
 
   const dueDate = parseIsoDate(recordString(record, 'due_date'));

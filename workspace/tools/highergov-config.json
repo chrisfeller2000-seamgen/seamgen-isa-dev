@@ -35,10 +35,9 @@
   },
 
   "seamgenProfile": {
-    "_comment": "Seamgen's held qualifications, confirmed current by Jake on 2026-07-14. The prefilter uses setAsideDenyList to KILL and certifications/naics for the scorer's reference. Re-confirm when any cert lapses or is added. CORRECTION 2026-07-28: 'Esri certified' was removed. Seth Lutske confirmed on 2026-07-27 that nobody at Seamgen holds Esri technical certifications (an individual, exam-based credential). Company-level Esri PARTNER status is claimed in resources/proposal-sources/Proposal - Assets.txt but is unverified with Marianne, so it is not listed here. Never restore a certification claim without a named holder.",
+    "_comment": "Seamgen's held qualifications, confirmed current by Jake on 2026-07-14. The prefilter uses setAsideDenyList to KILL and certifications/naics for the scorer's reference. Re-confirm when any cert lapses or is added. CORRECTION 2026-07-28: 'Esri certified' was removed. Seth Lutske confirmed on 2026-07-27 that nobody at Seamgen holds Esri technical certifications (an individual, exam-based credential). Company-level Esri PARTNER status is claimed in resources/proposal-sources/Proposal - Assets.txt but is unverified with Marianne, so it is not listed here. Never restore a certification claim without a named holder. CORRECTION 2026-11-09 (J Garibay): Seamgen is NOT an SBA small business, so small-business set-asides are no longer in setAsidePassList (see _setAsideCodesComment); GSA Schedule 70 was folded into the GSA Multiple Award Schedule (MAS), and Seamgen's MAS contract is active.",
     "certifications": [
-      "GSA Schedule 70",
-      "SBA Small Business",
+      "GSA Multiple Award Schedule (MAS)",
       "Microsoft Cloud Solution Provider (CSP)"
     ],
     "naics": ["541511", "541512", "541513", "541519", "511210"],
@@ -61,10 +60,12 @@
       "Buy Indian",
       "Indian Small Business"
     ],
+    "_setAsideCodesComment": "HigherGov stores set-asides as short codes (NONE, SBA, SBP, MBE, LOCAL, SDVOSBC, WOSB, 8A ...), matched here as case-insensitive substrings. Checked against the 2026-11-06 run: SBA is a total small-business set-aside only on federal SAM listings; on state and local listings 8 of 10 SBA records were only a small-business goal, preference or subcontracting requirement, which Seamgen can bid. So SBA is denied for source 'sam' only, and SBA/SBP elsewhere pass with the small-business-set-aside flag for the scorer to judge from the text.",
+    "setAsideDenyBySource": {
+      "sam": ["SBA"]
+    },
+    "setAsideReviewList": ["SBA", "SBP"],
     "setAsidePassList": [
-      "Small Business",
-      "Total Small Business",
-      "SBA",
       "Local Vendor Preference",
       "None",
       "N/A"
