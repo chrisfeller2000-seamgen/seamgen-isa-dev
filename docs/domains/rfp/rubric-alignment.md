@@ -25,7 +25,7 @@ On October 9, Jessica ran Jake's system on ISA's 8 "worth a look" RFPs, and it n
 
 Since October 12:
 - A mandatory minimum that the case library and Jake's standing facts clearly can't meet fails Gate 6. Examples are 3+ government references, or years of a product Seamgen has never delivered. Eligibility stays unknown only when the requirement is unclear, or when passing would rest on a credential that needs a current record.
-- One required government reference is covered by Jake's standing fact (Florida DEP, `GOVERNMENT_REFERENCES` in the policy). A second still needs the RFP to accept nonprofit or federal work.
+- One required government reference is covered by Jake's standing fact (Florida DEP, `GOVERNMENT_REFERENCES` in the policy). A second still needs the RFP to accept nonprofit or federal work. When the [company facts](company-facts.md) record is on the VM, its confirmed references replace the standing fact.
 - Gate 2 has Jake's three outcomes: pass, fail, or Conditional — Ask the Agency. Buying, licensing, hosting, or configuring an existing product fails unless the custom share is clearly material (about 40%+) or the conditional route applies. A re-score of the 8 on October 12 left this gate open on 3 RFPs that Jake's system failed, which is why this rule was added.
 
 Whether the model now matches Jake's calls is measured by the sample comparison in Jira ISA-3, not by these tests.

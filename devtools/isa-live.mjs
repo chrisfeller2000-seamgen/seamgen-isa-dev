@@ -360,4 +360,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   }
 }
 
-export { assertSafeRelative, config as liveConfig, differences, expectedDeploymentSnapshot, isIncluded, remote, selectDeployment };
+export { assertSafeRelative, config as liveConfig, differences, expectedDeploymentSnapshot, isIncluded, remote, run, selectDeployment, sshSettings };

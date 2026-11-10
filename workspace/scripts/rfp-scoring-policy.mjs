@@ -1,5 +1,6 @@
 import { assessDeadline, createAssessmentContext, parseDeadlineDate, timelinePoints } from './rfp-deadline.mjs';
 import { classifyDocumentRecord, evaluateDocumentCompleteness } from './highergov-document-flow.mjs';
+import { COMPANY_FACTS_SOURCE_ID, factCurrency, factFromQuote } from './rfp-company-facts.mjs';
 
 export const CATEGORY_BANDS = {
   caseStudy: { clone: [25, 25], sameCapability: [18, 24], adjacent: [12, 17], remote: [6, 11], none: [0, 5] },
@@ -151,8 +152,34 @@ export function unscoredRfp(input, reason = 'AI scoring is unavailable.', recomm
 
 const GATE_NAMES = ['gate1', 'gate2', 'gate3', 'gate4', 'gate5', 'gate6'];
 // Gate 6a standing company fact (rfp-scoring-skill.md): Seamgen has one clean
-// government reference, Florida DEP. It is not re-proven per RFP.
+// government reference, Florida DEP. It is not re-proven per RFP, unless the
+// company-facts record is supplied; then that record's confirmations replace it.
 const GOVERNMENT_REFERENCES = 1;
+
+// How many public-sector references Seamgen can field today. Without the company-facts
+// record this is Jake's standing fact. With it, only references confirmed available
+// within the last year count; a listed but unconfirmed one leaves Gate 6 open to
+// reconfirm rather than failing it, because the client may well still agree.
+function referenceCeiling(sources, assessmentDate) {
+  const record = sources.get(COMPANY_FACTS_SOURCE_ID);
+  if (!Array.isArray(record?.facts)) return { government: GOVERNMENT_REFERENCES, public: Infinity, listed: 0, toConfirm: [] };
+  const publicRefs = record.facts.filter(fact => fact.type === 'reference' && fact.clientType !== 'commercial' && fact.status !== 'unavailable');
+  const current = publicRefs.filter(fact => factCurrency(fact, assessmentDate).current);
+  return { government: current.filter(fact => fact.clientType === 'government').length, public: current.length,
+    listed: publicRefs.length, toConfirm: publicRefs.filter(fact => !current.includes(fact)).map(fact => factCurrency(fact, assessmentDate).reason) };
+}
+
+// Only the company-facts record shows a credential is held today; Assets and the case
+// studies are historical proposal text. A cited entry that has lapsed or is over a year
+// old keeps Gate 6 open with the reason, so someone reconfirms it instead of guessing.
+function heldCredentialRecord(claim, sources, assessmentDate) {
+  const facts = claim.companyEvidence.map(item => factFromQuote(sources.get(item.sourceId), item.quote))
+    .filter(fact => fact && fact.type !== 'reference' && fact.status === 'held'
+      && norm(fact.holder) === norm(claim.holder) && fact.verifiedDate === claim.verifiedDate);
+  if (!facts.length) throw new Error('A held credential must cite its held entry in the company facts record.');
+  const checks = facts.map(fact => factCurrency(fact, assessmentDate));
+  return checks.some(check => check.current) ? null : checks[0].reason;
+}
 const BID_STATUS = { open: null, closed: 'Not an open bid', watch: 'Watch item' };
 
 function sourceMap(input) {
@@ -181,7 +208,7 @@ function requireNamedPartner(partner, sources, label, at) {
 
 // Subrules are explicit model judgments, not guesses made by scanning keywords.
 // Every assertion must be grounded in the supplied company and buyer records.
-function applySubrules(gate, judgment, sources, timeline) {
+function applySubrules(gate, judgment, sources, timeline, notes = []) {
   if (!judgment.subrules) throw new Error('Missing mandatory subrule assessments.');
   const { product, eligibility, submission } = judgment.subrules;
   if (!product || !eligibility || !submission) throw new Error('Missing Gate 2a, 4, or 6a assessment.');
@@ -229,9 +256,14 @@ function applySubrules(gate, judgment, sources, timeline) {
   if (eligibility.publicReferences > 0 && eligibility.publicReferences < 3 && !eligibility.partner) {
     cite(eligibility.companyEvidence, sources, { kind: ['company', 'case-study'], at: 'subrules.eligibility.companyEvidence' });
     // Jake's standing fact covers one; a second needs the model to confirm the RFP accepts it.
-    const available = eligibility.availableGovernmentReferences ?? GOVERNMENT_REFERENCES;
+    // The model's count can never exceed what the company-facts record confirms.
+    const ceiling = referenceCeiling(sources, timeline.assessmentDate);
+    const claimed = eligibility.availableGovernmentReferences;
+    const available = Number.isInteger(claimed) ? Math.min(claimed, ceiling.public) : claimed ?? ceiling.government;
     if (!Number.isInteger(available) || available < eligibility.publicReferences) {
-      gate.gate6 = eligibility.availableGovernmentReferences === null ? null : false;
+      const reconfirm = eligibility.publicReferences <= ceiling.listed;
+      gate.gate6 = claimed === null || reconfirm ? null : false;
+      if (reconfirm && ceiling.toConfirm.length) notes.push(`Public-sector references to reconfirm: ${ceiling.toConfirm.join('; ')}.`);
     }
   }
   if (![true, false, null].includes(eligibility.meetsMandatoryQualifications)) throw new Error('Invalid qualification assessment.');
@@ -259,6 +291,11 @@ function applySubrules(gate, judgment, sources, timeline) {
     cite(claim.companyEvidence, sources, { kind: 'company', at: `${at}.companyEvidence` });
     if (!claim.companyEvidence.some(item => [claim.holder, claim.name, claim.verifiedDate].every(value => norm(item.quote).includes(norm(value))))) {
       throw new Error('Credential holder, credential, or verification date is not in the cited record.');
+    }
+    const lapsed = heldCredentialRecord(claim, sources, timeline.assessmentDate);
+    if (lapsed) {
+      gate.gate6 = gate.gate6 === false ? false : null;
+      notes.push(`Reconfirm ${lapsed}.`);
     }
   }
 }
@@ -289,12 +326,18 @@ function resolveGates(judgment, sources, timeline, value) {
     if (!norm(judgment.value.reason)) throw new Error('A tiny-scope estimate needs its basis.');
     gate.gate5 = false; gateReasons[4] = { gate: 'Gate 5', pass: false, reason: judgment.value.reason };
   }
-  applySubrules(gate, judgment, sources, timeline);
+  const recordNotes = [];
+  applySubrules(gate, judgment, sources, timeline, recordNotes);
   if (judgment.conditional && gate.gate2 === false) gate.gate2 = null;
   if (judgment.conditional?.qaStatus === 'closed' || judgment.conditional?.commercialOnly === true) gate.gate2 = false;
   for (let i = 1; i < gateReasons.length; i++) {
     if (gateReasons[i].pass !== gate[GATE_NAMES[i]]) {
-      gateReasons[i] = { ...gateReasons[i], pass: gate[GATE_NAMES[i]], reason: `Gate ${i + 1} is unresolved or not met under its documented subrule; see the recorded evidence.` };
+      // A company-facts reconfirmation is the actual blocker; say which fact to check.
+      const reason = i === 5 && recordNotes.length ? recordNotes.join(' ')
+        : `Gate ${i + 1} is unresolved or not met under its documented subrule; see the recorded evidence.`;
+      gateReasons[i] = { ...gateReasons[i], pass: gate[GATE_NAMES[i]], reason };
+    } else if (i === 5 && gate.gate6 === null && recordNotes.length) {
+      gateReasons[i] = { ...gateReasons[i], reason: `${gateReasons[i].reason} ${recordNotes.join(' ')}` };
     }
   }
   return { gate, gateReasons };

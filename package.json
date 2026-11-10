@@ -17,6 +17,8 @@
     "rfp:preview": "node devtools/rfp-preview.mjs",
     "rfp:audit": "node devtools/rfp-audit.mjs",
     "rfp:posting-probe": "node devtools/rfp-posting-probe.mjs",
+    "facts:check": "node devtools/company-facts.mjs",
+    "facts:upload": "node devtools/company-facts-upload.mjs",
     "test": "node --test devtools/*.test.mjs",
     "check": "node devtools/check-source.mjs"
   },
