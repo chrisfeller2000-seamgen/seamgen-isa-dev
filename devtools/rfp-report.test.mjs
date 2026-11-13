@@ -224,6 +224,25 @@ test('a scored RFP missing part of its scope says so first, with the RFP text th
   assert.ok(whole.blockers.every(blocker => !/scope/.test(blocker.text)));
 });
 
+test('a blocker keeps the requirement when the gap only points back to it', () => {
+  const blockerFor = reason => reportEntry({ candidate: candidate('subject'), preliminary: preliminary(70),
+    final: result({ recommendation: 'Strong Pursue', total: 85, gates: { gate6: { pass: null, reason } } }) }).blockers[0].text;
+  // November 13 re-score of the MA DHE Student Portal: the blocker was "No current company record establishes it."
+  assert.equal(blockerFor('ITS81 Category 3 membership is mandatory, but no current company record establishes it. Confirm membership and prior delivery.'),
+    'ITS81 Category 3 membership is mandatory, but no current company record establishes it.');
+  // Shapes from the October and November audits: the first half names what is required.
+  assert.equal(blockerFor('K-12 references are required, but their minimum count and whether commercial educational work qualifies are unspecified.'),
+    'K-12 references are required, but their minimum count and whether commercial educational work qualifies are unspecified.');
+  assert.equal(blockerFor('Respondents should demonstrate authorization to supply ALLTAX, but no current company record confirms that authorization.'),
+    'Respondents should demonstrate authorization to supply ALLTAX, but no current company record confirms that authorization.');
+  // A gap that points back to a strength is kept whole too, so "its" still has a subject.
+  assert.equal(blockerFor('The summary mentions SOC 2 certification, but its precise applicability and Seamgen\'s current status are unverified.'),
+    'The summary mentions SOC 2 certification, but its precise applicability and Seamgen\'s current status are unverified.');
+  // A strength followed by a self-contained gap is still trimmed to the gap.
+  assert.equal(blockerFor('Relevant delivery is documented, but mandatory qualifications and the governmental-reference count are unknown.'),
+    'Mandatory qualifications and the governmental-reference count are unknown.');
+});
+
 test("the pursue email covers only Strong Pursue RFPs, in Jake's format, with links and titles from the facts", () => {
   const results = weekResults([...weekEntries(), strongPick('grants', {
     buyer: { currentSolution: 'They track grants in spreadsheets today.', objective: 'One system for applicants and reviewers.',
