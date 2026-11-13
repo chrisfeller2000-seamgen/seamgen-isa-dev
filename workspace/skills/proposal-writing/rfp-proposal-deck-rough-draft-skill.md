@@ -1,25 +1,25 @@
 ---
 name: rfp-proposal-deck-rough-draft
 purpose: Turn an RFP's submission checklist plus available materials into a **review-ready rough draft** of a Seamgen proposal deck — a self-contained HTML slideshow rendered to PDF, in Seamgen's house style, with case-study and understanding language spun to the RFP. This is the FIRST iteration: it fills what can be responsibly grounded, keeps visible scaffolding (draft flags, placeholders) for small unknowns, and stubs whole components that need human-collected data. A companion `rfp-proposal-deck-final-draft` skill (planned) will strip that scaffolding into a submission-ready deck. Covers Phase 8 (Proposal development), the build side of Adan's Playbook Phases 4–6.
-audience: Written for both Claude (who plans and assembles the draft) and Jake (who gathers the content/images and reviews it). This rough draft is an INTERNAL review artifact for Marianne/Peter and the team — not yet the client-facing submission.
-version: 1.4 — July 2026 (post-submission lessons folded in)
-owner: Jake (Seamgen)
-depends_on: rfp-submission-checklist skill (defines the required contents + the "Forms to extract, complete & sign" list the deck's Appendix mirrors), the RFP itself, and resources/proposal-sources/ (Proposal - Case Studies.txt, Proposal - People.txt, Proposal - Assets.txt, Adan's RFP Playbook), resources/resumes/ (individual bios), and resources/proposal-templates/ (the example proposal decks that define house style). Reads technical content from the rfp-engineering-brief output when one exists.
+audience: Written for both Claude (who plans and assembles the draft) and the sales teammate running the proposal (who gathers the content/images and reviews it). This rough draft is an INTERNAL review artifact for Marianne/Peter and the team — not yet the client-facing submission.
+version: 1.5 — November 2026
+owner: Seamgen sales team (no single owner or approver)
+depends_on: rfp-submission-checklist skill (defines the required contents + the "Forms to extract, complete & sign" list the deck's Appendix mirrors), the RFP itself, and resources/proposal-sources/ (Proposal - Case Studies.txt, Proposal - People.txt, Proposal - Assets.txt, Adan's RFP Playbook), and resources/proposal-templates/ (the example proposal decks that define house style). Reads technical content from the rfp-engineering-brief output when one exists.
 ---
 
 # Proposal Deck Skill — Rough Draft (iteration 1)
 
 ## What this skill does
 
-Builds a **review-ready rough draft** of the proposal deck for an RFP Seamgen is pursuing — not an outline Jake fills in by hand, and not yet the polished submission. Output is a **self-contained HTML slideshow + a PDF render** in Seamgen's house style. A PDF deck is an acceptable submission for most public RFPs; if a specific RFP demands a native/editable Google Slides file, this deck is the visual master Jake or Hoda recreates in Slides.
+Builds a **review-ready rough draft** of the proposal deck for an RFP Seamgen is pursuing — not an outline someone fills in by hand, and not yet the polished submission. Output is a **self-contained HTML slideshow + a PDF render** in Seamgen's house style. A PDF deck is an acceptable submission for most public RFPs; if a specific RFP demands a native/editable Google Slides file, this deck is the visual master the team (e.g. Hoda) recreates in Slides.
 
 This is the **first of two iterations.** The rough draft deliberately keeps scaffolding so the team can see the shape of the whole proposal early: it fills everything it can responsibly ground, leaves *visible* placeholders for small unknowns, and *stubs* whole components that require human-collected data (see "Fill vs. Stub vs. Inline-filler" below). A planned companion skill, **`rfp-proposal-deck-final-draft`**, will take the gathered materials and turn this into the submission-ready deck (see "Rough draft vs. final draft").
 
 It runs in three modes:
 
-- **Mode A — Deck plan + collection list.** Early, before Jake has gathered everything. From the RFP + its submission checklist, produce the slide-by-slide plan (in the RFP's required response order) and a precise **"what to gather" list** — the content and image assets Jake needs to collect. This tells Jake exactly what to hand back.
-- **Mode B — Assembly.** Once Jake drops the gathered content + images into the prospect folder, assemble the complete deck: embed provided images, drop clearly-marked `[IMAGE: description]` placeholders where an asset is still missing, spin the case-study and understanding language to the RFP, build team cards from `resources/`, and auto-fill Seamgen's boilerplate slides.
-- **Mode C — Content handoff (text for a Slides template).** When the real submission is a native **Google Slides deck the team assembles and illustrates** (and/or when a polished past proposal is the visual reference to match), produce the proposal as **clean, paste-ready text, section by section**, for Jake/Hoda to drop into a copy of the template — with `[IMAGE: …]` notes where visuals go. Claude writes the copy (mapped to the RFP's required response order, matching a reference proposal's spine and voice when one is provided); it does **not** author native Slides or place images. Output: a `.md`/`.txt` content file in the RFP's own folder `RFPs/[stage]/[rfp-slug]/` (e.g., `proposal-content_YYYY-MM-DD_[slug].md`).
+- **Mode A — Deck plan + collection list.** Early, before the requester has gathered everything. From the RFP + its submission checklist, produce the slide-by-slide plan (in the RFP's required response order) and a precise **"what to gather" list** — the content and image assets the requester needs to collect. This tells them exactly what to hand back.
+- **Mode B — Assembly.** Once the requester drops the gathered content + images into the prospect folder, assemble the complete deck: embed provided images, drop clearly-marked `[IMAGE: description]` placeholders where an asset is still missing, spin the case-study and understanding language to the RFP, build team cards from `resources/`, and auto-fill Seamgen's boilerplate slides.
+- **Mode C — Content handoff (text for a Slides template).** When the real submission is a native **Google Slides deck the team assembles and illustrates** (and/or when a polished past proposal is the visual reference to match), produce the proposal as **clean, paste-ready text, section by section**, for the team (e.g. Hoda) to drop into a copy of the template — with `[IMAGE: …]` notes where visuals go. Claude writes the copy (mapped to the RFP's required response order, matching a reference proposal's spine and voice when one is provided); it does **not** author native Slides or place images. Output: a `.md`/`.txt` content file in the RFP's own folder `RFPs/[stage]/[rfp-slug]/` (e.g., `proposal-content_YYYY-MM-DD_[slug].md`).
 
 ## When to use it
 
@@ -48,7 +48,7 @@ Three upgrades that make the Approach section land — from Marianne's direction
 The whole point of the rough draft is to show the shape of the entire proposal early **without fabricating anything that requires human data, analysis, or sign-off.** For each section, decide which of three treatments applies:
 
 **1. FILL — Claude generates it, grounded in `resources/` + the RFP.** Everything whose substance Claude can responsibly write or spin from real sources:
-- Cover · Table of Contents · cover-letter body (firm intro, understanding, compliance statement) · Understanding of the need · Approach / positioning · Platform (or solution) capabilities · Payments/PCI **approach** · Accessibility **approach** · Data-migration **approach** · Value & innovation · Organization & Staffing narrative + org chart · Team cards (real bios from `resources/resumes/`) · Prior Experience · Case studies (spun from **real** projects) · Quality-Control plan · Project-schedule **structure** (built from the RFP's own dates) · Acceptance-of-conditions narrative.
+- Cover · Table of Contents · cover-letter body (firm intro, understanding, compliance statement) · Understanding of the need · Approach / positioning · Platform (or solution) capabilities · Payments/PCI **approach** · Accessibility **approach** · Data-migration **approach** · Value & innovation · Organization & Staffing narrative + org chart · Team cards (current staff from `MEMORY.md`, bios from `Proposal - People.txt`; missing bios listed, never written) · Prior Experience · Case studies (spun from **real** projects) · Quality-Control plan · Project-schedule **structure** (built from the RFP's own dates) · Acceptance-of-conditions narrative.
 
 **2. INLINE FILLER — keep as a visible placeholder.** Small, obvious unknowns that don't mislead and are cheap to swap later. Fine to leave in a rough draft:
 - Headshots (`[IMAGE: headshot — Name]`) · the PM's name · effort-% per person · firm phone/email/address/tax ID · reference-contact names/phones.
@@ -75,7 +75,7 @@ This skill produces the **rough draft** and deliberately KEEPS scaffolding that 
 - **Inline placeholders** (`[IMAGE: …]`, `[TBD]`, `[Last Name]`, effort `[__]%`) → replaced with real, verified content in final; if a headshot/bio is still not final, the final skill **drops it entirely** rather than shipping a placeholder.
 - **Stub notes** → replaced with the real component once the owner supplies it.
 - **The "Source (found via)" line** (internal tracking) → removed from the client-facing final.
-- **The build-vs-product "confirm with the City" callout** → the final skill **relocates** this insight to an *internal* cover note for Jake/Marianne; it is **not deleted** (it's the most important strategic signal on a productized RFP), but it never appears on a client-facing slide.
+- **The build-vs-product "confirm with the City" callout** → the final skill **relocates** this insight to an *internal* cover note for the sales team and Marianne; it is **not deleted** (it's the most important strategic signal on a productized RFP), but it never appears on a client-facing slide.
 - **Open format question the final skill must resolve:** some RFPs (e.g., Rancho Palos Verdes) require a *concise typed document with per-subsection page limits*, not a slideshow. The final skill decides between the deck and a **"document mode"** that lifts this same content into a page-limited document — the deck is the visual master either way.
 - **Enforce page limits at drafting time, not editing time** *(new in v1.4)*. When the RFP specifies per-section page limits, convert them to word counts BEFORE drafting. Rough conversions: **1 page ≈ 400–500 words of narrative body text**, or ~600 words if the page includes a small table or bullet list. RPV's 2-page Approach limit → 800–1,000 words total. RPV's 1-page Quality Control limit → 400–500 words. RPV's 1-page Acceptance of Conditions limit → 400–500 words. When content doesn't fit, choose depth over breadth: 2 strong sub-sections beat 4 shallow ones. **The RPV rough draft was drafted with 11 sub-sections in the Approach at ~3,000+ words; the final submission cut this to 2 sub-sections at ~700 words.** That was the largest source of rework in the entire RPV engagement — enforce the word count up-front to avoid it next time.
 
@@ -122,7 +122,7 @@ Default to the full build-engagement skeleton; **the per-RFP section set and ord
 4. **II. Project Summary** — Understanding of the need (spun to their language) · Core Features · Technical Overview · Compliance (508/WCAG/GDPR/PCI as applicable) · Cybersecurity
 5. **III. Process & Work Plan** — approach + Phases 1–4 with deliverables
 6. **IV. Support & Maintenance** — if the RFP asks for ongoing support
-7. **V. Timeline & Cost** — estimate (placeholder unless Jake provides numbers)
+7. **V. Timeline & Cost** — estimate (placeholder unless the requester provides numbers)
 8. **VI. Project Management** — core team, collaboration tools, cadence
 9. **VII. References** — project references + testimonial blocks
 10. **Case Studies / Work Samples** — one per slide (see components); spun to the RFP
@@ -149,19 +149,19 @@ The deck does **not** put affidavits/certifications on slides — they're attach
 
 ## Images
 
-Embed every image asset Jake provides (as a data URI, so the HTML stays self-contained). Where an asset is still missing, drop a **visible** `[IMAGE: description]` placeholder on the slide (e.g., `[IMAGE: headshot — Frank Garcia]`, `[IMAGE: Comic-Con app screenshot]`) so nothing silently disappears and Jake can see exactly what to supply.
+Embed every image asset the requester provides (as a data URI, so the HTML stays self-contained). Where an asset is still missing, drop a **visible** `[IMAGE: description]` placeholder on the slide (e.g., `[IMAGE: headshot — Frank Garcia]`, `[IMAGE: Comic-Con app screenshot]`) so nothing silently disappears and the requester can see exactly what to supply.
 
 ## Guardrails
 
 - **Real facts only.** Never invent case studies, capabilities, quotes, metrics, team members, or firm credentials. Ground everything in `resources/`. Spinning is rewording, not fabricating.
 - **Firm credentials** (GSA MAS contract, NAICS 541511/512/513/519/511210, Microsoft CSP; **never** claim small-business or SBA status, which Seamgen does not hold, and don't claim Esri certification or partnership until it is verified) come from the scoring skill's known-qualifications + `resources/` — verify they're current before relying on them.
-- **Cost stays a placeholder** unless Jake supplies real numbers (pricing comes from Marianne + engineers + Peter).
+- **Cost stays a placeholder** unless the requester supplies real numbers (pricing comes from Marianne + engineers + Peter).
 - The deck is a **draft for Marianne and Peter review before submission** — state this on the handoff, not on a client-facing slide.
 - Personnel: use current staff only (see the roster reconciliation — People.txt is a template with placeholder/former entries).
 
 ## Output
 
-- **File:** `RFPs/[stage]/[rfp-slug]/proposal-deck_YYYY-MM-DD_[rfp-slug].pdf` — saved in the RFP's own folder (created if it doesn't exist yet), the submission-ready PDF. The self-contained HTML source is kept in the scratchpad and offered on request (useful if Jake/Hoda rebuild in Google Slides). Every deliverable for a given RFP lives together in the RFP's own folder — `RFPs/[stage]/[rfp-slug]/`, where `[stage]` is its current lifecycle tier (`1-pre-submission` / `2-intermediate-stage` / `3-building` / `4-submitted`; a deck draft usually means the RFP is in `3-building/`). Save into that `[rfp-slug]/` folder wherever it already exists; don't assume the tier or create a duplicate (see CLAUDE.md Rule 10).
+- **File:** `RFPs/[stage]/[rfp-slug]/proposal-deck_YYYY-MM-DD_[rfp-slug].pdf` — saved in the RFP's own folder (created if it doesn't exist yet), the submission-ready PDF. The self-contained HTML source is kept in the scratchpad and offered on request (useful if the team rebuilds it in Google Slides). Every deliverable for a given RFP lives together in the RFP's own folder — `RFPs/[stage]/[rfp-slug]/`, where `[stage]` is its current lifecycle tier (`1-pre-submission` / `2-intermediate-stage` / `3-building` / `4-submitted`; a deck draft usually means the RFP is in `3-building/`). Save into that `[rfp-slug]/` folder wherever it already exists; don't assume the tier or create a duplicate (see CLAUDE.md Rule 10).
 - Regenerate with today's date when the deck materially changes; older versions stay as a paper trail.
 
 ## Worked example (abbreviated)
@@ -171,6 +171,8 @@ For a hypothetical transit-website RFP, Mode A returns: Cover → TOC → Compan
 Mode B then assembles that into `RFPs/[stage]/samtd-cherriots-website/proposal-deck_YYYY-MM-DD_samtd-cherriots-website.pdf`.
 
 ## Notes and edit history
+
+**v1.5 — November 2026.** Jake left Seamgen, so the skill has no single owner. The teammate who asks for the deck gathers the content and reviews it, where earlier versions named Jake. No change to the modes, house style or rules.
 
 **v1.4 — July 2026, Jake + Claude (post-submission lessons).** Folded in specific edits from the RPV *final* submission (July 17, 2026) that came out of Marianne, Peter, and counsel's review of the rough draft. v1.3 was based on the July 9 rough draft; v1.4 adds what changed between rough draft and submitted PDF. Six new pieces of guidance: **(1) Reframe the offer explicitly if the RFP mismatches Seamgen's model** — added as third bullet under "Approach framing." The RPV Executive Summary paragraph "This means we are offering a newly built platform, not an ActiveNet implementation…" was the single most impactful edit made. **(2) Monthly budget box pricing pattern** — added under the STUB section. Structures the answer to RFPs demanding "future features included at no cost" as maintenance-plus-monthly-feature-budget, with anything larger scoped separately. Protects Seamgen from unbounded custom-build scope. **(3) Page-limit-to-word-count math** — added to "Rough draft vs. final draft." 1 page ≈ 400–500 words body. RPV's 2-page Approach → 800–1,000 words. Enforce at draft time (the RPV rough draft was ~3,000 words in Approach; the final was ~700). **(4) Reorder case studies by RFP-relevance** — added to "Spinning case studies." Municipal RFP → government work first, not consumer. **(5) Common legal exception patterns** — added under the STUB section. Three categories Marianne + counsel typically negotiate: public-works exemption for consultancy, LoL cap, Background IP preservation. **(6) % effort must sum to exactly 100%** — added to Formatting discipline. Not 100+% with a footnote. Companion document: `resources/RPV_Draft_vs_Final_Analysis.md` contains the section-by-section changes and reasoning that produced these lessons. **(Install note:** this v1.4 was folded onto the stage-aware `RFPs/[stage]/[rfp-slug]/` output paths from the 3-tier lifecycle change — CLAUDE.md v1.15 — so output still lands in the RFP's current-stage folder; the six items here are content-only.)
 

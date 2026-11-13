@@ -7,7 +7,20 @@
 - They highlight experience with Fortune 500 companies and funded startups.
 - Common service themes include iOS, Android, Xamarin/cross-platform work, IoT/beacon implementation, backend, and web development.
 - Current people docs in Drive point to a delivery-heavy team mix: UX/accessibility leadership, technical leadership/architecture, backend development, front-end development, and full-stack engineering.
-- Named people docs found so far include Hoda Zaker as UX Lead/accessibility specialist, Amy Brown as Technical Lead/Architect, Alec Prassinos as Back End Developer, Frank Garcia as Front End Developer, Seth Lutske as Full Stack Engineer / Technical Lead, and Chris Feller as Full-Stack Software Engineer.
+- Current delivery staff, confirmed by J Garibay on 2026-11-10:
+  - Pete Nystrom
+  - Seth Lutske
+  - Amy Brown
+  - Hoda Zaker
+  - Alec Prassinos
+  - Frank Garcia
+  - Chris Feller
+  - Yulieth Ramsey
+  - Oleg Gorbatchev
+- Roles last seen in people docs and the org chart, not reconfirmed: Pete Nystrom, VP Development; Seth Lutske, Full Stack Engineer / Technical Lead; Amy Brown, Technical Lead / Architect; Hoda Zaker, UX Lead / accessibility specialist; Alec Prassinos, Back End Developer; Frank Garcia, Front End Developer; Chris Feller, Full-Stack Software Engineer; Yulieth Ramsey, Software Engineer; Oleg Gorbatchev, Senior Software Engineer (iOS and React Native).
+- No longer at Seamgen: Marc Alringer (former CEO), Katie Bielawiec, Josh Kirkland, Scott Sanders, Bryer Cole, Trevor Keller and Jake. Never propose them as key personnel or route work to them.
+- The Drive "Proposal - People" deck and the org chart in `resources/proposal-sources/Proposal - Assets.txt` both still list people who have left. Only the people in the current list above are still at Seamgen. Build team sections from that list.
+- Bios come from `resources/proposal-sources/Proposal - People.txt`. If someone isn't in it, or the file is missing, say so and ask Marianne. Don't write a bio or resume from memory or from another person's text.
 - Some other resume-like files in Drive appear to be partner or proposal personnel and should not be treated as Seamgen staff without checking the document context.
 - Their process style is hybrid agile, collaborative, and transparent.
 - Verticals mentioned on the site include automotive, healthcare, and theme parks/resort hotels.

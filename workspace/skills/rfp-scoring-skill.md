@@ -2,8 +2,8 @@
 name: rfp-scoring
 purpose: Evaluate whether Seamgen should pursue a Request for Proposal (RFP), using a two-stage rubric that produces a numeric score, a pursue/no-bid recommendation, and structured notes that feed downstream email templates.
 audience: This skill is written to be read by both Claude (who applies the rubric) and a human teammate (who reads, sanity-checks, and edits the rubric over time).
-version: 1.10 — November 2026
-owner: Jake (Seamgen)
+version: 1.11 — November 2026
+owner: Seamgen sales team (no single owner or approver)
 ---
 
 # RFP Scoring Skill
@@ -566,6 +566,8 @@ Notes for email debrief:
 
 ## Notes and edit history
 
+**v1.11 — November 12, 2026, Seamgen.** Jake has left Seamgen: the owner is now the sales team, with no single owner or approver. No change to gates, categories, points, thresholds or recommendations.
+
 **v1.10 — November 10, 2026, J Garibay + Claude.** Credentials and references now come from a dated company facts record (`resources/proposal-sources/company-facts.json`, see `docs/domains/rfp/company-facts.md` in the dev repo). A held credential must cite a current held entry, not Assets or a case study; a stale or expired entry leaves Gate 6 open with what to reconfirm. With the record present, its confirmed government references replace the one-reference standing fact. The known-qualifications list now names MAS contract 47QTCA19D00DQ and its SINs, records Other Than Small Business from GSA eLibrary, and marks SAM.gov registration under UEI YH6HUMDSGL97 unconfirmed.
 
 **v1.9 — November 9, 2026, J Garibay + Claude.** Factual correction. Seamgen is not an SBA small business; Gate 6, the known-qualifications list and Category 7 had said it was. A true small-business restriction now fails Gate 6. The HigherGov prefilter drops `SBA` only on federal SAM listings, where it means a total set-aside; on state and local listings (8 of 10 in the November 6 run were only goals, preferences or subcontracting requirements) `SBA` and `SBP` pass with a `small-business-set-aside` flag for scoring to judge (`tools/highergov-config.json`). "GSA Schedule 70" is now "GSA MAS": GSA consolidated Schedule 70 into the Multiple Award Schedule, and Seamgen's MAS contract is active. Esri status is still unverified and unchanged.
@@ -596,7 +598,7 @@ Notes for email debrief:
 
 **Known limitations of v1.0:**
 - Category weights are educated guesses. After 10–15 scored RFPs, review which categories correlated with wins and re-weight.
-- The $100K minimum is a Jake-decided floor. If Peter or Marianne have different intuition, revisit.
+- The $100K minimum is a floor Jake set in July 2026. If Peter or Marianne have different intuition, revisit.
 - No category currently rewards existing agency relationships beyond the "Competitive Position" bucket. If relationships turn out to matter more than the current 10-point weight allows, consider promoting to its own category.
 - Sensitive-industry list is a placeholder. Update if a real case forces the question.
 

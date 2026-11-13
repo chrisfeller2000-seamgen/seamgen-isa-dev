@@ -2,8 +2,8 @@
 name: rfp-email-nobid
 purpose: Generate the "no-bid" email sent when an RFP has been evaluated and Seamgen has decided not to pursue it. Two modes — an announcement to Peter, Marianne and the Sales team for RFPs Seamgen sourced itself, or a short reply to whoever forwarded the opportunity.
 audience: This skill is written to be read by both Claude (who drafts the email) and a human teammate (who reads, sanity-checks, and edits the template over time).
-version: 1.6 — July 2026
-owner: Jake (Seamgen)
+version: 1.7 — November 2026
+owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-scoring skill (this template reads from that skill's output)
 ---
 
@@ -39,7 +39,7 @@ Paste the RFP Scoring Skill output and say "draft the no-bid email." Claude will
 | **Scope** | The RFP that was scored | **Only what they asked about** |
 | **Verdict line** | "I don't think this is a good fit for Seamgen because…" | Softer, conversational: "It doesn't seem like either of those would be the best fit for us." |
 
-**The rule behind Mode B: don't widen the audience.** If Marianne forwards two opportunities without Peter on the thread, the reply goes to Marianne. Adding Peter turns a quick answer between colleagues into a leadership escalation she didn't ask for — and it's the same instinct Rule 8 warns about, only applied to a distribution list. **If it isn't obvious who the reply is for, ask Jake before drafting.**
+**The rule behind Mode B: don't widen the audience.** If Marianne forwards two opportunities without Peter on the thread, the reply goes to Marianne. Adding Peter turns a quick answer between colleagues into a leadership escalation she didn't ask for — and it's the same instinct Rule 8 warns about, only applied to a distribution list. **If it isn't obvious who the reply is for, ask the requester before drafting.**
 
 **Extra opportunities you found while researching are not part of the answer.** If someone asks about two and you reviewed six, answer the two. The rest is a separate message, or at most one closing line — never four more bullets.
 
@@ -55,7 +55,7 @@ Katie's no-bid emails have a specific shape that works well and should be preser
 - **Body:** Two beats (preceded by a one-line **source note** — "This one came in via [platform]" — so leadership always sees where the opportunity originated).
   - Beat 1: "I have attached the RFP" (or equivalent — makes clear the RFP was reviewed).
   - Beat 2: "I don't think this is a good fit for Seamgen because [specific reason]" followed by a bulleted list of the disqualifying details.
-- **Close:** "Cheers," + first name (**Jacob**) — the internal block from `reference-team-and-signature.md` v1.2.
+- **Close:** "Cheers," + the sender's first name, left as a placeholder for whoever sends it.
 
 That's it. No hedging, no extended justification. The bullets do the work.
 
@@ -87,25 +87,18 @@ category. Flagging in case you or Marianne would like to weigh in
 before I close it out.
 
 Cheers,
-Jacob
+[Sender's first name]
 ```
 
-*Internal signature (first name only) from `reference-team-and-signature.md` v1.2 — Jake goes by Jake but signs "Jacob."*
+*Internal signature: first name only, filled in by whoever sends it.*
 
-## Creating the draft in Gmail
+## Giving the email as text
 
-Once the email is written, **create it as a draft in Gmail** so Jake doesn't have to retype it. Also print it in chat exactly as before — the chat copy is how he reviews it; the draft is the convenience.
+Once the email is written, **print it in chat as text to copy**, in a code block. The sender pastes it into their own mail, adds the recipients, and signs it.
 
-**Claude never sends this email. Only ever a draft.** See the Connectors section of `CLAUDE.md`, which governs and overrides anything here.
+**ISA never creates a Gmail draft and never sends this email.**
 
-| Field | Value |
-|---|---|
-| **To** | **Jake alone — `joliker@seamgen.com`.** Do **not** put the real recipients in To, Cc or Bcc, even though the email is written to them. Jake swaps them in himself; that swap is the last human checkpoint before it goes out. (Gmail rejects a draft with no recipient at all, which is why this is self-addressed rather than empty — see Connectors in `CLAUDE.md`.) |
-| **Cc / Bcc** | **Empty.** |
-| **Subject** | The template's subject line. |
-| **Body** | First line `Intended recipients: ...` — **Mode A:** `Peter, Marianne, Sales`. **Mode B:** the one person who forwarded it, and no one else. Then a blank line, then the email exactly as written — including the internal signature from `reference-team-and-signature.md` ("Cheers, / Jacob"). |
-
-Report the draft link when it's done. If the Gmail connector turns out to offer no draft capability, **stop and tell Jake** — don't send it, and don't route it anywhere else instead.
+Above the code block, put one line: `Intended recipients: ...` — **Mode A:** `Peter, Marianne, Sales`. **Mode B:** the one person who forwarded it, and no one else. Inside the code block, give the subject line and the email exactly as written, ending with the internal signature placeholder (`Cheers,` / `[Sender's first name]`).
 
 ## Mapping from scoring output to bullet content
 
@@ -164,7 +157,7 @@ Kind Regards,
 [Your name]
 ```
 
-That's Katie's real email almost verbatim. The template preserves what worked. **One deliberate exception: the closing.** Katie signed "Kind Regards," and this example keeps her wording as a historical record — but Jake's own emails close **"Cheers, / Jacob,"** and that's what a generated email uses (`reference-team-and-signature.md` v1.2). Copy the structure here, not the sign-off.
+That's Katie's real email almost verbatim. The template preserves what worked. **One deliberate exception: the closing.** Katie signed "Kind Regards," and this example keeps her wording as a historical record — a generated email closes **"Cheers, / [Sender's first name]"**. Copy the structure here, not the sign-off.
 
 ## Second worked example: hypothetical low-score no-bid
 
@@ -199,7 +192,7 @@ falls outside our demonstrated capabilities across several dimensions:
   demonstrated stack.
 
 Cheers,
-Jacob
+[Sender's first name]
 ```
 
 ## Mode B worked example: the USAC / CDPH reply (Jake's real email, July 22, 2026)
@@ -234,6 +227,8 @@ Jacob
 The finished email is 60 words. Aim there.
 
 ## Notes and edit history
+
+**v1.7 — November 2026.** Jake has left Seamgen, so the skill has no single owner or approver. **No more Gmail drafts:** ISA prints the email in chat as text to copy, with the intended recipients on a line above it, and the signature is a placeholder ("Cheers, / [Sender's first name]") instead of "Jacob". The draft addressed to `joliker@seamgen.com` and the "stop and tell Jake" fallback are gone; "ask Jake" for an unclear Mode B recipient is now "ask the requester". Jake's Mode B email keeps its original "Jacob" sign-off as a historical record.
 
 **v1.6 — July 22, 2026, Jake + Claude.** Added **Mode A / Mode B** — the skill now decides *who the email is to* before drafting, instead of always addressing Peter + Marianne + Sales. Prompted by Jake cutting a draft from ~250 words to 60 and re-addressing it to one person: Marianne had forwarded two opportunities on a thread Peter wasn't on, so the reply went to Marianne alone. **Mode B** (reply to whoever forwarded it) drops the source note, matches the sender's greeting, softens the verdict line, and — the rule that actually got broken — **answers only what was asked**, since Claude had researched six live opportunities and put all six in a reply to a question about two. The governing principle is *don't widen the audience*: adding Peter turns a colleague's quick question into a leadership escalation. Mode A is unchanged and remains the default for RFPs Seamgen sourced itself. Also added Jake's sent email as the Mode B worked example, with the cuts annotated. **Explicitly unchanged: the bullets** — they survived the edit verbatim and the skill now says so, so a future version doesn't "improve" the one part that works. Logged in `feedback-log.md` (2026-07-22). The **pursue** skill was deliberately left alone: a pursue email exists to get Peter's Pursue/Partner/Pass decision, so it belongs with Peter regardless of who forwarded the lead.
 

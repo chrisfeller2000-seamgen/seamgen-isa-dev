@@ -1,9 +1,9 @@
 ---
 name: rfp-document-refresh
-purpose: Re-check the listings of RFPs currently being built, catch addenda and Q&A answers posted since the last fetch, file them, and tell Jake what actually changed — especially if a deadline moved.
+purpose: Re-check the listings of RFPs currently being built, catch addenda and Q&A answers posted since the last fetch, file them, and tell the person who asked what actually changed — especially if a deadline moved.
 audience: This skill is written to be read by both Claude (who runs the re-check) and a human teammate (who reads the change report and acts on it).
-version: 1.6 — July 2026
-owner: Jake (Seamgen)
+version: 1.7 — November 2026
+owner: Seamgen sales team (no single owner or approver)
 ---
 
 # RFP Document Refresh Skill
@@ -34,7 +34,7 @@ Tier 1 (`1-pre-submission/`) stays out of scope. Those carry metadata-only score
 
 ## Before you start
 
-Same prerequisites as `skills/rfp-document-fetch-skill.md`: the browser bridge live, Jake signed in to HigherGov in it, and the whole run completed in one session because document links expire in about an hour.
+Same prerequisites as `skills/rfp-document-fetch-skill.md`: the browser bridge live, someone on the sales team signed in to HigherGov in it, and the whole run completed in one session because document links expire in about an hour.
 
 Each RFP also needs a **`resources/_document-manifest.md`** — the baseline this skill diffs against. If one is missing, run the fetch skill first to establish it; without a manifest there is nothing to compare to, and "is this new?" becomes unanswerable.
 
@@ -88,15 +88,15 @@ Follow the **"Open"** button in the Overview section through to the agency's own
 4. Read the **Due Date** shown on the bid page and compare it against `key-dates_<slug>.md`. **Where the portal and the solicitation disagree, report both and resolve it with the agency — do not silently pick one.** 2627-09 shows `08/10/2026 1:00 AM Central` on DemandStar against *"1:00 p.m."* in the RFP; a submission timed to the wrong one is late with no remedy.
 5. Note whether we appear as a **proposer of record** — that status is what makes future addenda arrive by email rather than requiring this check.
 
-Signing in is not a blocker here: the account exists and Jake (or Marianne, whose name it is in) signs in once in the bridge window. **Do not route a DemandStar sign-in to Tina.**
+Signing in is not a blocker here: the account exists and someone on the sales team (often Marianne, whose name it is in) signs in once in the bridge window. **Do not route a DemandStar sign-in to Tina.**
 
 **⚠ Two mechanics learned the hard way on 2026-07-27, both of which will waste a session if ignored.**
 
-- **Sessions expire between visits — check before assuming, and never sign in yourself.** On 2026-07-28 the bridge landed on the login form with empty fields; that is Jake's action, not ours, and it stops the run until he does it. Signed in, the header shows the account holder's name (**Marianne Faro**) — a cheap way to confirm.
+- **Sessions expire between visits — check before assuming, and never sign in yourself.** On 2026-07-28 the bridge landed on the login form with empty fields; that is a person's action, not ours, and it stops the run until someone signs in. Signed in, the header shows the account holder's name (**Marianne Faro**) — a cheap way to confirm.
   - **⚠ Correction, 2026-07-28.** v1.5 recorded that *"the session does not survive direct URL navigation… treat a typed URL as a session-ender."* **That is too strong.** With a live session, navigating straight to `https://www.demandstar.com/app/suppliers/bids/<id>/details` worked fine and stayed signed in. The original failure was almost certainly an **expired session**, or the older `/app/limited/` path. Clicking through the app is still the safer default, but a direct `/app/suppliers/...` URL is a legitimate fallback when search can't find a bid — which is exactly what recovered SW Wisconsin.
 - **Bid names on the portal often differ from the RFP's filename — search accordingly.** SW Wisconsin's document is *"RFP 2627-09 Web Design & Development"*, but the bid is listed as **"Website Design, Development, Hosting Solution, and Content Management."** A bid-name search for "Web Design" returns **nothing**. Search a distinctive fragment, the agency, or fall back to the bid ID from the manifest.
 - **The Bid Status filter is single-select and defaults to Active.** A watched bid that has closed disappears from the default view — switch the status to find it. That is how the **USM-MDSG** bid surfaced, sitting at *Under Evaluation*.
-- **Documents cost money. Monitoring does not.** Clicking a document name leads to a **purchase page**: *"You will be charged a nominal fee of $5.00. Once you purchase this Bid Package by using Place Order option there will be no cost for subsequent document downloads associated with this Bid."* So it is **$5 once per bid**, then that bid's documents are free forever. **Never click "Place Order."** Report the cost and let Jake decide — his 2026-07-27 decision authorised accepting *planholder visibility*, not **spending money**, and "never click anything that commits Seamgen" governs a paid transaction. Clicking **Cancel** backs out cleanly. *(Seamgen's billing address is on file but no payment method is set, so an order would need one added — another reason this is Jake's or Marianne's action, not ours.)*
+- **Documents cost money. Monitoring does not.** Clicking a document name leads to a **purchase page**: *"You will be charged a nominal fee of $5.00. Once you purchase this Bid Package by using Place Order option there will be no cost for subsequent document downloads associated with this Bid."* So it is **$5 once per bid**, then that bid's documents are free forever. **Never click "Place Order."** Report the cost and let the requester decide — Jake's 2026-07-27 decision authorised accepting *planholder visibility*, not **spending money**, and "never click anything that commits Seamgen" governs a paid transaction. Clicking **Cancel** backs out cleanly. *(Seamgen's billing address is on file but no payment method is set, so an order would need one added — another reason this is Jake's or Marianne's action, not ours.)*
 
 **This split is what makes the free tier worth running on every pass.** Without spending anything you can read the **full document list with filenames, file sizes, types and Date Modified**, the **due date as the portal enforces it**, the **planholder names and count**, and whether a **pre-bid conference** exists. That is the entire monitoring job — *has a new addendum appeared, and has the deadline moved* — and it is exactly what was missed on SW Wisconsin. The $5 buys only the bytes.
 
@@ -108,7 +108,7 @@ Signing in is not a blocker here: the account exists and Jake (or Marianne, whos
 
 **Put a bid on Watch when its RFP reaches `2-intermediate-stage/`.** From the bid page, use the **Watch** control; confirm it by returning to Bids → **Watched Bids** and checking the bid is listed. Record it in the RFP's `resources/_document-manifest.md` (`DemandStar watch: ACTIVE — set YYYY-MM-DD`).
 
-**⚠ Do not depend on DemandStar's email alerts.** The account is in **Marianne Faro's** name, so any notification goes to her inbox, not Jake's. **The watch list read on each refresh run is the mechanism; the email is a bonus.** A run that skips the portal because "we'd have been emailed" is a run that misses the addendum.
+**⚠ Do not depend on DemandStar's email alerts.** The account is in **Marianne Faro's** name, so any notification goes to her inbox, not to whoever runs the refresh. **The watch list read on each refresh run is the mechanism; the email is a bonus.** A run that skips the portal because "we'd have been emailed" is a run that misses the addendum.
 
 ##### The purchase gate — what to do when a new document appears
 
@@ -116,18 +116,18 @@ Monitoring is free; the bytes are not. When the diff shows something new, follow
 
 1. **Report before doing anything else.** Name the bid, the exact **filename, type, size and Date Modified**, and say what it probably is — a document typed *Addendum* is likely material (scope, dates, Q&A answers), one typed *Attachment* is likely boilerplate. State that the cost is **$5 once for the whole bid package**, not per document, and that it makes every future document on that bid free.
 2. **Stop there.** Do **not** open the order page "so it's ready." Do not treat reporting as implied permission.
-3. **Wait for Jake to confirm that specific purchase, on that specific bid.** A general "yes to buying documents when needed" is **not** authorisation for any particular order. Neither is his 2026-07-27 decision, which covered planholder visibility and explicitly not spend.
-4. **Only after a named per-bid yes**, place the order. Jake's 2026-07-28 decision authorises clicking **Place Order** once he has said yes to that bid.
+3. **Wait for the requester to confirm that specific purchase, on that specific bid.** A general "yes to buying documents when needed" is **not** authorisation for any particular order. Neither is Jake's 2026-07-27 decision, which covered planholder visibility and explicitly not spend.
+4. **Only after a named per-bid yes**, place the order. Jake's 2026-07-28 decision authorises clicking **Place Order** once the requester has said yes to that bid.
 5. **Record the spend** in the manifest's change log — date, bid, amount, what it bought, and who authorised it. That is the audit trail.
 
 **Two standing blocks:**
 
-- **No payment method is on file.** Seamgen's billing address is stored but no card is set, so the first purchase needs one added — **Jake's or Marianne's action, not ours**, regardless of authorisation.
+- **No payment method is on file.** Seamgen's billing address is stored but no card is set, so the first purchase needs one added — **a person's action (Marianne holds the account), not ours**, regardless of authorisation.
 - **SW Wisconsin (2627-09) is a standing no.** Do not propose buying its package while the **$5M cyber-liability requirement** is unresolved; it is redundant spend on a bid we probably cannot make. If that blocker clears, it becomes a fresh decision, not a resumed one.
 
 If a portal genuinely blocks the way, apply the **escalation ladder in `skills/rfp-document-fetch-skill.md`** — sign-in needed, bot challenge, registration required, paywall. **Never work around a barrier.** Report a blocked portal *immediately* rather than at the end of the run: this is exactly the window where a missed addendum does real damage, and an account request has lead time.
 
-**Pull documents incrementally.** The browser bridge jams after roughly five downloads, when the native Windows file-picker sticks open and blocks Chrome — a hung `take_screenshot` is the tell, and only Jake can clear it. Take the new and changed files first; if the set is large, expect to stop and hand off.
+**Pull documents incrementally.** The browser bridge jams after roughly five downloads, when the native Windows file-picker sticks open and blocks Chrome — a hung `take_screenshot` is the tell, and only a person at the bridge machine can clear it. Take the new and changed files first; if the set is large, expect to stop and hand off.
 
 ### Step 5 — Download what's new
 
@@ -135,7 +135,7 @@ Into the same `resources/` folder, following the fetch skill's Step 5 (read the 
 
 ### Step 6 — Read the new documents and extract what changed
 
-This is the part that matters, and it can't be skipped or skimmed. Downloading an addendum without reading it just moves the problem onto Jake's desk.
+This is the part that matters, and it can't be skipped or skimmed. Downloading an addendum without reading it just moves the problem onto the sales team's desk.
 
 For each new document, pull out:
 
@@ -158,7 +158,7 @@ Quote the document and cite the section or page — the same discipline the engi
   ```
   - **2026-07-21** — refresh: +Addendum_2.pdf (due date moved Aug 7 → Aug 21), +QA_Responses.pdf. Docs count 2 → 4.
   ```
-- **Downstream deliverables** — if a new mandatory form appeared, say which existing deliverable is now stale (usually the submission checklist, sometimes the proposal deck). Don't silently regenerate them; tell Jake what needs rebuilding and let him decide.
+- **Downstream deliverables** — if a new mandatory form appeared, say which existing deliverable is now stale (usually the submission checklist, sometimes the proposal deck). Don't silently regenerate them; tell the person who asked what needs rebuilding and let them decide.
 - **The RFP's Google Drive folder** — push every newly downloaded document into it with `.\tools\Sync-RfpToDrive.ps1 -Slug <rfp-slug>`, and say in the report that you did. The folder is under `Sales (shared drive) > Favorable RFP's`; its URL is on the manifest's `Drive folder:` line. The script copies the whole `resources/` folder and skips what's already there, so re-running it after a refresh is safe and only moves the new files.
 
 **Why this matters more here than at fetch time.** The Drive folder is what Peter and Marianne read from (it's the link in the pursue email, `rfp-email-pursue` v1.6). If a refresh pulls an addendum that moves the due date and it lands only on disk, leadership is reading a superseded document set from a link that looks current — with no signal that anything changed. That is precisely the silent-staleness failure this skill exists to prevent, reintroduced one layer out.
@@ -206,7 +206,7 @@ NEEDS YOUR ACTION
 - [Blocked portal, stale deliverable, or time-critical item — or "none"]
 ```
 
-**Report the no-change case explicitly.** "Checked, nothing new" is a real result and it's what makes the report trustworthy. A refresh that only ever speaks up when something changed leaves Jake unable to tell "all clear" from "didn't run."
+**Report the no-change case explicitly.** "Checked, nothing new" is a real result and it's what makes the report trustworthy. A refresh that only ever speaks up when something changed leaves the sales team unable to tell "all clear" from "didn't run."
 
 ---
 
@@ -215,15 +215,17 @@ NEEDS YOUR ACTION
 Identical to the fetch skill, and they carry the same weight:
 
 - **Read-only browsing.** Never submit a form, register, or accept terms without asking.
-- **Never spend money without a named, per-bid confirmation from Jake.** A general "yes to buying documents" authorises **no specific order**. Watching is free and is the default; ordering is a separate decision, taken once, per bid, out loud. See "The purchase gate" above.
+- **Never spend money without a named, per-bid confirmation from the requester.** A general "yes to buying documents" authorises **no specific order**. Watching is free and is the default; ordering is a separate decision, taken once, per bid, out loud. See "The purchase gate" above.
 - **Never persist signed URLs** — they carry AWS credentials.
-- **Never handle credentials.** Jake signs in.
+- **Never handle credentials.** A person signs in.
 - **Never bypass a bot challenge.**
 - **Never paraphrase a date or a requirement.** Quote it, cite it.
 
 ---
 
 ## Notes and edit history
+
+**v1.7 — November 2026, Seamgen.** Jake has left Seamgen, so this skill has no single owner or approver. Refresh reports, sign-ins, purchase confirmations and rebuild decisions now go to the person who asked for the refresh, or the sales team. The purchase gate is unchanged: still a named yes, per bid, before any order.
 
 **v1.6 — July 28, 2026, Jake + Claude.** Wired DemandStar's free **Watch** feature into the run, and wrote down the **purchase gate**.
 

@@ -307,7 +307,7 @@ function New-CandidateContent {
     $body += "# $title"
     $body += ''
     $body += '> **For Claude.** This is a HigherGov intake record, not the full solicitation.'
-    $body += '> Score it with `skills/rfp-scoring-skill.md`. `Source (found via)` is **HigherGov** - do not ask Jake.'
+    $body += '> Score it with `skills/rfp-scoring-skill.md`. `Source (found via)` is **HigherGov** - no need to ask anyone.'
     $body += '> **Recompute "Days until due" against today**; `days_until_due_at_capture` was correct at capture, not now.'
     $body += '> Any field marked `unknown` was not available from HigherGov - write "unknown", never guess.'
     if ($confidence -eq 'metadata-only') {

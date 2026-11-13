@@ -2,12 +2,19 @@
 name: rfp-meeting-brief
 purpose: Generate a short (one-page) pre-meeting document for a specific RFP, designed to be read in 60 seconds before a weekly sales meeting or a hallway conversation with Peter, Marianne, or a lead engineer.
 audience: This skill is written to be read by both Claude (who drafts the brief) and a human teammate (who reads, sanity-checks, and edits the template over time).
-version: 2.4 — October 2026
-owner: Jake (Seamgen)
+version: 2.5 — November 2026
+owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-scoring skill (this brief reads from that skill's output), plus optional inputs from the pursue-to-Peter email thread, engineer timeline estimates, and agency Q&A responses. The Blockers section reads the RFP directly, for verbatim requirement quotes with §/page.
 ---
 
 # Meeting Brief Skill
+
+> **Retired — do not use.** The meeting brief was retired on October 12, 2026 (pursue email spec, Jira ISA-6). It was Jake's own working document, and nobody needs it now. Don't generate a brief from this skill, even when asked for "a meeting brief": say it is retired and offer what replaced it.
+>
+> - **Opportunity summary, fit, blockers and key dates:** ISA's Friday pursue email (`skills/rfp-email-pursue-skill.md`). Its Key dates line gives the questions and proposal deadlines.
+> - **Clarifying questions and the Q&A deadline:** `skills/rfp-email-agency-questions-skill.md`, on request in chat.
+>
+> The rest of this file is kept as history.
 
 ## What this skill does
 
@@ -482,6 +489,8 @@ control.
 That reads in 60 seconds at the top and answers every question Peter or Marianne is likely to ask on the way to the meeting room.
 
 ## Notes and edit history
+
+**v2.5 — November 2026.** Marked **retired** (since October 12, 2026), with pointers to the pursue email and the agency-questions skill. Owner set to the sales team after Jake left Seamgen. The body is unchanged and kept as history.
 
 **v2.4 — October 12, 2026.** The brief now **reads the RFP from its `resources/` folder and leaves that folder alone when it cleans up.** On October 7 the California Monitoring Program RFQ was downloaded to `/tmp`, the brief was built from it, and the RFQ was then trashed along with the temporary HTML — the only copy, found in Trash three days later. Two causes were in this file: nothing said where the RFP document had to be, and the cleanup sentence said the folder "holds only" the `.md` and `.pdf`, which reads as an instruction to clear out anything else. Input 5 now sends a missing document to `skills/rfp-document-fetch-skill.md` first, and the cleanup sentence covers only the working files the brief itself created.
 
