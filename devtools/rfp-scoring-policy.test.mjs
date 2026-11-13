@@ -403,7 +403,31 @@ test('credentials need a named holder, dated proof, and an actual credential rec
   const credential = { name: 'Example Security Operations Certificate', held: true, holder: '', verifiedDate: '2026-09-30', companyEvidence: companyCitation, requirementEvidence: citation };
   assert.throws(() => finalize(packet(), j => { j.subrules.eligibility.credentials = [credential]; }), /named holder/);
   assert.throws(() => finalize(packet(), j => { j.subrules.eligibility.credentials = [{ ...credential, holder: 'Invented Person' }]; }), /not in the cited record/);
-  assert.equal(finalize(packet(), j => { j.subrules.eligibility.credentials = [{ ...credential, held: false }]; }).gate.gate6, false);
+  // "Not held" without a company-facts entry saying so is a question, not a failure.
+  const unconfirmed = finalize(packet(), j => { j.subrules.eligibility.credentials = [{ ...credential, held: false }]; });
+  assert.equal(unconfirmed.gate.gate6, null);
+  assert.match(unconfirmed.gateReasons[5].reason, /Confirm whether Seamgen holds Example Security Operations Certificate/);
+  assert.ok(Number.isFinite(unconfirmed.total));
+});
+
+test("the judge's Gate 6 fail stands only on references, a confirmed not-held credential, a set-aside, or work never delivered", () => {
+  const gate6 = (failureBasis, pass = false) => finalize(packet(), j => {
+    j.gates.gate6.pass = pass;
+    Object.assign(j.subrules.eligibility, { meetsMandatoryQualifications: false, failureBasis });
+  });
+  for (const basis of [undefined, null, 'credential', 'insurance']) {
+    const result = gate6(basis);
+    assert.equal(result.gate.gate6, null, `basis ${basis}`);
+    assert.match(result.gateReasons[5].reason, /confirm it before ruling the RFP out/);
+    assert.ok(Number.isFinite(result.total), 'an open gate is still scored');
+  }
+  for (const basis of ['set-aside', 'never-delivered']) {
+    const result = gate6(basis, true);
+    assert.equal(result.gate.gate6, false, `basis ${basis}`);
+    assert.equal(result.recommendation, 'No-bid');
+  }
+  // A bare "fail" on the gate with the subrules saying the qualifications are met.
+  assert.equal(finalize(packet(), j => { j.gates.gate6.pass = false; }).gate.gate6, null);
 });
 
 test('real case studies support delivery/reference eligibility, not held credential attestations', () => {

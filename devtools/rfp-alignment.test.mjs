@@ -6,6 +6,7 @@ import { companySources, recordedJudgment } from './fixtures/rfp-recorded-judgme
 import { classifyDocumentRecord, evaluateDocumentCompleteness } from '../workspace/scripts/highergov-document-flow.mjs';
 import { createAssessmentContext } from '../workspace/scripts/rfp-deadline.mjs';
 import { finalizeRfpScore } from '../workspace/scripts/rfp-scoring-policy.mjs';
+import { companyFactsSource } from '../workspace/scripts/rfp-company-facts.mjs';
 import { getHigherGovPrefilter } from '../workspace/scripts/weekly-rfp-pursue-decision.mjs';
 
 // Jake's rubric cases (invented opportunities) against the real intake prefilter,
@@ -15,7 +16,8 @@ const assessment = createAssessmentContext({ runDate: rubricContract.assessmentD
 const getField = (value, path) => path.split('.').reduce((current, key) => current?.[key], value);
 
 function score(fixture, phase) {
-  const input = { candidate: fixture.candidate, companySources, assessment, phase, documents: phase === 'preliminary' ? [] : fixture.documents };
+  const sources = fixture.companyFacts ? [...companySources, companyFactsSource(fixture.companyFacts)] : companySources;
+  const input = { candidate: fixture.candidate, companySources: sources, assessment, phase, documents: phase === 'preliminary' ? [] : fixture.documents };
   const result = finalizeRfpScore(input, recordedJudgment(input));
   return { ...result, categoryCount: result.categories ? Object.keys(result.categories).length : 0 };
 }

@@ -116,6 +116,18 @@ export function factCurrency(fact, assessmentDate) {
   return { current: true, reason: null };
 }
 
+// Whether a not-held entry still settles "Seamgen lacks this" on assessmentDate. A
+// policy or registration can be taken out at any time, so the same one-year rule
+// applies: an old "not held" is a question to re-ask, not a reason to drop an RFP.
+export function notHeldCurrency(fact, assessmentDate) {
+  if (fact.status !== 'not-held') return { current: false, reason: `${label(fact)} is ${fact.status}` };
+  if (fact.verifiedDate > assessmentDate) return { current: false, reason: `${label(fact)} is dated after the assessment` };
+  if (daysBetween(fact.verifiedDate, assessmentDate) > MAX_FACT_AGE_DAYS) {
+    return { current: false, reason: `${label(fact)} was last confirmed not held ${fact.verifiedDate}, over ${MAX_FACT_AGE_DAYS} days ago` };
+  }
+  return { current: true, reason: null };
+}
+
 export const label = fact => fact.type === 'reference' ? `${fact.client} reference` : fact.name;
 
 // The paragraph the model cites. "Company fact <id>" leads every paragraph so the

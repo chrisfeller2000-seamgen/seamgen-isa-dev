@@ -146,7 +146,58 @@ test('with the record, only confirmed public-sector references count toward Gate
   // ...and two confirmed public-sector references cover a two-reference requirement the RFP words to admit them.
   assert.equal(gate6([reference('ref-a'), { ...nonprofit, status: 'available', completed: '2024', verifiedBy: 'Example Owner', verifiedDate: '2026-09-01', source: 'client email' }], 2, 2).gate.gate6, true);
   // Commercial clients never count as public-sector references.
-  assert.equal(gate6([reference('ref-c', { clientType: 'commercial' })], 1, 1).gate.gate6, false);
+  assert.equal(gate6([reference('ref-a'), reference('ref-c', { client: 'Example Retailer', clientType: 'commercial' })], 2, 2).gate.gate6, false);
+});
+
+test('a record that lists no public-sector reference leaves the standing reference fact in place', () => {
+  const gate6 = (facts, required, claimed = null) => {
+    const input = packet(facts);
+    return finalize(input, j => {
+      Object.assign(j.subrules.eligibility, { publicReferences: required, availableGovernmentReferences: claimed,
+        companyEvidence: [{ sourceId: 'company-assets', quote: companySources[1].text }] });
+    }).gate.gate6;
+  };
+  // Qualifications filled in first, references not yet: the same answers as no record.
+  for (const facts of [[held('cert-a')], [reference('ref-c', { clientType: 'commercial' })]]) {
+    assert.equal(gate6(facts, 1), true);
+    assert.equal(gate6(facts, 2), null);
+  }
+  // Listing the one government reference as unavailable is what retires the standing fact.
+  const declined = reference('ref-a', { status: 'unavailable', source: 'client declined' });
+  assert.equal(gate6([held('cert-a'), declined], 1, 1), false);
+});
+
+test('only a current not-held entry for the same credential fails Gate 6; unconfirmed insurance or partnerships stay open', () => {
+  const unconfirmed = (id, type, name) => ({ id, type, name, holder: 'Example Co', status: 'unconfirmed' });
+  const facts = [
+    held('esri-tech', { name: 'Example GIS technical certification', status: 'not-held' }),
+    unconfirmed('esri-partner', 'certification', 'Example GIS partner network'),
+    unconfirmed('insurance-cyber', 'insurance', 'Cyber liability insurance'),
+    held('old-cert', { name: 'Example Old Certificate', status: 'not-held', verifiedDate: '2025-08-01' }),
+  ];
+  const run = (name, factId) => {
+    const input = packet(facts);
+    return finalize(input, j => {
+      j.gates.gate6.pass = false;
+      Object.assign(j.subrules.eligibility, { meetsMandatoryQualifications: false, failureBasis: 'credential',
+        credentials: [{ name, held: false, requirementEvidence: requirement, companyEvidence: factCitation(input, factId) }] });
+    });
+  };
+  // Unconfirmed insurance: open, scored, and named.
+  const insurance = run('Cyber liability insurance', 'insurance-cyber');
+  assert.equal(insurance.gate.gate6, null);
+  assert.match(insurance.gateReasons[5].reason, /Confirm whether Seamgen holds Cyber liability insurance/);
+  assert.ok(Number.isFinite(insurance.total));
+  // A partnership requirement can't be failed on the not-held individual certification.
+  assert.equal(run('Example GIS partner network', 'esri-tech').gate.gate6, null);
+  // A not-held answer over a year old is re-asked, not relied on.
+  const old = run('Example Old Certificate', 'old-cert');
+  assert.equal(old.gate.gate6, null);
+  assert.match(old.gateReasons[5].reason, /last confirmed not held 2025-08-01/);
+  // The confirmed one, by name, fails the gate.
+  const confirmed = run('Example GIS technical certification', 'esri-tech');
+  assert.equal(confirmed.gate.gate6, false);
+  assert.equal(confirmed.recommendation, 'No-bid');
 });
 
 test('the starter record is valid, holds only checked facts as current, and lists who to ask', async () => {
