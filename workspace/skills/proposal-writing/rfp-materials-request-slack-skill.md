@@ -2,9 +2,9 @@
 name: rfp-materials-request-slack
 purpose: Turn a proposal's submission checklist (its per-item owner assignments) plus the rough-draft proposal deck's outstanding stub/inline-filler items into per-person, Slack-ready requests — grouped by teammate — so the teammate running the proposal collects everything it still needs in one pass, without a second round of clarifying questions. Covers the materials-collection step of Phase 8 (Proposal development).
 audience: Written for both Claude (who drafts the requests) and the sales teammate who asked (who reviews and sends them). The MESSAGES themselves are internal, to Seamgen teammates.
-version: 1.7 — November 2026
+version: 1.8 — November 2026
 owner: Seamgen sales team (no single owner or approver)
-depends_on: rfp-submission-checklist skill (the per-item owner routing), the RFP itself (for verbatim requirement language), the rfp-proposal-deck-rough-draft output (its stub + inline-filler list = exactly what's still missing), the rfp-engineering-brief output (technical language + page refs for engineers), and reference-team-and-signature.md + CLAUDE.md's "Communication register by audience" (identity, signature, per-person tone).
+depends_on: rfp-submission-checklist skill (the per-item owner routing), the RFP itself (for verbatim requirement language), the rfp-proposal-deck-rough-draft output (its stub + inline-filler list = exactly what's still missing), the rfp-engineering-brief output (technical language + page refs for engineers), reference-team-and-signature.md (signature), `MEMORY.md` (who is current staff) and `resources/proposal-sources/Proposal - People.txt` (roles).
 ---
 
 # Materials Request (Slack) Skill
@@ -32,7 +32,7 @@ Use once a **submission checklist exists** for the RFP (that's where owners come
 2. **The rough-draft deck's outstanding items** — its stubs (pricing, CPM schedule, financials, exceptions, VPAT) and inline-filler (headshots, PM, effort %, registration fields, reference contacts). This is the "what's still missing" list.
 3. **The RFP itself** — for the **verbatim requirement language** behind each ask.
 4. **The engineering brief** (if one exists) — verbatim technical language + page refs for the engineers' asks.
-5. **`reference-team-and-signature.md`** — the internal (first-name) sign-off convention; the sender's own name goes in it. **CLAUDE.md** — the per-person communication register and the current roster.
+5. **`reference-team-and-signature.md`** — the internal (first-name) sign-off convention; the sender's own name goes in it. **`MEMORY.md`** — who is at Seamgen now and who has left. **`Proposal - People.txt`** — each current staff member's role. The per-person register is below.
 
 ## Who gets a message (deriving recipients)
 
@@ -76,7 +76,7 @@ Formatting to keep (apply in both the `.txt` and the PDF): **no "@Name — RFP p
 
 Keep it tight: 2–5 asks per person is normal; group related asks into one bullet. Skimmable in Slack. **Ask, don't direct**, and never add a line describing what another teammate handles/approves/signs.
 
-## Register by person (from CLAUDE.md)
+## Register by person
 
 Across all of these, keep a **humble, asking voice that never presumes.** Phrase asks as questions; don't tell a senior teammate what they do, approve, or sign.
 
@@ -103,16 +103,16 @@ Everything we've generated for the RFP (scoring, engineering brief, submission c
 
 One link works for everyone; it's cleaner and less presumptuous than deciding what each person needs.
 
-**Feedback loop → future skills.** Log the recurring "can you send me / where do I find X?" replies. When the same request shows up across RFPs, that's a signal to build a new skill/deliverable so teammates get it automatically and never have to ask again. Surface those candidates to the sales team (per CLAUDE.md Rule 6, don't create the new skill without asking first).
+**Feedback loop → future skills.** Log the recurring "can you send me / where do I find X?" replies. When the same request shows up across RFPs, that's a signal to build a new skill/deliverable so teammates get it automatically and never have to ask again. Surface those candidates to the sales team (don't create the new skill without asking first).
 
 ## Guardrails
 
 - **Concise, not essays.** These are Slack messages. Comprehensive on substance, short in form.
 - **Humble, asking voice.** Ask, don't direct. Never presume to state what a teammate handles, owns, approves, or signs — phrase everything as a question ("could you…", "who should…"). This keeps the sender from stepping on toes, whoever they are.
 - **Real asks only — grounded in *this* RFP.** Never invent a requirement, an owner, or a deliverable, and never turn a person's standing role into an ask the RFP doesn't require. Every ask traces to a line in *this RFP's* checklist (or the deck/RFP). No checklist line → no message.
-- **Current staff only.** Use the CLAUDE.md roster; never address Adan or Katie as current staff.
+- **Current staff only.** Message only people on `MEMORY.md`'s current-staff list. Never address anyone it lists as having left, or Adan.
 - **Internal voice + signature.** First-name, collaborative Slack tone; sign-off with the sender's first name only, per `reference-team-and-signature.md`.
-- **Source line.** Carry a "Source (found via)" line at the top of the PDF (internal tracking, per Rule 9). It never goes to an external party — but these are internal, so it stays.
+- **Source line.** Carry a "Source (found via)" line at the top of the PDF (internal tracking). It never goes to an external party — but these are internal, so it stays.
 - **Don't send anything.** This skill drafts; the sender sends. No Slack automation.
 
 ## Output
@@ -120,7 +120,7 @@ One link works for everyone; it's cleaner and less presumptuous than deciding wh
 - **PDF:** `RFPs/[stage]/[rfp-slug]/materials-request_YYYY-MM-DD_[rfp-slug].pdf` — saved in the RFP's own folder (created if it doesn't exist yet), grouped by person, house style, for the record / at-a-glance view. HTML source kept in scratchpad.
 - **Plain-text companion (the copy-paste workhorse):** `RFPs/[stage]/[rfp-slug]/materials-request_YYYY-MM-DD_[rfp-slug].txt` — the same messages as clean plain text, one per block with simple dividers. Slack (and any chat) pastes plain text cleanly, without the fonts/line-breaks a PDF drags along. Also echo the messages in chat. **Prefer the `.txt` for actual sending; the PDF is the polished record.**
 - Regenerate both with today's date if the outstanding-items list changes; older versions stay as a paper trail.
-- `[stage]` is the RFP's current lifecycle tier (`1-pre-submission` / `2-intermediate-stage` / `3-building` / `4-submitted`) — save into the RFP's existing `[rfp-slug]/` folder wherever it already lives (see CLAUDE.md Rule 10). Since materials-requests happen during active proposal construction, that's usually `3-building/`.
+- `[stage]` is the RFP's current lifecycle tier (`1-pre-submission` / `2-intermediate-stage` / `3-building` / `4-submitted`) — save into the RFP's existing `[rfp-slug]/` folder wherever it already lives. Since materials-requests happen during active proposal construction, that's usually `3-building/`.
 
 ## Worked example (abbreviated)
 
@@ -131,6 +131,8 @@ For the Rancho Palos Verdes recreation-platform RFP, the skill reads the RPV sub
 …plus grouped messages for Marianne (exceptions, insurance, prevailing-wage read, pricing once engineering's estimate is in, who signs), Peter (would he like to approve pricing/exceptions), and Tina (the company-registration fields still marked `[to confirm]`). **Nick is NOT messaged** — the RPV RFP has no financials requirement, so there is no grounded item for him. (Contrast USM, which *did* have a real hook — "Financial statements — furnish only if requested" at §IV.B.9 — where Nick would get a concrete, defined, clearly-conditional ask.) Headshots and case-study images were the sender's to source, so there's no Hoda message either. Every message closes with the shared Google Drive folder link, and the top of the page carries a "what I'm asking each person for" map. Output: `RFPs/[stage]/rancho-palos-verdes-recreation-software/materials-request_2026-07-08_rancho-palos-verdes-recreation-software.pdf` + `.txt`.
 
 ## Notes and edit history
+
+**v1.8 — November 2026.** The skill pointed to a `CLAUDE.md` roster and rules that ISA doesn't have. Current staff now come from `MEMORY.md` and roles from `Proposal - People.txt`; the per-person register was already in this skill. No change to grounding, asks or output.
 
 **v1.7 — November 2026.** Jake left Seamgen, so the skill has no single owner. Messages are written for whichever sales teammate asks and sends them, signed with their first name. The "intern" framing is gone, but the humble, ask-don't-direct voice it produced stays as a rule for every sender. The Drive folder link now comes from the RFP's document manifest. No change to grounding, per-person registers or output.
 
@@ -151,6 +153,6 @@ For the Rancho Palos Verdes recreation-platform RFP, the skill reads the RPV sub
 **Known limitations of v1.0:**
 - Requires a submission checklist; best after the rough-draft deck exists (that's the outstanding-items source).
 - Does not send Slack messages — drafting only (no Slack integration in Claude's toolset here).
-- Recipient roles come from CLAUDE.md; confirm the current owner if a role has changed.
+- Recipient roles come from `Proposal - People.txt`, and those titles haven't been reconfirmed with each person; confirm the current owner if a role has changed.
 
 **How to edit this skill:** Change the text. It's Markdown. Save. Bump the version number and add a note describing what changed and why.
