@@ -2,6 +2,10 @@
 
 There is no GitHub-to-VM automatic deployment in this repository. The live Azure workspace is still the running system. The development repo is where source changes should be reviewed and tested first.
 
+## What an upload includes
+
+`live:deploy` reads only `workspace/`, and only the paths listed in `devtools/live-files.json`. This repo's own docs (`docs/`, the root `README.md` and `AGENTS.md`) and `devtools/` never reach the VM. Keep developer docs outside `workspace/`. Markdown inside it is only what ISA reads: its root instruction files (`AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USER.md`, `MEMORY.md`), `skills/`, and `tools/README.md`. `scripts/`, `skills/` and `tools/` are approved as whole folders, so a note saved there would be uploaded; `npm test` fails if one is found.
+
 ## Release path
 
 1. From a clean, reviewed branch, run `npm test` and `npm run check`. For a changed integration, add a relevant isolated test; local chat and syntax checks alone are insufficient.
