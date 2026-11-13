@@ -10,5 +10,5 @@
 - [x] Tests: the policy cases in the plan; shared fixture, report and audit tests.
 - [x] Docs: `document-qualification.md` scope section; `rfp-scoring-skill.md` v1.13; specs README entry.
 - [x] Run `npm test` (231 pass) and `npm run check`; review the diff; fixtures use invented RFP names only.
-- [ ] With approval only: model check of the 13 spec cases via `score-sample.mjs` on the VM, results in `implementation.md`.
+- [x] With approval only: model check of the 13 spec cases on the VM (one-off runner like `score-sample.mjs`). All 13 matched; results in `implementation.md`.
 - [ ] With an explicit deployment request only: guarded deploy, then compare the next Friday audit.
