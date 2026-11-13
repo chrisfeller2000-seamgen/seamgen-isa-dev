@@ -2,7 +2,7 @@
 name: rfp-scoring
 purpose: Evaluate whether Seamgen should pursue a Request for Proposal (RFP), using a two-stage rubric that produces a numeric score, a pursue/no-bid recommendation, and structured notes that feed downstream email templates.
 audience: This skill is written to be read by both Claude (who applies the rubric) and a human teammate (who reads, sanity-checks, and edits the rubric over time).
-version: 1.12 — November 2026
+version: 1.13 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 ---
 
@@ -422,6 +422,8 @@ A score is only as good as what it was scored from, and the output must say whic
 
   **`Needs documents` in the secondary report** means the actual solicitation could not be read, so there is no full-text score. It is neither a pursue nor a no-bid. Repeat its stated reason and its provisional preliminary score; do not re-score it from the listing summary.
 
+  **Was the scope read?** After reading the documents, say whether they describe the work well enough to judge custom build vs product, hardware, and the categories, quoting the part that describes it. A portal cover sheet, a summary that points to a separate specification, or only forms and terms has **not** read the scope, and the result is `Needs documents`. When the scope was read, a missing supporting document never stops the score. Amendments, Q&A answers, state or agency IT policies and standards, and figures or diagrams are referenced documents, not the scope. A missing specification, statement of work or requirements list that is only part of the scope (for example a requirements matrix next to an RFP that already describes the work) is scored as usual, Strong Pursue included, and listed as a blocker: "part of the scope wasn't read, so confirm it before bidding."
+
 **Getting from one to the other:** run `skills/rfp-document-fetch-skill.md`, which pulls the agency's documents into the RFP's `resources/` folder and hands them back for a full-text re-score. ISA fetches documents automatically at a preliminary score of **50+**; the decision bands are unchanged.
 
 **Expect the score to move.** Full text regularly surfaces things a summary omits — a mandatory on-site presence, a set-aside, a disqualifying certification, a much larger or smaller scope than implied. A re-score that changes the recommendation isn't an error; it's the point.
@@ -567,6 +569,8 @@ Notes for email debrief:
 ---
 
 ## Notes and edit history
+
+**v1.13 — November 13, 2026, J Garibay + Claude.** After reading the documents, the scorer says whether the scope was read, and only an unread scope makes the result Needs documents. A missing amendment, Q&A answer, IT policy or diagram is a referenced document, not the scope. A missing part of the scope, such as a requirements matrix, is scored as usual with a "confirm it before bidding" blocker. On November 13, seven RFPs whose solicitation had been read were held at Needs documents by such documents, and the week had no Strong Pursue. No change to gates, categories, points or thresholds.
 
 **v1.12 — November 12, 2026, J Garibay + Claude.** Only a confirmed fact fails Gate 6. A missing credential, insurance policy or registration fails it only on a not-held company-facts entry for that credential, by name, confirmed within a year; anything unconfirmed leaves the gate open and is still scored. Otherwise Gate 6 fails only on the reference rules, a set-aside Seamgen isn't in, or work Seamgen has never delivered. A record that lists no public-sector reference yet leaves the Florida DEP standing fact in place.
 

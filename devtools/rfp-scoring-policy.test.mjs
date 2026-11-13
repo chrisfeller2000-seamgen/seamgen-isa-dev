@@ -268,9 +268,17 @@ test('after the documents are read, a document only the listing names is flagged
   // Until November 3 this citation was rejected, so the RFP was left unscored instead.
   const input = packet();
   const listing = [{ sourceId: 'metadata', quote: input.candidate.body }];
-  const scope = finalize(input, j => { j.requiredDocuments = [{ name: 'Attachment B Statement of Work', scope: true, evidence: listing, documentIds: [] }]; });
-  assert.equal(scope.recommendation, 'Needs documents');
-  assert.ok(scope.reasons.includes('Missing scope document: Attachment B Statement of Work.'));
+  const statement = { name: 'Attachment B Statement of Work', scope: true, evidence: listing, documentIds: [] };
+  const unread = finalize(input, j => {
+    j.requiredDocuments = [statement];
+    j.scopeRead = { read: false, reason: 'The supplied file points to Attachment B for the work.', evidence: [] };
+  });
+  assert.equal(unread.recommendation, 'Needs documents');
+  assert.ok(unread.reasons.includes('Missing scope document: Attachment B Statement of Work.'));
+  // When the supplied solicitation already describes the work, the attachment is a note.
+  const read = finalize(input, j => { j.requiredDocuments = [statement]; });
+  assert.ok(Number.isFinite(read.total));
+  assert.deepEqual(read.missing_scope, ['Attachment B Statement of Work']);
   const form = finalize(input, j => { j.requiredDocuments = [{ name: 'Attachment C Price Form', scope: false, evidence: listing, documentIds: [] }]; });
   assert.ok(Number.isFinite(form.total));
   assert.ok(form.reasons.includes('Missing referenced document: Attachment C Price Form.'));
@@ -544,23 +552,60 @@ test('full-text needs the solicitation itself; a missing referenced attachment i
   assert.equal(unweighted.total, null);
 });
 
-test('an unread scope document stops a full-text score even when the categories were scored', () => {
+test('an unread scope stops a full-text score even when the categories were scored', () => {
   // Rhode Island's PDMP, October 23: the only file was the portal's cover sheet, the model
   // scored all eight categories from it, and the missing specification became a footnote.
   const spec = { name: 'Agency Solicitation Specification', scope: true, evidence: citation, documentIds: [] };
   const form = { name: 'Insurance Requirements Addendum', scope: false, evidence: citation, documentIds: [] };
-  const cover = finalize(packet(), j => { j.requiredDocuments = [spec, form]; });
+  const coverSheet = { read: false, reason: 'Only the bid board cover sheet was supplied.', evidence: [] };
+  const cover = finalize(packet(), j => { j.requiredDocuments = [spec, form]; j.scopeRead = coverSheet; });
   assert.deepEqual([cover.recommendation, cover.total, cover.document_status], ['Needs documents', null, 'partial-documents']);
+  assert.ok(cover.reasons.includes('Scope not read: Only the bid board cover sheet was supplied.'));
   assert.ok(cover.reasons.includes('Missing scope document: Agency Solicitation Specification.'));
+  // Unread scope with nothing listed as missing still has no score.
+  assert.equal(finalize(packet(), j => { j.scopeRead = coverSheet; }).recommendation, 'Needs documents');
+  // A known gate failure still wins over the document question.
+  assert.equal(finalize(packet(), j => { j.scopeRead = coverSheet; j.gates.gate3.pass = false; }).recommendation, 'No-bid');
   // Once the specification is supplied, only the form is missing and the score stands.
   const read = finalize(packet(), j => { j.requiredDocuments = [{ ...spec, documentIds: ['doc-1'] }, form]; });
   assert.ok(Number.isFinite(read.total));
   assert.ok(read.reasons.includes('Missing referenced document: Insurance Requirements Addendum.'));
+  assert.equal(read.missing_scope, undefined);
+});
+
+test('a read scope scores even when an amendment, policy, diagram or requirements matrix is missing', () => {
+  // November 13: Student Portal (Q&A and amendments), Guilford (state IT policies), Wendell
+  // (Appendix B diagrams) and Danville (requirements matrix) were read but held back.
+  const notScope = ['Posted amendments and Q&A answers', 'North Carolina Statewide Information Security Manual', 'Appendix B workflow diagrams']
+    .map(name => ({ name, scope: false, evidence: citation, documentIds: [] }));
+  const supporting = finalize(packet(), j => { j.requiredDocuments = notScope; });
+  assert.equal(supporting.recommendation, 'Strong Pursue');
+  assert.equal(supporting.missing_scope, undefined);
+  assert.ok(supporting.reasons.includes(`Missing referenced document: ${notScope.map(item => item.name).join('; ')}.`));
+  // A missing part of the scope is a note to confirm, not a cap: Strong Pursue still stands.
+  const matrix = { name: 'Solution Requirements Matrix.xlsx', scope: true, evidence: citation, documentIds: [] };
+  const partial = finalize(packet(), j => { j.requiredDocuments = [matrix, ...notScope]; });
+  assert.equal(partial.recommendation, 'Strong Pursue');
+  assert.ok(Number.isFinite(partial.total));
+  assert.deepEqual(partial.missing_scope, ['Solution Requirements Matrix.xlsx']);
+  assert.ok(partial.reasons.includes("Part of the scope wasn't read: Solution Requirements Matrix.xlsx. Confirm it before bidding."));
+});
+
+test('full-text answers must say whether the scope was read, citing a buyer document for yes', () => {
   // Full-text answers must say which kind each missing document is; listing-stage notes need not.
   assert.throws(() => finalize(packet(), j => { j.requiredDocuments = [{ name: 'Appendix C', evidence: citation, documentIds: [] }]; }), /defines the scope/);
-  const input = packet('clean-custom-build', { phase: 'preliminary', documents: [] });
+  assert.throws(() => finalize(packet(), j => { delete j.scopeRead; }), /scopeRead\.read/);
+  assert.throws(() => finalize(packet(), j => { j.scopeRead = { read: 'yes', reason: 'Read.', evidence: citation }; }), /scopeRead\.read/);
+  assert.throws(() => finalize(packet(), j => { j.scopeRead = { read: true, reason: ' ', evidence: citation }; }), /scopeRead\.reason/);
+  assert.throws(() => finalize(packet(), j => { j.scopeRead = { read: true, reason: 'Read.', evidence: [] }; }), /scopeRead\.evidence/);
+  // The listing can't vouch for the scope.
+  const input = packet();
   const listing = [{ sourceId: 'metadata', quote: input.candidate.body }];
-  assert.ok(Number.isFinite(finalize(input, j => { j.requiredDocuments = [{ name: 'Official solicitation', evidence: listing, documentIds: [] }]; }).total));
+  assert.throws(() => finalize(input, j => { j.scopeRead = { read: true, reason: 'The listing summary describes it.', evidence: listing }; }), /scopeRead\.evidence\[0\]: needs a document excerpt/);
+  // Before the documents are read, neither field is needed.
+  const preliminary = packet('clean-custom-build', { phase: 'preliminary', documents: [] });
+  const metadata = [{ sourceId: 'metadata', quote: preliminary.candidate.body }];
+  assert.ok(Number.isFinite(finalize(preliminary, j => { j.requiredDocuments = [{ name: 'Official solicitation', evidence: metadata, documentIds: [] }]; }).total));
 });
 
 test('documents are fetched at a preliminary 50+, never for a non-finalizable or gate-failed result', () => {

@@ -207,6 +207,23 @@ test('blockers come worst first, in plain words, at most three', () => {
   assert.deepEqual(weekEntries()[3].blockers, []);
 });
 
+test('a scored RFP missing part of its scope says so first, with the RFP text that names it', () => {
+  const matrix = { name: 'Solution Requirements Matrix.xlsx', scope: true, documentIds: [],
+    evidence: [{ sourceId: 'doc-1', quote: 'Complete the Solution Requirements Matrix.xlsx in Attachment C.' }] };
+  const form = { name: 'Insurance Form', scope: false, documentIds: [], evidence: [{ sourceId: 'doc-1', quote: 'Submit the insurance form.' }] };
+  const entry = reportEntry({ candidate: candidate('matrix'), preliminary: preliminary(70), final: result({ recommendation: 'Strong Pursue', total: 80,
+    judgment: { requiredDocuments: [matrix, form], subrules: { submission: { status: 'unknown' } } },
+    gates: { gate6: { pass: null, reason: 'Current references need confirming.' }, gate4: { pass: null, reason: 'The portal account is not confirmed.' } },
+    extra: { missing_scope: ['Solution Requirements Matrix.xlsx'] } }) });
+  assert.equal(entry.blockers.length, 3);
+  assert.deepEqual(entry.blockers[0], { text: "Part of the scope wasn't read (Solution Requirements Matrix.xlsx), so confirm it before bidding.",
+    quote: 'Complete the Solution Requirements Matrix.xlsx in Attachment C.' });
+  // Without a missing scope document, nothing is added.
+  const whole = reportEntry({ candidate: candidate('whole'), preliminary: preliminary(70), final: result({ recommendation: 'Strong Pursue', total: 80,
+    judgment: { requiredDocuments: [form] } }) });
+  assert.ok(whole.blockers.every(blocker => !/scope/.test(blocker.text)));
+});
+
 test("the pursue email covers only Strong Pursue RFPs, in Jake's format, with links and titles from the facts", () => {
   const results = weekResults([...weekEntries(), strongPick('grants', {
     buyer: { currentSolution: 'They track grants in spreadsheets today.', objective: 'One system for applicants and reviewers.',

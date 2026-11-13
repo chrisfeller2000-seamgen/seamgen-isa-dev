@@ -113,6 +113,11 @@ const DETAILS = [
   { header: 'Documents', width: 18, value: r => r.documents?.status },
   { header: 'Documents read', width: 10, value: r => (r.documents?.files?.length ? `${r.documents.files.filter(file => file.read).length} of ${r.documents.files.length}` : '') },
   { header: 'Missing documents', width: 40, wrap: true, value: r => (r.documents?.reasons || []).join(' ') },
+  // Whether the documents' scorer said it read the scope (since November 13; blank before).
+  { header: 'Scope read', width: 40, wrap: true, value: r => {
+    const scope = r.fullText?.judgment?.scopeRead;
+    return typeof scope?.read === 'boolean' ? `${scope.read ? 'yes' : 'no'}: ${clean(scope.reason)}` : '';
+  } },
   // What the attempt at the agency's own posting found (posting-documents.mjs).
   { header: 'Posting site', width: 34, wrap: true, value: r => (r.documents?.posting
     ? `${r.documents.posting.portal || r.documents.posting.host || 'no link'} — ${r.documents.posting.outcome}${r.documents.posting.listed ? ` (saved ${r.documents.posting.downloaded} of ${r.documents.posting.listed})` : ''}`
