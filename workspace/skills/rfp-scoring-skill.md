@@ -2,7 +2,7 @@
 name: rfp-scoring
 purpose: Evaluate whether Seamgen should pursue a Request for Proposal (RFP), using a two-stage rubric that produces a numeric score, a pursue/no-bid recommendation, and structured notes that feed downstream email templates.
 audience: This skill is written to be read by both Claude (who applies the rubric) and a human teammate (who reads, sanity-checks, and edits the rubric over time).
-version: 1.11 — November 2026
+version: 1.12 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 ---
 
@@ -567,6 +567,8 @@ Notes for email debrief:
 ---
 
 ## Notes and edit history
+
+**v1.12 — November 12, 2026, J Garibay + Claude.** Only a confirmed fact fails Gate 6. A missing credential, insurance policy or registration fails it only on a not-held company-facts entry for that credential, by name, confirmed within a year; anything unconfirmed leaves the gate open and is still scored. Otherwise Gate 6 fails only on the reference rules, a set-aside Seamgen isn't in, or work Seamgen has never delivered. A record that lists no public-sector reference yet leaves the Florida DEP standing fact in place.
 
 **v1.11 — November 12, 2026, Seamgen.** Jake has left Seamgen: the owner is now the sales team, with no single owner or approver. No change to gates, categories, points, thresholds or recommendations.
 
