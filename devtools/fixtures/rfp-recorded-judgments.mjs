@@ -71,6 +71,10 @@ export function recordedJudgment(input, overrides = {}) {
       { name: 'Agency Solicitation Specification', scope: true, evidence, documentIds: [] },
       { name: 'Addendum A - Insurance Requirements', scope: false, evidence, documentIds: [] },
     ] : [],
+    // A cover sheet (unreadScope) or a full-text packet with no documents has not read the scope.
+    ...(input.phase !== 'preliminary' ? { scopeRead: choice.unreadScope || !input.documents?.length
+      ? { read: false, reason: 'Only the portal cover sheet was supplied; the specification is separate.', evidence: [] }
+      : { read: true, reason: 'The solicitation describes the work.', evidence } } : {}),
   };
 }
 

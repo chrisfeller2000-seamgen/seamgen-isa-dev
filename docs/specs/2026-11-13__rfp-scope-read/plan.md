@@ -23,7 +23,7 @@ Alternatives considered:
      - If it is true with unread `scope: true` documents: push the `Part of the scope wasn't read: …` reason and score as usual.
    - Keep the existing checks before it: known gate failure, not open, deadline needs review without categories, document completeness, and unread documents without categories.
    - The conditional route and the final recommendation are unchanged.
-3. Rubric rule string and prompt hash, wherever `rules.rubric` is set: record the change so audits before and after can be told apart.
+3. The audit's `rules.prompt` (the system prompt's SHA-256) changes with the new rule text, so audits before and after can be told apart. The rubric label stays `Jake v1.8 + approved deadline correction`, because gates, categories and points are unchanged.
 4. `workspace/scripts/rfp-report.mjs`: check that the scope reason reaches the report's blockers and open questions in plain words. The report's internal-code filter must not swallow it.
 5. `devtools/rfp-audit.mjs`: add `Scope read` (yes/no/blank) and its reason to the Details tab. Older records without the field show blank.
 6. `workspace/skills/rfp-scoring-skill.md`: version note v1.13, plus Needs documents wording, so ISA explains an unread scope, or a scored RFP with part of its scope unread, correctly in chat.

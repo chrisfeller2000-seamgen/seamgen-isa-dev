@@ -291,6 +291,13 @@ function buyerOf(final) {
 function blockersOf(final) {
   const judgment = final?.judgments || {};
   const open = openGates(final);
+  // The scope was read but part of it wasn't (a requirements matrix, an appendix). It goes
+  // first, since every other judgment rests on the scope, and is never cut by the limit.
+  const missingScope = Array.isArray(final?.missing_scope) ? final.missing_scope.map(clean).filter(Boolean) : [];
+  const scopeLine = missingScope.length ? [{
+    text: firstSentence(`Part of the scope wasn't read (${missingScope.join('; ')}), so confirm it before bidding.`, BLOCKER_CHARS),
+    quote: quoteOf((judgment.requiredDocuments || []).filter(item => item?.scope && missingScope.includes(clean(item.name))).flatMap(item => item.evidence || [])),
+  }] : [];
   const lines = open.map(key => {
     const reason = final.gateReasons?.find(item => item.gate === `Gate ${key.slice(4)}`)?.reason;
     const text = !reason ? gateReason(final, key) : STOCK_GATE_REASON.test(reason) ? GATE_PLAIN[key] || '' : openIssue(reason);
@@ -308,7 +315,7 @@ function blockersOf(final) {
   }
   const compliance = judgment.categories?.compliance;
   if (compliance?.band === 'unfamiliar' && compliance.reason) lines.push({ text: plainReason(compliance.reason, BLOCKER_CHARS), quote: quoteOf(compliance.evidence) });
-  return lines.filter(line => line.text).slice(0, MAX_BLOCKERS);
+  return [...scopeLine, ...lines.filter(line => line.text)].slice(0, MAX_BLOCKERS);
 }
 
 // The agency's own RFP number from HigherGov (`source_id`), as Jake showed it ("RFP No. 561").

@@ -76,7 +76,7 @@ Acceptance:
   - the model check includes all four cover-sheet cases.
 - **A Strong Pursue on a partly read scope.** Chosen on November 13 over capping at Worth a look, so a real pursue missing only a matrix or appendix still reaches the team. The blocker tells them what to confirm before bidding. If such a pursue turns out wrong, capping is the fallback.
 - **Over-correction the other way.** Narrowing `scope` could relabel a real addendum that replaces the scope. The prompt keeps that exception.
-- **Answer-format change.** The prompt hash and rubric rule string change, so audit files before and after are distinguishable. Old audit records have no `scopeRead`; `rfp:audit` must show them as blank, not fail.
+- **Answer-format change.** The prompt hash changes, so audit files before and after are distinguishable. Old audit records have no `scopeRead`; `rfp:audit` must show them as blank, not fail.
 - **No new outbound effects.** The change can move an RFP from Couldn't check yet to Worth a look or Strong Pursue, which changes who appears in the Friday pursue email. That only takes effect after a reviewed deployment.
 
 ## References

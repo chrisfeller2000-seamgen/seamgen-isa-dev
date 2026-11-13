@@ -35,9 +35,24 @@ Weekly preliminary scoring can use a valid listing deadline, but remains metadat
 
 **Scope documents (October 26).** Rhode Island's PDMP RFP went to the team as a 75 Strong Pursue on October 23. HigherGov had served only the state bid board's cover sheet: dates, registration rules, and a list of attachments, with the scope in a separate "Agency Solicitation Specifications" document. The file check passed because the cover sheet is a solicitation with text. The model listed the 12 missing attachments, scored all eight categories from the cover sheet, and left Gates 2 and 6 open. The specification, downloaded by hand from the bid board behind a captcha, asks for an "out of the box" product, at least 70% configurable, replacing incumbent Bamboo Health, with prior-PDMP evidence required.
 
-At full-text depth each `requiredDocuments` entry carries `scope: true|false`. `true` means it defines the work: a specification, statement of work, or requirements list. An unread scope document makes the result **Needs documents**, with the reason `Missing scope document: …`, even when the categories were scored. Unread forms, insurance, terms and templates stay a `Missing referenced document` note. A full-text answer without `scope` is rejected and retried once.
+From October 26 to November 13, any unread document the model labelled `scope: true` made the result **Needs documents**. The model applied that label to amendments, Q&A answers, state IT policies, diagrams and requirement matrices. On November 13, seven RFPs whose solicitation had been read were held back that way, among them the week's top listing score (MA DHE Student Portal, 84, Gate 2 already passed), and the week had no Strong Pursue.
 
-A missing document can be known only from the HigherGov listing ("see Attachment B, Statement of Work"). Since November 3 such an entry cites the listing, with empty `documentIds`, and is handled like any other missing document: a scope document makes the result **Needs documents**. Before that, only a buyer-document citation was accepted, so the answer was rejected and the RFP left unscored. A document that was supplied is still cited from the buyer documents. In the same way, a project figure found only on the listing, even the buyer's own, is scored as `inferred`, not `stated`, because `stated` needs a buyer-document citation.
+**Scope read (November 13).** At full-text depth the model answers `scopeRead: { read, reason, evidence }`: do the supplied buyer documents describe the work well enough to judge Gate 2, Gate 3 and the categories? `read: true` must cite a buyer-document excerpt; the listing can't vouch for the scope. A portal cover sheet, a summary that points to a separate specification, or forms and terms alone are `read: false`. The policy decides:
+
+- `read: false`: **Needs documents**, with the reasons `Scope not read: …` and `Missing scope document: …` for any listed scope document. This still stops the Rhode Island cover sheet.
+- `read: true` with an unread `scope: true` document: scored as usual, Strong Pursue included. The result carries `missing_scope`, its reasons say `Part of the scope wasn't read: …. Confirm it before bidding.`, and the report puts that blocker first. Capping these at Worth a look was considered and rejected, so that a real pursue missing one appendix still reaches the team.
+- `read: true` with other unread documents: scored, with a `Missing referenced document` note.
+
+Each `requiredDocuments` entry still carries `scope: true|false`, now narrowed. `true` is only for a specification, statement of work, or functional or technical requirements the work description depends on. The following are `false`:
+
+- amendments, addenda and Q&A answers, unless one replaces the scope;
+- external standards, policies, codes and laws;
+- figures and diagrams;
+- forms, insurance, terms and templates.
+
+A full-text answer without `scope` or `scopeRead`, or with `read: true` and no buyer-document citation, is rejected and retried once. The weekly audit keeps `scopeRead` in each full-text judgment, and the `rfp:audit` Details tab shows it as **Scope read**. See the [task spec](../../specs/2026-11-13__rfp-scope-read/spec.md) for the evidence.
+
+A missing document can be known only from the HigherGov listing ("see Attachment B, Statement of Work"). Since November 3 such an entry cites the listing, with empty `documentIds`, and is handled like any other missing document under the rules above. Before that, only a buyer-document citation was accepted, so the answer was rejected and the RFP left unscored. A document that was supplied is still cited from the buyer documents. In the same way, a project figure found only on the listing, even the buyer's own, is scored as `inferred`, not `stated`, because `stated` needs a buyer-document citation.
 
 Open Gates 2 and 6 are unchanged: after the documents are read, they pass with a note like any other open gate. October 26 briefly made them **Needs review** (never a Strong Pursue); that was withdrawn on October 30 because it would also hold back a real Strong Pursue whose full specification was read but whose eligibility question was still unanswered. The scope-document rule above already stops the Rhode Island case.
 

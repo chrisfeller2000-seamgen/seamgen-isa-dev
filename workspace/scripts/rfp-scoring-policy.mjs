@@ -444,6 +444,21 @@ function requiredDocuments(judgment, sources, phase) {
   return missing;
 }
 
+// After the documents are read, the judge says whether they describe the work well enough
+// to judge Gate 2, Gate 3 and the categories. Only "no" stops the score. Until November 13
+// any missing document the judge called scope stopped it, and the judge called amendments,
+// Q&A answers, state IT policies, diagrams and requirement matrices scope: that week 7 RFPs
+// whose solicitation had been read were left at Needs documents. A "yes" must quote a
+// supplied buyer document, so a listing or nothing at all can't vouch for the scope.
+function scopeRead(judgment, sources, phase) {
+  if (phase === 'preliminary') return null;
+  const scope = judgment.scopeRead;
+  if (!scope || typeof scope !== 'object' || typeof scope.read !== 'boolean') throw new Error('Full-text answers must say whether the scope was read at scopeRead.read.');
+  if (!norm(scope.reason)) throw new Error('Missing reason at scopeRead.reason.');
+  cite(scope.evidence, sources, { required: scope.read, kind: 'document', at: 'scopeRead.evidence' });
+  return scope;
+}
+
 // Validates each category's band and grounding; returns their points.
 function categoryPoints(categories, sources) {
   if (!categories || Object.keys(categories).sort().join() !== [...keys, 'timeline'].sort().join()) throw new Error('Expected exactly eight scoring categories.');
@@ -588,6 +603,7 @@ export function finalizeRfpScore(input, judgment) {
   // route before demanding categories the model rightly left unscored. A caller
   // can only make completeness stricter than the supplied documents show.
   const missing = requiredDocuments(judgment, sources, phase);
+  const scope = scopeRead(judgment, sources, phase);
   const completeness = input.completeness?.complete === false ? input.completeness : documentEvidence(input.documents);
   if (phase === 'full-text' && !completeness.complete) return { ...base, recommendation: 'Needs documents', document_status: 'partial-documents' };
   // The solicitation was read, but it refers to a document we don't have (an exhibit, a
@@ -595,16 +611,26 @@ export function finalizeRfpScore(input, judgment) {
   // model couldn't score the categories without it.
   const unread = phase === 'full-text' ? missing.filter(item => !item.documentIds.length) : [];
   if (unread.length && !judgment.categories) return { ...base, recommendation: 'Needs documents', document_status: 'partial-documents' };
-  // A missing form is a blocker to note; a missing scope document means the scope was never
-  // read. October 23: HigherGov served only Rhode Island's bid-board cover sheet for its PDMP
-  // RFP, the specification and requirements appendix sat on the state portal, and the cover
-  // sheet scored Strong Pursue. The specification asked for an out-of-the-box product.
+  // A score needs the scope to have been read. October 23: HigherGov served only Rhode
+  // Island's bid-board cover sheet for its PDMP RFP, the specification sat on the state
+  // portal, and the cover sheet scored Strong Pursue. The specification asked for an
+  // out-of-the-box product. A cover sheet is scopeRead.read false, so it stops here.
   const unreadScope = unread.filter(item => item.scope);
-  if (unreadScope.length) {
-    base.reasons.push(`Missing scope document: ${unreadScope.map(item => item.name).join('; ')}.`);
+  const unreadOther = unread.filter(item => !item.scope);
+  if (scope && !scope.read) {
+    base.reasons.push(`Scope not read: ${norm(scope.reason)}`);
+    if (unreadScope.length) base.reasons.push(`Missing scope document: ${unreadScope.map(item => item.name).join('; ')}.`);
     return { ...base, recommendation: 'Needs documents', document_status: 'partial-documents' };
   }
-  if (unread.length) base.reasons.push(`Missing referenced document: ${unread.map(item => item.name).join('; ')}.`);
+  // The scope was read, but a document that is part of it wasn't (a requirements matrix,
+  // an appendix). The RFP is scored as usual, Strong Pursue included, and the report lists
+  // it as a blocker to confirm before bidding. Chosen on November 13 over capping it at
+  // Worth a look, so a real pursue missing one appendix still reaches the team.
+  if (unreadScope.length) {
+    base.missing_scope = unreadScope.map(item => item.name);
+    base.reasons.push(`Part of the scope wasn't read: ${base.missing_scope.join('; ')}. Confirm it before bidding.`);
+  }
+  if (unreadOther.length) base.reasons.push(`Missing referenced document: ${unreadOther.map(item => item.name).join('; ')}.`);
   if (phase === 'preliminary' && missing.length) base.reasons.push(`Documents to retrieve: ${missing.map(item => item.name).join('; ')}.`);
 
   const categories = categoryPoints(judgment.categories, sources);

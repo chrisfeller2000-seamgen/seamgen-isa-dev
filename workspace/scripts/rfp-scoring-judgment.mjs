@@ -58,8 +58,11 @@ const OUTPUT_CONTRACT = {
     name: 'buyer-issued solicitation/scoring attachment required for review, not bidder-created reference letters, cost proposals or company certificates; at preliminary depth, a document to retrieve, cited from the metadata listing; at full-text depth, cited from the buyer document that refers to it, or from the metadata listing when only the listing names a document that was not supplied',
     evidence: EVIDENCE,
     documentIds: ['source IDs such as doc-1 containing the actual attachment text, not merely the RFP referring to it; empty when missing'],
-    scope: 'boolean at full-text depth: true when the document defines the work (specification, statement of work, scope, requirements or technical requirements); false for forms, insurance, terms, cost templates, attestations and checklists',
+    scope: 'boolean at full-text depth: true only when the work description depends on it (specification, statement of work, functional or technical requirements); false for amendments, addenda and Q&A answers unless one replaces the scope, external standards, policies, codes and laws the buyer refers to, figures and diagrams, forms, insurance, terms, cost templates, attestations and checklists',
   }],
+  scopeRead: { read: 'boolean at full-text depth: true when the supplied buyer documents describe the work in enough detail to judge Gate 2, Gate 3 and the categories; false for a portal cover sheet, a solicitation summary that points to a separate scope, or only forms and terms',
+    reason: 'one sentence: which supplied document describes the work, or what is missing',
+    evidence: 'when read is true, buyer-document excerpts that describe the work; may be empty when false' },
   conditional: 'null or {rule: 2|2a, question, qaStatus: open|closed|unknown, qaDueDate: verified YYYY-MM-DD or null, qaBasis: deadline|confirmed-none-posted|unknown, commercialOnly: boolean, evidence: []}. Confirmed-none-posted requires actual document evidence, not missing metadata. For a conditional gate set gate2 null, not an approved pass.',
   subrules: {
     product: { hardProductObligations: 'boolean or null; existing installs / mandatory demos', partner: 'null or {name, verified:true, sellsThroughIntegrators:true, evidence:company citations}', evidence: [] },
@@ -151,7 +154,12 @@ const SYSTEM_RULES = [
   'Unless a gate is known false, return all eight categories at metadata depth and list the buyer documents to retrieve in requiredDocuments, citing metadata.',
   'At full-text depth, if a gate remains unknown, still return all eight category judgments; the open gate is listed as a blocker.',
   'Categories may be omitted only when a gate is known false or the bid is not open. A referenced document that was not supplied, or an unconfirmed deadline, still gets all eight categories: score from the supplied documents and list the missing document in requiredDocuments.',
-  'At full-text depth, mark each requiredDocuments entry scope true or false. A portal cover sheet or solicitation summary that points to a separate specification, scope of work or requirements document is not the scope: list that document with scope true. When only the metadata listing names a required document that was not supplied, list it with empty documentIds, citing the metadata excerpt.',
+  // November 13: the model called amendments, Q&A answers, state IT policies and diagrams
+  // scope, and each one held back an RFP whose solicitation had been read. Only an unread
+  // scope (scopeRead.read false) stops the score now; keep these examples so the label
+  // doesn't widen again.
+  'At full-text depth, give scopeRead: read is true when the supplied buyer documents describe the work in enough detail to judge Gate 2, Gate 3 and the categories, citing the excerpts that describe it; false when the supplied documents are only a portal cover sheet, a solicitation summary that points to a separate specification, scope of work or requirements document, or forms and terms.',
+  'At full-text depth, mark each requiredDocuments entry scope true or false. scope is true only for a specification, statement of work, or functional or technical requirements the work description depends on. Amendments, addenda and Q&A answers (unless one replaces the scope), external standards, policies, codes and laws the buyer refers to, and figures or diagrams are scope false. When only the metadata listing names a required document that was not supplied, list it with empty documentIds, citing the metadata excerpt.',
   'Never invent evidence to fill categories.',
   'If the packet includes previousAnswerRejected, your previous answer failed validation for that reason: return the complete corrected JSON object.',
   'buyer is for the sales email and never affects gates or points: give currentSolution only when the supplied text names what is in place today, citing that text; otherwise null.',

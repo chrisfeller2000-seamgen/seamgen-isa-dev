@@ -199,6 +199,9 @@ test("the workbook's two tabs list the same RFPs in the same order: plain words 
   assert.match(details[1]['Gate notes'], /^Custom build \(fail\): Recorded test Gate 2 judgment/);
   assert.equal(details[0]['Case study /25'], 20);
   assert.equal(details[0]['Documents read'], '2 of 2');
+  assert.equal(details[0]['Scope read'], 'yes: The solicitation describes the work.');
+  // Never scored from documents, or an audit from before November 13: blank, not an error.
+  assert.equal(details[2]['Scope read'], '');
 
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'isa-audit-workbook-'));
   try {
