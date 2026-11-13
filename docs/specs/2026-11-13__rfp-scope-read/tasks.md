@@ -11,4 +11,5 @@
 - [x] Docs: `document-qualification.md` scope section; `rfp-scoring-skill.md` v1.13; specs README entry.
 - [x] Run `npm test` (231 pass) and `npm run check`; review the diff; fixtures use invented RFP names only.
 - [x] With approval only: model check of the 13 spec cases on the VM (one-off runner like `score-sample.mjs`). All 13 matched; results in `implementation.md`.
-- [ ] With an explicit deployment request only: guarded deploy, then compare the next Friday audit.
+- [x] Deployed November 13 with #48 (`8e35527`); see `implementation.md`.
+- [ ] Compare the November 20 audit with November 13 (scope-read stops, `scopeRead` rejections, blocker wording).
