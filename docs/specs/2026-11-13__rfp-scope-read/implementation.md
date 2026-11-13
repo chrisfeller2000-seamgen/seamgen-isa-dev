@@ -35,3 +35,30 @@
 2. **Danville.** The model did not list the evaluation workbook as scope, so there was no "part of the scope wasn't read" blocker. Its `scopeRead.reason` names the workbook as unread. The spec expected the blocker. The result is the same either way, because Danville goes to Ask the Agency.
 3. **The blocker path is untested on real data.** No real case produced `missing_scope`, so that path is covered only by the offline tests.
 4. **An existing wording problem.** The Student Portal's first report blocker reads "No current company record establishes it." The Gate 6 sentence extraction drops the subject (ITS81 Category 3 membership). This predates the change and belongs in a separate fix.
+
+   Fixed in #48 (`openIssue` in `rfp-report.mjs`): a gate reason "X, but Y" is kept whole when X states the requirement or Y points back to it. The blocker now reads "ITS81 Category 3 membership is mandatory, but no current company record establishes it."
+
+## Release, November 13
+
+**What was deployed**
+- Commit `8e35527` on `main`: #47 (this change) and #48 (the blocker wording fix).
+- Uploaded with `npm run live:deploy -- --apply` at 21:57 UTC.
+- Four files: `scripts/rfp-report.mjs`, `scripts/rfp-scoring-judgment.mjs`, `scripts/rfp-scoring-policy.mjs`, `skills/rfp-scoring-skill.md` (v1.13).
+- Nothing was restarted. The Friday job loads these files fresh on each run.
+
+**Before upload**
+- `npm test` passed (232) and `npm run check` was clean.
+- `live:pull` showed no VM changes since the accepted baseline, and only these four files differed.
+- No RFP job was running on the VM.
+
+**After upload**
+- `live:pull` showed no differences between the repo and the VM.
+- The three scripts load on the VM.
+- The deployed files contain `scopeRead`, the blocker fix, and skill v1.13.
+
+**Backup:** `/home/azureuser/.openclaw/workspace/backups/dev-deploy-2026-11-13T21-57-08-977Z-8e35527`. To roll back, copy the four files back from it; the tool doesn't do this automatically.
+
+**Not yet observed:** no scheduled run has used the new code. The first is the Friday job on November 20 at 12:00 UTC (`run-new-rfp-qualification-cron.sh`). Compare its audit (`npm run rfp:audit -- 2026-11-20`) with November 13's:
+- how many RFPs were read at full text but still stopped at Needs documents, and their `scopeRead` reasons;
+- any answers rejected at `scopeRead`;
+- whether open-gate blockers read as whole sentences.
