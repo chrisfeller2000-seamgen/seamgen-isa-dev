@@ -4,7 +4,7 @@ purpose: Turn an RFP's technical asks into a per-operation checklist for a named
 audience: Written to be read by both Claude (who builds the checklist) and a human teammate (who edits the recipe over time). The OUTPUT is written for a named lead engineer.
 version: 1.0 — July 2026
 owner: Jake (Seamgen)
-depends_on: the full RFP (for verbatim extraction), rfp-scoring output (Category 1 case-study match), and `resources/proposal-sources/Proposal - Case Studies.txt` + `resources/resumes/` for what the record already claims. Feeds rfp-meeting-brief (Blockers, Five Key Points), rfp-solution-landscape (our viable role) and eventually the proposal itself.
+depends_on: the full RFP (for verbatim extraction), rfp-scoring output (Category 1 case-study match), and `resources/proposal-sources/Proposal - Case Studies.txt` + `resources/proposal-sources/Proposal - People.txt` for what the record already claims. Feeds rfp-meeting-brief (Blockers, Five Key Points), rfp-solution-landscape (our viable role) and eventually the proposal itself.
 ---
 
 # Capability Verification Skill
@@ -96,7 +96,7 @@ That is not one capability. It is **three** — render a map, edit parcel geomet
 
 On Suwannee, Seth Lutske is the technical lead and the natural contact — but **Pete Nystrom wrote the FDEP GIS back end**, and only Pete could answer rows 2 and 3. Seth's hedge (*"Pete would know more"*) was the system telling us the routing was wrong, and it was recorded as an answer instead.
 
-Before sending, check `resources/proposal-sources/Proposal - Case Studies.txt` and `resources/resumes/` for who is attached to the closest project. Where the record is silent — **Pete's bio does not mention GIS at all**, despite his having built it — say so in the ask, and fix the record afterwards.
+Before sending, check `resources/proposal-sources/Proposal - Case Studies.txt` and `resources/proposal-sources/Proposal - People.txt` for who is attached to the closest project. Where the record is silent — **Pete's bio does not mention GIS at all**, despite his having built it — say so in the ask, and fix the record afterwards.
 
 Where two people split the work (front end / back end), **send to both and say which rows you expect each to own.**
 

@@ -116,7 +116,7 @@ Items Seamgen always includes regardless of whether the RFP asks for them, per A
 
 - Seamgen company overview / capabilities statement
 - **Relevant case studies** — pick from the clean case-study library at `resources/proposal-sources/Proposal - Case Studies.txt`, applying the **adjacent-experience principle** (rfp-scoring Category 1): choose the *closest real* Seamgen projects and frame each as transferable to this RFP's ask ("we built X → we can do Y"). Never invent a project; if a match is a stretch, present it as adjacent/transferable, not a direct claim.
-- **Team resumes** — pull from `resources/proposal-sources/Proposal - People.txt` (or the individual bio files in `resources/resumes/`); generate a new resume in the same format for anyone not already covered.
+- **Team resumes** — use only current staff from `MEMORY.md`, with bios from `resources/proposal-sources/Proposal - People.txt`. Write the paragraph about this RFP; keep the rest of each bio as written. If someone the team needs isn't in the file, list them as missing and ask Marianne. Never write a bio from memory or adapt another person's.
 - Standard past performance references
 
 Cross-check the Playbook for the current standard list. If the Playbook lists items and the RFP already required them, note that in the item description — don't double-list.

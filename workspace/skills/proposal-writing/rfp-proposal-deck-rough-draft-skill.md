@@ -4,7 +4,7 @@ purpose: Turn an RFP's submission checklist plus available materials into a **re
 audience: Written for both Claude (who plans and assembles the draft) and Jake (who gathers the content/images and reviews it). This rough draft is an INTERNAL review artifact for Marianne/Peter and the team — not yet the client-facing submission.
 version: 1.4 — July 2026 (post-submission lessons folded in)
 owner: Jake (Seamgen)
-depends_on: rfp-submission-checklist skill (defines the required contents + the "Forms to extract, complete & sign" list the deck's Appendix mirrors), the RFP itself, and resources/proposal-sources/ (Proposal - Case Studies.txt, Proposal - People.txt, Proposal - Assets.txt, Adan's RFP Playbook), resources/resumes/ (individual bios), and resources/proposal-templates/ (the example proposal decks that define house style). Reads technical content from the rfp-engineering-brief output when one exists.
+depends_on: rfp-submission-checklist skill (defines the required contents + the "Forms to extract, complete & sign" list the deck's Appendix mirrors), the RFP itself, and resources/proposal-sources/ (Proposal - Case Studies.txt, Proposal - People.txt, Proposal - Assets.txt, Adan's RFP Playbook), and resources/proposal-templates/ (the example proposal decks that define house style). Reads technical content from the rfp-engineering-brief output when one exists.
 ---
 
 # Proposal Deck Skill — Rough Draft (iteration 1)
@@ -48,7 +48,7 @@ Three upgrades that make the Approach section land — from Marianne's direction
 The whole point of the rough draft is to show the shape of the entire proposal early **without fabricating anything that requires human data, analysis, or sign-off.** For each section, decide which of three treatments applies:
 
 **1. FILL — Claude generates it, grounded in `resources/` + the RFP.** Everything whose substance Claude can responsibly write or spin from real sources:
-- Cover · Table of Contents · cover-letter body (firm intro, understanding, compliance statement) · Understanding of the need · Approach / positioning · Platform (or solution) capabilities · Payments/PCI **approach** · Accessibility **approach** · Data-migration **approach** · Value & innovation · Organization & Staffing narrative + org chart · Team cards (real bios from `resources/resumes/`) · Prior Experience · Case studies (spun from **real** projects) · Quality-Control plan · Project-schedule **structure** (built from the RFP's own dates) · Acceptance-of-conditions narrative.
+- Cover · Table of Contents · cover-letter body (firm intro, understanding, compliance statement) · Understanding of the need · Approach / positioning · Platform (or solution) capabilities · Payments/PCI **approach** · Accessibility **approach** · Data-migration **approach** · Value & innovation · Organization & Staffing narrative + org chart · Team cards (current staff from `MEMORY.md`, bios from `Proposal - People.txt`; missing bios listed, never written) · Prior Experience · Case studies (spun from **real** projects) · Quality-Control plan · Project-schedule **structure** (built from the RFP's own dates) · Acceptance-of-conditions narrative.
 
 **2. INLINE FILLER — keep as a visible placeholder.** Small, obvious unknowns that don't mislead and are cheap to swap later. Fine to leave in a rough draft:
 - Headshots (`[IMAGE: headshot — Name]`) · the PM's name · effort-% per person · firm phone/email/address/tax ID · reference-contact names/phones.
