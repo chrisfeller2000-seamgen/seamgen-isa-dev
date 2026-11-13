@@ -17,7 +17,7 @@
   - Chris Feller
   - Yulieth Ramsey
   - Oleg Gorbatchev
-- Roles last seen in people docs and the org chart, not reconfirmed: Pete Nystrom, VP Development; Seth Lutske, Full Stack Engineer / Technical Lead; Amy Brown, Technical Lead / Architect; Hoda Zaker, UX Lead / accessibility specialist; Alec Prassinos, Back End Developer; Frank Garcia, Front End Developer; Chris Feller, Full-Stack Software Engineer; Yulieth Ramsey, Software Engineer; Oleg Gorbatchev, Senior Software Engineer (iOS and React Native).
+- Each person's role and bio are in `resources/proposal-sources/Proposal - People.txt` (added 2026-11-12). Its roles haven't been reconfirmed with each person, so confirm before a submission. Where the org chart or the Drive deck gives a different title, use the People file.
 - No longer at Seamgen: Marc Alringer (former CEO), Katie Bielawiec, Josh Kirkland, Scott Sanders, Bryer Cole, Trevor Keller and Jake. Never propose them as key personnel or route work to them.
 - The Drive "Proposal - People" deck and the org chart in `resources/proposal-sources/Proposal - Assets.txt` both still list people who have left. Only the people in the current list above are still at Seamgen. Build team sections from that list.
 - Bios come from `resources/proposal-sources/Proposal - People.txt`. If someone isn't in it, or the file is missing, say so and ask Marianne. Don't write a bio or resume from memory or from another person's text.
