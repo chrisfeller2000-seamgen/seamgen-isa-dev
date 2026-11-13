@@ -1,6 +1,6 @@
 import { assessDeadline, createAssessmentContext, parseDeadlineDate, timelinePoints } from './rfp-deadline.mjs';
 import { classifyDocumentRecord, evaluateDocumentCompleteness } from './highergov-document-flow.mjs';
-import { COMPANY_FACTS_SOURCE_ID, factCurrency, factFromQuote } from './rfp-company-facts.mjs';
+import { COMPANY_FACTS_SOURCE_ID, factCurrency, factFromQuote, notHeldCurrency } from './rfp-company-facts.mjs';
 
 export const CATEGORY_BANDS = {
   caseStudy: { clone: [25, 25], sameCapability: [18, 24], adjacent: [12, 17], remote: [6, 11], none: [0, 5] },
@@ -160,9 +160,14 @@ const GOVERNMENT_REFERENCES = 1;
 // record this is Jake's standing fact. With it, only references confirmed available
 // within the last year count; a listed but unconfirmed one leaves Gate 6 open to
 // reconfirm rather than failing it, because the client may well still agree.
+// A record that lists no public-sector reference at all (one still being filled in,
+// say) says nothing about references, so the standing fact applies as if it were
+// absent. Listing Florida DEP as unavailable is what retires the standing fact.
 function referenceCeiling(sources, assessmentDate) {
   const record = sources.get(COMPANY_FACTS_SOURCE_ID);
-  if (!Array.isArray(record?.facts)) return { government: GOVERNMENT_REFERENCES, public: Infinity, listed: 0, toConfirm: [] };
+  const standing = { government: GOVERNMENT_REFERENCES, public: Infinity, listed: 0, toConfirm: [] };
+  if (!Array.isArray(record?.facts)) return standing;
+  if (!record.facts.some(fact => fact.type === 'reference' && fact.clientType !== 'commercial')) return standing;
   const publicRefs = record.facts.filter(fact => fact.type === 'reference' && fact.clientType !== 'commercial' && fact.status !== 'unavailable');
   const current = publicRefs.filter(fact => factCurrency(fact, assessmentDate).current);
   return { government: current.filter(fact => fact.clientType === 'government').length, public: current.length,
@@ -180,6 +185,25 @@ function heldCredentialRecord(claim, sources, assessmentDate) {
   const checks = facts.map(fact => factCurrency(fact, assessmentDate));
   return checks.some(check => check.current) ? null : checks[0].reason;
 }
+
+// "Seamgen doesn't hold this" fails Gate 6 only when the claim cites a not-held entry
+// in the company facts record, confirmed within the last year, for the same credential
+// by name. Unconfirmed insurance, an Esri partnership nobody has checked, or a not-held
+// entry for a different credential (an individual Esri certification is not a company
+// Esri partnership) leave the gate open with what to confirm. Returns null when the
+// record settles it, otherwise the note for the report.
+function notHeldCredentialRecord(claim, sources, assessmentDate, at) {
+  const evidence = Array.isArray(claim.companyEvidence) ? claim.companyEvidence : [];
+  if (evidence.length) cite(evidence, sources, { kind: 'company', at: `${at}.companyEvidence` });
+  const name = norm(claim.name).toLowerCase();
+  const facts = evidence.map(item => factFromQuote(sources.get(item.sourceId), item.quote))
+    .filter(fact => fact && fact.type !== 'reference' && fact.status === 'not-held' && norm(fact.name).toLowerCase() === name);
+  const checks = facts.map(fact => notHeldCurrency(fact, assessmentDate));
+  if (checks.some(check => check.current)) return null;
+  return checks.length ? `Reconfirm ${checks[0].reason}.`
+    : `Confirm whether Seamgen holds ${norm(claim.name)}; the company facts record doesn't confirm it is not held.`;
+}
+
 const BID_STATUS = { open: null, closed: 'Not an open bid', watch: 'Watch item' };
 
 function sourceMap(input) {
@@ -243,6 +267,9 @@ function applySubrules(gate, judgment, sources, timeline, notes = []) {
   }
 
   // Gates 6/6a: actual mandatory qualifications and the public-sector reference ceiling.
+  // `failed` records a Gate 6 failure one of these rules settles. The judge's own
+  // "fail" on Gate 6 stands only when one does (see the end of this function).
+  let failed = false;
   if (eligibility.publicReferences !== null && (!Number.isInteger(eligibility.publicReferences) || eligibility.publicReferences < 0)) {
     throw new Error('Invalid public-sector reference count.');
   }
@@ -252,7 +279,10 @@ function applySubrules(gate, judgment, sources, timeline, notes = []) {
     }
     requireNamedPartner(eligibility.partner, sources, 'Reference', 'subrules.eligibility.partner');
   }
-  if (eligibility.publicReferences >= 3 && (!eligibility.partner || eligibility.partner.governmentReferences < eligibility.publicReferences)) gate.gate6 = false;
+  if (eligibility.publicReferences >= 3 && (!eligibility.partner || eligibility.partner.governmentReferences < eligibility.publicReferences)) {
+    gate.gate6 = false;
+    failed = true;
+  }
   if (eligibility.publicReferences > 0 && eligibility.publicReferences < 3 && !eligibility.partner) {
     cite(eligibility.companyEvidence, sources, { kind: ['company', 'case-study'], at: 'subrules.eligibility.companyEvidence' });
     // Jake's standing fact covers one; a second needs the model to confirm the RFP accepts it.
@@ -263,26 +293,38 @@ function applySubrules(gate, judgment, sources, timeline, notes = []) {
     if (!Number.isInteger(available) || available < eligibility.publicReferences) {
       const reconfirm = eligibility.publicReferences <= ceiling.listed;
       gate.gate6 = claimed === null || reconfirm ? null : false;
+      if (gate.gate6 === false) failed = true;
       if (reconfirm && ceiling.toConfirm.length) notes.push(`Public-sector references to reconfirm: ${ceiling.toConfirm.join('; ')}.`);
     }
   }
-  if (![true, false, null].includes(eligibility.meetsMandatoryQualifications)) throw new Error('Invalid qualification assessment.');
-  if (eligibility.meetsMandatoryQualifications === false) gate.gate6 = false;
-  if (eligibility.meetsMandatoryQualifications === null || eligibility.publicReferences === null) gate.gate6 = gate.gate6 === false ? false : null;
+  const qualifications = eligibility.meetsMandatoryQualifications;
+  if (![true, false, null].includes(qualifications)) throw new Error('Invalid qualification assessment.');
+  if (eligibility.publicReferences === null) gate.gate6 = gate.gate6 === false ? false : null;
   // The real case-study library is company evidence for past delivery and
   // references. Named/current credentials and partners still need their
   // separate company-record checks, not a project keyword.
-  if (eligibility.meetsMandatoryQualifications === true && eligibility.requiresCompanyProof) {
+  if (qualifications === true && eligibility.requiresCompanyProof) {
     cite(eligibility.companyEvidence, sources, { kind: ['company', 'case-study'], at: 'subrules.eligibility.companyEvidence' });
   }
-  if (!eligibility.credentials) return;
-  if (!Array.isArray(eligibility.credentials)) throw new Error('Invalid credential evidence.');
-  for (const [i, claim] of eligibility.credentials.entries()) {
+  const credentials = eligibility.credentials ?? [];
+  if (!Array.isArray(credentials)) throw new Error('Invalid credential evidence.');
+  for (const [i, claim] of credentials.entries()) {
     const at = `subrules.eligibility.credentials[${i}]`;
     cite(claim.requirementEvidence, sources, { at: `${at}.requirementEvidence` });
     if (!norm(claim.name) || ![true, false, null].includes(claim.held)) throw new Error('Invalid credential claim.');
-    if (claim.held !== true) {
-      gate.gate6 = claim.held === false || gate.gate6 === false ? false : null;
+    if (claim.held === null) {
+      gate.gate6 = gate.gate6 === false ? false : null;
+      continue;
+    }
+    if (claim.held === false) {
+      const open = notHeldCredentialRecord(claim, sources, timeline.assessmentDate, at);
+      if (open) {
+        gate.gate6 = gate.gate6 === false ? false : null;
+        notes.push(open);
+      } else {
+        gate.gate6 = false;
+        failed = true;
+      }
       continue;
     }
     if (!norm(claim.holder) || parseDeadlineDate(claim.verifiedDate).status !== 'valid' || claim.verifiedDate > timeline.assessmentDate) {
@@ -296,6 +338,28 @@ function applySubrules(gate, judgment, sources, timeline, notes = []) {
     if (lapsed) {
       gate.gate6 = gate.gate6 === false ? false : null;
       notes.push(`Reconfirm ${lapsed}.`);
+    }
+  }
+
+  // "Seamgen can't meet the mandatory qualifications" fails Gate 6 only on a basis that
+  // doesn't rest on an unconfirmed fact: a credential the record confirms is not held
+  // (settled above), an award limited to set-aside categories Seamgen isn't in (it is
+  // Other Than Small Business), or work Seamgen has never delivered.
+  if (qualifications === null) gate.gate6 = gate.gate6 === false ? false : null;
+  const basis = qualifications === false ? eligibility.failureBasis ?? null : null;
+  if (['set-aside', 'never-delivered'].includes(basis)) {
+    gate.gate6 = false;
+    failed = true;
+  }
+
+  // Anything else that says "fail" (the judge's Gate 6 answer, or a shortfall resting on
+  // insurance, a partnership or a registration nobody has confirmed) leaves the gate
+  // open: the RFP is still scored, and the report lists what to confirm.
+  if (gate.gate6 === false && !failed) {
+    gate.gate6 = null;
+    // An unconfirmed credential has already named itself above.
+    if (!credentials.some(claim => claim.held === false)) {
+      notes.push("Judged short of a mandatory qualification, but not on a confirmed company fact, a set-aside Seamgen isn't in, or work Seamgen has never delivered; confirm it before ruling the RFP out.");
     }
   }
 }

@@ -16,7 +16,7 @@ export async function fixturePolicies() {
 const decisions = {
   'three-public-references': { gate6: false, publicReferences: 3 },
   'verified-reference-partner': { publicReferences: 3, partner: true },
-  'unheld-certification': { gate6: false, qualifications: false },
+  'unheld-certification': { gate6: false, qualifications: false, notHeld: 'example-secops-cert' },
   'submission-blocked': { gate4: false, submission: 'blocked' },
   'closed-notice': { bidStatus: 'closed' },
   'value-unknown': { uncertain: true },
@@ -25,6 +25,14 @@ const decisions = {
   'ai-email': { ai: false },
   'portal-cover-sheet': { unreadScope: true },
 };
+
+// A credential the case's company-facts record confirms is not held, cited by its paragraph.
+function notHeldClaim(input, id, requirementEvidence) {
+  const record = input.companySources.find(source => source.id === 'company-facts');
+  const fact = record.facts.find(item => item.id === id);
+  const quote = record.text.split('\n\n').find(paragraph => paragraph.startsWith(`Company fact ${id} (`));
+  return { failureBasis: 'credential', credentials: [{ name: fact.name, held: false, requirementEvidence, companyEvidence: [{ sourceId: 'company-facts', quote }] }] };
+}
 
 export function recordedJudgment(input, overrides = {}) {
   const choice = { ...(decisions[input.candidate.slug || input.candidate.frontmatter.slug] || {}), ...overrides };
@@ -43,7 +51,8 @@ export function recordedJudgment(input, overrides = {}) {
       product: { hardProductObligations: false, partner: null, evidence },
       submission: { status: choice.submission || 'feasible', basis: 'feasible-registration', evidence },
       eligibility: { publicReferences: choice.publicReferences || 0, meetsMandatoryQualifications: choice.qualifications !== false, requiresCompanyProof: false, companyEvidence: company,
-        partner: choice.partner ? { name: 'Example Civic Software', verified: true, governmentReferences: 3, evidence: company } : null, evidence },
+        partner: choice.partner ? { name: 'Example Civic Software', verified: true, governmentReferences: 3, evidence: company } : null, evidence,
+        ...(choice.notHeld ? notHeldClaim(input, choice.notHeld, evidence) : {}) },
     },
     categories: {
       caseStudy: { ...points('sameCapability', 20, 'Recorded comparable Azure portal', project), project: 'Example Secure Portal' },

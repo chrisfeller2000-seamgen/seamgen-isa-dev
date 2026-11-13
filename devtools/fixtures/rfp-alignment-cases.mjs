@@ -67,6 +67,8 @@ function scoringCase(id, name, options = {}, checks = []) {
     },
     companyProfile: structuredClone(syntheticProfile),
     documents: options.documents ?? [{ file: '01-Solicitation.txt', text }],
+    // An invented company-facts record for this case only, as {version, facts}.
+    companyFacts: options.companyFacts ?? null,
     checks,
   };
 }
@@ -89,7 +91,11 @@ export const alignmentCases = [
   scoringCase('three-workshops', 'Three workshops are not a reference requirement', { extra: 'At least three stakeholder workshops are required.' }, gate(6, true, 'references')),
   scoringCase('three-public-references', 'Three public-sector references exceed the fixture profile', { extra: 'Provide 3 public-sector reference letters. The contractor has one government reference and no teaming partner.' }, gate(6, false, 'references')),
   scoringCase('verified-reference-partner', 'A verified named partner can supply three government references', { extra: 'Provide three government references. Named teaming partner Example Civic Software supplies all three, verified for this test.' }, gate(6, true, 'references')),
-  scoringCase('unheld-certification', 'A mandatory certification is explicitly not held', { extra: 'Mandatory certification: Example Security Operations Certificate. The contractor does not hold this certificate and has no qualified teaming partner.' }, gate(6, false, 'qualifications')),
+  scoringCase('unheld-certification', 'A mandatory certification is confirmed not held', {
+    extra: 'Mandatory certification: Example Security Operations Certificate. The contractor does not hold this certificate and has no qualified teaming partner.',
+    companyFacts: { version: 1, facts: [{ id: 'example-secops-cert', type: 'certification', name: 'Example Security Operations Certificate', holder: 'Example Co',
+      status: 'not-held', verifiedBy: 'Example Owner', verifiedDate: '2026-09-01', source: 'invented test check' }] },
+  }, gate(6, false, 'qualifications')),
   scoringCase('insurance-proof', 'Proof of held insurance is not a missing qualification', { extra: 'Must provide proof of insurance. The contractor holds the required insurance.' }, gate(6, true, 'qualifications')),
   scoringCase('material-custom-cots', 'COTS with 60 percent custom development is not automatically excluded', { extra: 'The scope includes a COTS component, but 60% of the work is custom build and integration; the remaining 40% is licenses.' }, gate(2, true, 'custom')),
   scoringCase('submission-blocked', 'The submission portal is closed to this contractor', { extra: 'Vendor registration closed. The portal account must already be approved. The contractor is unable to submit.' }, gate(4, false, 'submit')),

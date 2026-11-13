@@ -2,7 +2,7 @@
 name: rfp-scoring
 purpose: Evaluate whether Seamgen should pursue a Request for Proposal (RFP), using a two-stage rubric that produces a numeric score, a pursue/no-bid recommendation, and structured notes that feed downstream email templates.
 audience: This skill is written to be read by both Claude (who applies the rubric) and a human teammate (who reads, sanity-checks, and edits the rubric over time).
-version: 1.11 — November 2026
+version: 1.12 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 ---
 
@@ -181,7 +181,9 @@ Gate 2 asks what the **agency** wants. It has never asked what **we are**. Those
 
 **Never claim public-sector experience we don't have to clear this gate.** Overstating the reference bench is the one failure mode that survives scoring and then loses the bid at evaluation — or worse, wins it dishonestly.
 
-**The company facts record decides what is current.** `resources/proposal-sources/company-facts.json` holds each registration, certification, insurance policy and public-sector reference. Each entry records its status, who confirmed it, when, and where the proof is kept. A credential counts as held today only when its entry says *held*, it was confirmed within the last year, and it hasn't expired. A reference counts only when its entry says *available* under the same rule. When the record is present, its confirmed references replace the one-reference standing fact above. A listed reference that hasn't been reconfirmed leaves Gate 6 open, with the client named, and doesn't fail it. The Assets file and case studies show past delivery. They never prove a credential is held today.
+**The company facts record decides what is current.** `resources/proposal-sources/company-facts.json` holds each registration, certification, insurance policy and public-sector reference. Each entry records its status, who confirmed it, when, and where the proof is kept. A credential counts as held today only when its entry says *held*, it was confirmed within the last year, and it hasn't expired. A reference counts only when its entry says *available* under the same rule. When the record is present, its confirmed references replace the one-reference standing fact above. A listed reference that hasn't been reconfirmed leaves Gate 6 open, with the client named, and doesn't fail it. A record that lists no public-sector reference yet leaves the standing fact in place. The Assets file and case studies show past delivery. They never prove a credential is held today.
+
+**Only a confirmed fact fails Gate 6.** A missing license, certification, registration, insurance policy or bond fails the gate only when the record has a *not-held* entry for that same credential, by name, confirmed within the last year. An unconfirmed entry, an old one, no entry, or a not-held entry for a different credential (an individual Esri technical certification is not a company Esri partnership) leaves Gate 6 open: the RFP is still scored, and the report says what to confirm. Apart from the reference rules above, the only other failures are a prime award limited to set-aside categories Seamgen isn't in, and work Seamgen has never delivered.
 
 **Seamgen's known qualifications** (rely on one only when its company-facts entry is current):
 - GSA Multiple Award Schedule (MAS) contract 47QTCA19D00DQ, SINs 54151S, 54151HEAL and OLM. GSA folded the old Schedule 70 into MAS, so never cite Schedule 70.
@@ -565,6 +567,8 @@ Notes for email debrief:
 ---
 
 ## Notes and edit history
+
+**v1.12 — November 12, 2026, J Garibay + Claude.** Only a confirmed fact fails Gate 6. A missing credential, insurance policy or registration fails it only on a not-held company-facts entry for that credential, by name, confirmed within a year; anything unconfirmed leaves the gate open and is still scored. Otherwise Gate 6 fails only on the reference rules, a set-aside Seamgen isn't in, or work Seamgen has never delivered. A record that lists no public-sector reference yet leaves the Florida DEP standing fact in place.
 
 **v1.11 — November 12, 2026, Seamgen.** Jake has left Seamgen: the owner is now the sales team, with no single owner or approver. No change to gates, categories, points, thresholds or recommendations.
 
