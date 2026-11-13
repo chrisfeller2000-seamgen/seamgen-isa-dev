@@ -208,6 +208,13 @@ const GATE_PLAIN = {
 // what checks out ("Relevant AI delivery is supported, …") and only then say what isn't.
 const OPEN_ISSUE = /\b(?:unverified|unconfirmed|unspecified|pending|not (?:yet )?(?:verified|established|confirmed|met|supplied|provided)|missing|unclear|unknown|lacks?|no (?:named|current)|names no|shortfall)\b/i;
 const NEEDS = /\b(?:needs?|needed|requires?|required|only)\b/i;
+// "ITS81 Category 3 membership is mandatory, but no current company record establishes it":
+// the first half names the requirement, not a strength, and the second half points back to
+// it. Trimming to the second half sent "No current company record establishes it." as the
+// MA Student Portal's top blocker in the November 13 re-score; in four weeks of audits, 19 of
+// 251 trimmed gate reasons lost their subject this way, almost all on Gate 6.
+const REQUIREMENT = /\b(?:mandatory|required|requires?|must|should|obligat\w*)\b/i;
+const POINTS_BACK = /\b(?:it|its|they|them|their|this|these|those|such)\b/i;
 
 function openIssue(reason, max = BLOCKER_CHARS) {
   const text = clean(reason).replace(RUBRIC_PREFIX, '');
@@ -215,9 +222,11 @@ function openIssue(reason, max = BLOCKER_CHARS) {
   // The model sometimes labels the open part itself ("Blocker: six references are required…").
   const labelled = sentences.find(sentence => /^\s*blocker:/i.test(sentence))?.replace(/^\s*blocker:\s*/i, '');
   let pick = labelled || sentences.find(sentence => OPEN_ISSUE.test(sentence)) || sentences.find(sentence => NEEDS.test(sentence)) || sentences[0];
-  // "Delivery is documented, but certifications are unspecified": keep only the open part.
+  // "Delivery is documented, but certifications are unspecified": keep only the open part,
+  // unless the first half is the requirement itself or the open part points back to it.
   const turn = pick.match(/^(.*?)[,;]\s*(?:but|however|yet),?\s+(.+)$/i);
-  if (turn && !OPEN_ISSUE.test(turn[1]) && (OPEN_ISSUE.test(turn[2]) || NEEDS.test(turn[2]))) pick = turn[2];
+  if (turn && !OPEN_ISSUE.test(turn[1]) && (OPEN_ISSUE.test(turn[2]) || NEEDS.test(turn[2]))
+    && !REQUIREMENT.test(turn[1]) && !POINTS_BACK.test(turn[2])) pick = turn[2];
   return plainReason(pick, max);
 }
 
