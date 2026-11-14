@@ -13,7 +13,7 @@ The weekly job in `workspace/scripts/weekly-rfp-pursue-decision.mjs` runs intake
 - **Strong pursue.**
 - **Worth a look.**
 - **Couldn't check yet:** documents missing or unreadable, or scoring didn't finish. These are never picks, whatever they could score. It also covers two RFPs with a clear next step:
-  - **"Ask the agency first":** the documents show a product buy (Jake's Gates 2 and 2a). The report gives the question to send and when the agency's questions are due.
+  - **"Ask the agency first":** the documents show a product buy (Jake's Gate 2), or ask for proof only a product vendor has, such as existing installs or demos of workflows already running in a product (Gate 2a). The report gives the question to send and when the agency's questions are due. Its wording follows the gate: "looks like a product buy" for Gate 2, "asks for proof a product vendor would have" for Gate 2a (entry field `agencyRule`). Results files from before November 13 have no `agencyRule` and keep the product-buy wording. A demo of the bidder's *proposed* design or of third-party tools is not a Gate 2a tell; see the [Gate 2a spec](../../specs/2026-11-13__rfp-gate2a-demos/spec.md).
   - **"Documents need a portal login":** the documents are on the agency's portal behind a vendor account. These come first in the Markdown, under their own heading. Each names the portal ("the documents need a free Public Purchase account to download") and gives the listing score, the HigherGov listing and the agency posting.
 
   Other missing documents say why in brackets when the posting attempt found out, such as a bot check, by email, or not listed (see [document qualification](document-qualification.md), "Agency posting").

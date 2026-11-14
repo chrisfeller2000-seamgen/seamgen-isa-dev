@@ -2,7 +2,7 @@
 name: rfp-scoring
 purpose: Evaluate whether Seamgen should pursue a Request for Proposal (RFP), using a two-stage rubric that produces a numeric score, a pursue/no-bid recommendation, and structured notes that feed downstream email templates.
 audience: This skill is written to be read by both Claude (who applies the rubric) and a human teammate (who reads, sanity-checks, and edits the rubric over time).
-version: 1.13 — November 2026
+version: 1.14 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 ---
 
@@ -113,6 +113,7 @@ Gate 2 asks what the **agency** wants. It has never asked what **we are**. Those
 
 - **One or two soft tells** → not a gate failure. Note it, and let Category 7 carry the competitive cost.
 - **Hard tells — an existing-installs requirement or mandatory demonstrations of workflows that must already exist** → route to **Conditional — Ask the Agency** (the existing state; no new one needed). The question to ask is whether a purpose-built solution qualifies, or whether a named product partner's installs satisfy the requirement.
+- **A demo is not automatically a hard tell.** Asking bidders to demonstrate their *proposed* design (a prototype, a mock-up, how the proposed search would answer sample questions) or the third-party tools they would use (an accessibility checker, an analytics package) is something a services firm can do. Count a demo as a hard tell only when it must show workflows already running in an existing product. City of Laguna Beach's website redesign (November 13) asked for exactly these services-firm demos and was wrongly sent to Ask the Agency.
 - **Hard tells AND no named teaming partner by the time the Q&A window closes** → **FAIL Gate 2.** We cannot become a product vendor inside a proposal cycle.
 
 **The teaming escape is real but must be concrete** — the same standard Gate 6a sets. Name the partner, and confirm the partner **actually sells through integrators**. On Illinois, Peter endorsed the integrator route and research then found that Tyler Technologies (which had acquired VetraSpec, so the two leading products are one vendor) and Panoramic **both sell direct**. An endorsed strategy with no willing partner is not a pass.
@@ -569,6 +570,8 @@ Notes for email debrief:
 ---
 
 ## Notes and edit history
+
+**v1.14 — November 13, 2026, J Garibay + Claude.** Gate 2a: a required demo is a hard product tell only when it must show workflows already running in an existing product. Demos of a proposed design, a prototype or third-party tools are not. On November 13 City of Laguna Beach's website redesign, scored 80 from its listing and with Gate 2 calling the scope custom work, went to Ask the Agency over a demo of its proposed search and an accessibility checker. No change to gates, categories, points or thresholds.
 
 **v1.13 — November 13, 2026, J Garibay + Claude.** After reading the documents, the scorer says whether the scope was read, and only an unread scope makes the result Needs documents. A missing amendment, Q&A answer, IT policy or diagram is a referenced document, not the scope. A missing part of the scope, such as a requirements matrix, is scored as usual with a "confirm it before bidding" blocker. On November 13, seven RFPs whose solicitation had been read were held at Needs documents by such documents, and the week had no Strong Pursue. No change to gates, categories, points or thresholds.
 
