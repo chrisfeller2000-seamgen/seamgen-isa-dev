@@ -55,12 +55,22 @@ export function driveFolderLink(value) {
 }
 
 // The Friday job replaces latest.json and clears every candidate file when it starts, so a
-// rescore must not run alongside it. Linux only (the VM); elsewhere there is nothing to check.
-async function weeklyJobRunning() {
-  const ids = await fs.readdir('/proc').catch(() => []);
-  for (const id of ids.filter(name => /^\d+$/.test(name) && Number(name) !== process.pid)) {
-    const command = await fs.readFile(`/proc/${id}/cmdline`, 'utf8').catch(() => '');
-    if (command.includes('weekly-rfp-pursue-decision.mjs') || command.includes('run-new-rfp-qualification-cron.sh')) return true;
+// rescore must not run alongside it on the same workspace. Linux only (the VM); elsewhere
+// there is no /proc and nothing to check. Only a job on this workspace counts: a test run
+// starts weekly jobs on their own temporary workspaces in parallel, and on November 14 an
+// unscoped check refused every rescore test in CI.
+export async function weeklyJobRunning({ proc = '/proc', workspace = WORKSPACE, self = process.pid } = {}) {
+  const ids = await fs.readdir(proc).catch(() => []);
+  for (const id of ids.filter(name => /^\d+$/.test(name) && Number(name) !== self)) {
+    const command = await fs.readFile(path.join(proc, id, 'cmdline'), 'utf8').catch(() => '');
+    if (!command.includes('weekly-rfp-pursue-decision.mjs') && !command.includes('run-new-rfp-qualification-cron.sh')) continue;
+    // Its workspace, as it resolves its own: WORKSPACE_DIR, else the VM default. A process
+    // whose environment can't be read counts as running, to be safe.
+    const environ = await fs.readFile(path.join(proc, id, 'environ'), 'utf8').catch(() => null);
+    if (environ === null) return true;
+    const dir = environ.split('\0').find(item => item.startsWith('WORKSPACE_DIR='))?.slice('WORKSPACE_DIR='.length)
+      || '/home/azureuser/.openclaw/workspace';
+    if (path.resolve(dir) === path.resolve(workspace)) return true;
   }
   return false;
 }

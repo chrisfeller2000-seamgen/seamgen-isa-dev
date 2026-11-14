@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { renderMarkdown } from '../workspace/scripts/rfp-report.mjs';
+import { weeklyJobRunning } from '../workspace/scripts/rfp-rescore.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const fixture = pathToFileURL(path.join(repoRoot, 'devtools', 'fixtures', 'weekly-run.mjs')).href;
@@ -121,6 +122,37 @@ test('a rescore shows the new result first, and --apply puts exactly that in the
     assert.deepEqual((await fs.readdir(path.join(reports(root), 'audit'))).sort(), ['2026-10-16-rescores.jsonl', '2026-10-16.jsonl']);
   } finally {
     await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test("only a Friday job on the rescore's own workspace stops it", async () => {
+  const proc = await fs.mkdtemp(path.join(os.tmpdir(), 'isa-proc-'));
+  const live = '/home/azureuser/.openclaw/workspace';
+  const processWith = async (id, command, environ) => {
+    await fs.mkdir(path.join(proc, id));
+    await fs.writeFile(path.join(proc, id, 'cmdline'), command.join('\0'));
+    if (environ !== undefined) await fs.writeFile(path.join(proc, id, 'environ'), environ.join('\0'));
+  };
+  try {
+    const running = options => weeklyJobRunning({ proc, self: 1, ...options });
+    await processWith('1', ['node', 'scripts/rfp-rescore.mjs', 'weekly-rfp-pursue-decision.mjs'], []);
+    await processWith('10', ['bash'], ['WORKSPACE_DIR=/tmp/other']);
+    assert.equal(await running({ workspace: live }), false);
+    // A test's weekly job on its own temporary workspace (CI, November 14).
+    await processWith('20', ['node', '/repo/workspace/scripts/weekly-rfp-pursue-decision.mjs'], ['WORKSPACE_DIR=/tmp/isa-weekly-audit-1', 'PATH=/bin']);
+    assert.equal(await running({ workspace: live }), false);
+    assert.equal(await running({ workspace: '/tmp/isa-weekly-audit-1' }), true);
+    // The cron wrapper on the VM sets no WORKSPACE_DIR, so it is the live workspace.
+    await processWith('30', ['/bin/bash', '/home/azureuser/.openclaw/workspace/scripts/run-new-rfp-qualification-cron.sh'], ['HOME=/home/azureuser']);
+    assert.equal(await running({ workspace: live }), true);
+    assert.equal(await running({ workspace: '/tmp/elsewhere' }), false);
+    // A job whose environment can't be read counts as running.
+    await processWith('40', ['node', 'weekly-rfp-pursue-decision.mjs']);
+    assert.equal(await running({ workspace: '/tmp/elsewhere' }), true);
+    // No /proc (Windows, macOS): nothing to check.
+    assert.equal(await weeklyJobRunning({ proc: path.join(proc, 'missing'), workspace: live }), false);
+  } finally {
+    await fs.rm(proc, { recursive: true, force: true });
   }
 });
 
