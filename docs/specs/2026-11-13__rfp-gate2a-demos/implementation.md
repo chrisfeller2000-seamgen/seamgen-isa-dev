@@ -22,3 +22,28 @@
 2. **Tempe became a No-bid.** That decision comes from Gate 6 (five school-district references with performance surveys), which this change doesn't touch. On November 13 the same model left Gate 6 open. It is run-to-run variation in the stricter direction, not a product buy getting through.
 3. **Laguna is now a Strong Pursue at 78**, three points over the line. Scores move about 5 points between runs, so a Friday run could land it at Worth a look. Either way it is a pick, not "Couldn't check yet".
 4. Laguna's questions are due November 17. The first scheduled run that could use this change is November 20, so this doesn't bring Laguna to sales in time by itself.
+
+## Release, November 14
+
+**What was deployed**
+- Commit `477d703` on `main` (#50).
+- Uploaded with `npm run live:deploy -- --apply` at 00:18 UTC.
+- Three files: `scripts/rfp-report.mjs`, `scripts/rfp-scoring-judgment.mjs`, `skills/rfp-scoring-skill.md` (v1.14).
+- Nothing was restarted. The Friday job loads these files fresh on each run.
+
+**Before upload**
+- `npm test` passed (232) and `npm run check` was clean.
+- `live:pull` showed no VM changes since the accepted baseline, and only these three files differed.
+- No RFP job was running on the VM.
+
+**After upload**
+- `live:pull` showed no differences between the repo and the VM.
+- `rfp-report.mjs`, `rfp-scoring-judgment.mjs`, `rfp-scoring-policy.mjs` and `weekly-rfp-pursue-decision.mjs` load on the VM.
+- The deployed files contain the Gate 2a rule, the `agencyVendor` wording, and skill v1.14.
+
+**Backup:** `/home/azureuser/.openclaw/workspace/backups/dev-deploy-2026-11-14T00-18-47-848Z-477d703`. To roll back, copy the three files back from its `original/` folder; the tool doesn't do this automatically.
+
+**Not yet observed:** no scheduled run has used the new code. The first is the Friday job on November 20 at 12:00 UTC, which also carries the scope-read change (#47). Compare its audit (`npm run rfp:audit -- 2026-11-20`) with November 13's:
+- the ask-the-agency entries, their `conditional.rule`, and whether any Gate 2a case cites only a demo of a proposed design or a third-party tool;
+- that real product buys (ERP, HRIS, LMS and similar) still go to the agency or fail Gate 2, not to the picks;
+- that Gate 2a entries read "asks for proof a product vendor would have".
