@@ -68,6 +68,26 @@ The workbook needs `exceljs`, the repo's only dependency (dev-only, `npm ci`); t
 
 `RFP_DELIVERY=preview` writes the same files plus the email and Telegram text (`<run date>-email.html`, `<run date>-telegram.md`), but sends nothing and creates no Drive folders. It still runs intake, so use it only with an isolated `WORKSPACE_DIR`. To review the wording without running the job, use `npm run rfp:preview -- <results file>` (add `--isa` for ISA's own words).
 
+## Rescoring one RFP mid-week
+
+`workspace/scripts/rfp-rescore.mjs` rescores one RFP from the week's report with the current scoring code. It exists because a scoring fix that lands mid-week otherwise waits for an RFP that never comes back: the Friday run only pulls listings captured since the last run. On November 13 City of Laguna Beach's website redesign was held back by a Gate 2a misread fixed the next day, and the only way to correct the report was to re-run the whole week.
+
+It runs in two steps, on the VM:
+
+1. `node scripts/rfp-rescore.mjs <slug>` makes the same listing and full-text scoring calls as the Friday run. It reads the listing from `candidate.md` and the documents already saved in `resources/`. It prints the before and after, and saves the new result in `reports/new-rfp-qualification/rescore/<slug>.json`. Nothing else changes.
+2. `node scripts/rfp-rescore.mjs <slug> --apply` writes that saved result, with no new model call, so what was shown is what is applied. It updates:
+   - the RFP's entry, the counts, and a `rescores` list (before, after and date) in `<run date>.json` and `.md`, plus `latest.*` while that is the same run. The Markdown ends with "Rescored after the Friday run", saying the email and Telegram message didn't include the new result;
+   - the RFP's `candidate.md`, with the same fields the Friday run writes;
+   - `audit/<run date>-rescores.jsonl`, one line per apply, with `rescore.before`. The week's own audit file keeps one line per listing.
+
+Other behavior:
+- **Deadlines** count from the day of the rescore; `--date` sets another day.
+- **Drive link:** `--drive-folder <link or ID>` sets the RFP's link; otherwise the Friday entry's link and HubSpot match are kept.
+- **Never:** it never downloads documents, reads the agency posting, creates Drive folders, looks up HubSpot, sends the pursue email, or posts to Telegram. The week's `email` and `telegram` records stay as the Friday run wrote them, so a rescored Strong Pursue is emailed by hand.
+- **When it refuses** (nothing changes): an RFP not in the week's report, one whose candidate file the next Friday run has cleared, or one with no saved documents; a scoring error; and any time the Friday job is running.
+
+ISA's chat may run it when someone asks to rescore an RFP: first step, then `--apply` only after they confirm (`workspace/AGENTS.md`). Tests: `devtools/rfp-rescore.test.mjs`, which rescores an offline Friday week.
+
 If the run fails, the cron wrapper posts one failure notice to the group. See the [pursue email spec](../../specs/2026-10-12__rfp-pursue-email/spec.md) and the earlier [weekly update spec](../../specs/2026-10-06__rfp-weekly-messages/spec.md).
 
 ## When OpenClaw is unavailable during the run

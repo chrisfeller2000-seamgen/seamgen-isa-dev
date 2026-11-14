@@ -4,9 +4,13 @@
 import { installRecordedJudge, recordedJudgment, referenceJudgment } from './rfp-recorded-judgments.mjs';
 
 await installRecordedJudge();
-// The license renewal fails Jake's Gate 2; the portal passes every gate.
+// The license renewal fails Jake's Gate 2; the portal passes every gate. The rescore tests
+// change that with ISA_RFP_FIXTURE_GATE2_FAIL (slug words, comma-separated, '' for none),
+// and ISA_RFP_FIXTURE_NO_MODEL=1 fails any scoring call, to prove a step makes none.
+const gate2Fail = (process.env.ISA_RFP_FIXTURE_GATE2_FAIL ?? 'renewal').split(',').filter(Boolean);
 globalThis[Symbol.for('isa.rfp.testJudge')] = async ({ input, prompt }) => {
-  const choice = /renewal/.test(input.candidate.slug) ? { gate2: false } : {};
+  if (process.env.ISA_RFP_FIXTURE_NO_MODEL === '1') throw new Error('This step must not call the model.');
+  const choice = gate2Fail.some(word => input.candidate.slug.includes(word)) ? { gate2: false } : {};
   // The recorded judgment cites the whole candidate body; cite the listing's summary line,
   // which the scorer is given (intake writes the file with CRLF line endings).
   const summary = input.candidate.body.match(/## HigherGov AI summary\r?\n(.+)/)[1].trim();

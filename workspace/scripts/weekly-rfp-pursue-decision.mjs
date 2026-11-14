@@ -125,7 +125,7 @@ function getTestCandidateVersionKey() {
   return normalizeText(process.env.RFP_TEST_VERSION_KEY || getCliOption('--candidate-version-key'));
 }
 
-function cleanName(value = '') {
+export function cleanName(value = '') {
   return normalizeText(String(value || '').replace(/\.[^.]+$/, ''));
 }
 
@@ -256,8 +256,10 @@ export function shouldFetchDocuments(result, threshold = DOCUMENT_FETCH_THRESHOL
     && !['Watch item', 'Not an open bid', 'Conditional — Ask the Agency'].includes(result.recommendation);
 }
 
-export async function persistValidatedScore(candidatePath, { preliminaryScore, result, manifestPath, runDate }) {
-  await persistCandidateState(candidatePath, {
+// The candidate.md fields a full-text score writes. Shared with rfp-rescore.mjs, which
+// writes the same fields when it applies a rescore.
+export function validatedScoreState({ preliminaryScore, result, manifestPath, runDate }) {
+  return {
     preliminary_score: preliminaryScore, final_score: result.total, score: result.total,
     scoring_confidence: result.scoring_confidence, qualification_status: result.qualification_status,
     document_status: result.document_status || 'partial-documents',
@@ -266,7 +268,49 @@ export async function persistValidatedScore(candidatePath, { preliminaryScore, r
     scoring_reasons: result.reasons, scoring_flags: result.flags, scoring_conditional: result.conditional || null,
     scoring_judgments: result.judgments || null, scoring_error: result.scoring_error || null, scoring_error_detail: result.scoring_error_detail || null,
     scoring_provenance: result.provenance || null,
-  });
+  };
+}
+
+export async function persistValidatedScore(candidatePath, fields) {
+  await persistCandidateState(candidatePath, validatedScoreState(fields));
+}
+
+// The candidate.md fields for documents that were saved but don't make a complete set.
+export function incompleteDocumentsState({ preliminaryScore, documentStatus, resourcesDir }) {
+  return {
+    preliminary_score: preliminaryScore,
+    final_score: null,
+    score: null,
+    scoring_confidence: ['access-blocked', 'document-list-empty'].includes(documentStatus) ? 'metadata-only' : 'partial-documents',
+    qualification_status: 'provisional',
+    document_status: documentStatus,
+    document_manifest_path: path.join(resourcesDir, '_document-manifest.json'),
+    status: 'provisional',
+  };
+}
+
+// The candidate.md fields the listing score writes, before any documents are read.
+export function preliminaryState(preliminary) {
+  if (preliminary.status === 'insufficient-metadata') {
+    return { preliminary_score: null, final_score: null, score: null, scoring_confidence: 'metadata-only',
+      qualification_status: 'insufficient-metadata', document_status: 'metadata-only', status: 'provisional' };
+  }
+  const preliminaryScore = preliminary.score;
+  return {
+    preliminary_score: preliminaryScore,
+    final_score: null,
+    score: null,
+    scoring_confidence: 'metadata-only',
+    qualification_status: preliminary.preview.qualification_status === 'failed-gate' ? 'failed-gate' : preliminaryScore === null ? 'provisional' : preliminaryScore >= DOCUMENT_FETCH_THRESHOLD ? 'provisional' : 'preliminary-below-threshold',
+    preliminary_categories: preliminary.preview.categories,
+    preliminary_judgments: preliminary.preview.judgments || null,
+    preliminary_reasons: preliminary.preview.reasons,
+    preliminary_error: preliminary.preview.scoring_error || null,
+    preliminary_recommendation: preliminary.preview.recommendation,
+    preliminary_provenance: preliminary.preview.provenance || null,
+    document_status: 'metadata-only',
+    status: 'provisional',
+  };
 }
 
 function buildMetadataText(candidate) {
@@ -1274,7 +1318,7 @@ function extractContractValue(text = '') {
   return 'not stated';
 }
 
-async function scoreMetadataCandidate(candidate, runDate, outage) {
+export async function scoreMetadataCandidate(candidate, runDate, outage) {
   const metadataText = buildMetadataText(candidate);
   const known = value => Boolean(normalizeText(value)) && !/^(unknown|n\/a|tbd)$/i.test(normalizeText(value));
   const enoughMetadata = normalizeText(metadataText).length >= 120
@@ -1621,35 +1665,11 @@ async function main() {
       await audit.append(auditRecord({ run: auditRun, entry, candidate, preliminary: preliminary.preview, final: fields.final, documents }));
     };
 
+    await persistCandidateState(candidatePath, preliminaryState(preliminary));
     if (preliminary.status === 'insufficient-metadata') {
-      await persistCandidateState(candidatePath, {
-        preliminary_score: null,
-        final_score: null,
-        score: null,
-        scoring_confidence: 'metadata-only',
-        qualification_status: 'insufficient-metadata',
-        document_status: 'metadata-only',
-        status: 'provisional',
-      });
       await addEntry();
       continue;
     }
-
-    await persistCandidateState(candidatePath, {
-      preliminary_score: preliminaryScore,
-      final_score: null,
-      score: null,
-      scoring_confidence: 'metadata-only',
-      qualification_status: preliminary.preview.qualification_status === 'failed-gate' ? 'failed-gate' : preliminaryScore === null ? 'provisional' : preliminaryScore >= DOCUMENT_FETCH_THRESHOLD ? 'provisional' : 'preliminary-below-threshold',
-      preliminary_categories: preliminary.preview.categories,
-      preliminary_judgments: preliminary.preview.judgments || null,
-      preliminary_reasons: preliminary.preview.reasons,
-      preliminary_error: preliminary.preview.scoring_error || null,
-      preliminary_recommendation: preliminary.preview.recommendation,
-      preliminary_provenance: preliminary.preview.provenance || null,
-      document_status: 'metadata-only',
-      status: 'provisional',
-    });
 
     if (!shouldFetchDocuments(preliminary.preview)) {
       await addEntry();
@@ -1733,16 +1753,7 @@ async function main() {
     const completeness = extracted.completeness;
     if (!completeness.complete) {
       const documentStatus = completeness.status;
-      await persistCandidateState(candidatePath, {
-        preliminary_score: preliminaryScore,
-        final_score: null,
-        score: null,
-        scoring_confidence: ['access-blocked', 'document-list-empty'].includes(documentStatus) ? 'metadata-only' : 'partial-documents',
-        qualification_status: 'provisional',
-        document_status: documentStatus,
-        document_manifest_path: path.join(resourcesDir, '_document-manifest.json'),
-        status: 'provisional',
-      });
+      await persistCandidateState(candidatePath, incompleteDocumentsState({ preliminaryScore, documentStatus, resourcesDir }));
       await addEntry({ documentStatus, posting, documents: auditDocuments(documentStatus, extracted.manifest, posting) });
       continue;
     }
