@@ -988,5 +988,17 @@ export function renderMarkdown(results) {
     '## Screened out', '',
     ...listOr(screenedGroups(results).flatMap(([reason, entries]) => [`**${REASONS[reason].heading} (${entries.length})**`, '',
       ...entries.map(entry => `- ${entry.title}${placeOf(entry)}. ${link(entry)}`.trim()), '']).slice(0, -1)),
+    ...rescoreSection(results.rescores),
   ].join('\n');
+}
+
+// RFPs rescored after the Friday run (rfp-rescore.mjs). Their entries above already show
+// the new result; this says what changed and that the Friday email and message didn't
+// include it, so ISA's chat doesn't claim the email covered a later pick.
+function rescoreSection(rescores = []) {
+  if (!rescores?.length) return [];
+  const label = side => `${side.decision}${Number.isFinite(side.score) ? `, ${side.score}` : ''}`;
+  return ['', '## Rescored after the Friday run', '',
+    'These were rescored after the email and Telegram message went out, so neither mentions the new result.', '',
+    ...rescores.map(item => `- ${item.title}, rescored ${item.scoredOn}: ${label(item.before)} → ${label(item.after)}.`)];
 }
