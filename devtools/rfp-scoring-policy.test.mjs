@@ -89,6 +89,11 @@ test('the weekly adapter returns the shared scorer result from one bounded judge
     // Jake's Gate 2: an existing product without a material custom share is a fail, not an open question.
     assert.match(systemPrompt, /Gate 2 resolves to pass, fail, or the conditional route/);
     assert.match(systemPrompt, /fails Gate 2 unless the custom portion is clearly material \(about 40%\+ of the effort\)/);
+    // Jake's Gate 2a: only a demo of workflows that must already exist is a hard product tell.
+    // Laguna Beach, November 13: a demo of the proposed search sent a website redesign to Ask the agency.
+    assert.match(systemPrompt, /a demonstration is a hard product tell only when it must show workflows already running in an existing product/);
+    assert.match(`${systemPrompt}\n${prompt}`, /false for a demo or prototype of the proposed design, or a demo of third-party tools/);
+    assert.doesNotMatch(`${systemPrompt}\n${prompt}`, /existing installs \/ mandatory demos/);
     // Jake's listing pass: close Gate 2 calls go on to the documents.
     assert.match(systemPrompt, /an unconfirmed Q&A window never fails Gate 2 there/);
     assert.match(systemPrompt, /previousAnswerRejected/);

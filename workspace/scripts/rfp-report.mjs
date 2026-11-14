@@ -47,7 +47,12 @@ const CHECK_REASONS = {
   disabled: 'document fetching is turned off',
   unscored: "the AI scoring didn't finish",
   noDeadline: "the due date couldn't be confirmed from the RFP",
+  // Gate 2: the agency is buying a product. Also older results files, which have no agencyRule.
   agency: "looks like a product buy, so it needs the agency's answer on a custom build first",
+  // Gate 2a: the work may be custom, but the RFP asks for proof only a product vendor has
+  // (existing installs, demos of workflows already running). Until November 13 these shared
+  // the product-buy wording, which misdescribed Laguna Beach's website redesign.
+  agencyVendor: "asks for proof a product vendor would have (existing installs or demos), so it needs the agency's answer on whether a services firm qualifies",
   // The documents are on the agency's portal behind a vendor login (rfp-portals.mjs, or a
   // sign-in page met at the posting). checkReason() names the portal.
   portal: "the documents need a login on the agency's portal",
@@ -431,6 +436,9 @@ export function reportEntry({ candidate, preliminary, final = null, documentStat
     questions,
     agencyQuestion: conditional || null,
     agencyQuestionBy: conditional ? askBy : null,
+    // Which of Jake's gates sent it to the agency: '2' (a product buy) or '2a' (product-vendor
+    // proof asked of the bidder). Models write the rule as a number too, as the scorer accepts.
+    agencyRule: asked && ['2', '2a'].includes(String(asked.rule ?? '')) ? String(asked.rule) : null,
     // The agency posting's site and what the attempt to read it found, when one was made.
     portal: posting ? { name: posting.portal || null, access: posting.access || null, outcome: posting.outcome } : null,
     documentsNote: place.reason === 'documents' ? postingNote(posting) : null,
@@ -460,6 +468,7 @@ export function checkReason(entry) {
     return name ? `the documents need a login on ${name} to download` : CHECK_REASONS.portal;
   }
   if (entry.reason === 'documents' && entry.documentsNote) return `${CHECK_REASONS.documents} (${entry.documentsNote})`;
+  if (entry.reason === 'agency' && entry.agencyRule === '2a') return CHECK_REASONS.agencyVendor;
   return CHECK_REASONS[entry.reason];
 }
 

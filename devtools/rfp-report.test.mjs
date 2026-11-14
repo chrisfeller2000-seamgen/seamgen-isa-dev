@@ -531,13 +531,27 @@ test("a product buy found in the documents is never a pick: it asks the agency f
   assert.deepEqual([raleigh.tier, raleigh.reason], ['check', 'agency']);
   assert.deepEqual([raleigh.agencyQuestion, raleigh.agencyQuestionBy], [conditional.question, '2026-10-30']);
   const results = weekResults([strongPick(), raleigh]);
-  assert.match(renderMarkdown(results), /- Fire records management system — City of Example, CA: looks like a product buy, so it needs the agency's answer on a custom build first\. Question for the agency \(questions due Oct 30\): Would a purpose-built/);
+  // Gate 2a: Raleigh's obligations are product-vendor proof, so it isn't called a product buy.
+  assert.equal(raleigh.agencyRule, '2a');
+  assert.match(renderMarkdown(results), /- Fire records management system — City of Example, CA: asks for proof a product vendor would have \(existing installs or demos\), so it needs the agency's answer on whether a services firm qualifies\. Question for the agency \(questions due Oct 30\): Would a purpose-built/);
   assert.equal(plainOutcome(raleigh).decision, 'Ask the agency first');
-  assert.match(plainOutcome(raleigh).why, /^Looks like a product buy.*Question for the agency \(questions due Oct 30\)/);
+  assert.match(plainOutcome(raleigh).why, /^Asks for proof a product vendor would have.*Question for the agency \(questions due Oct 30\)/);
+  assert.doesNotMatch(plainOutcome(raleigh).why, /product buy/);
   // The same when the scorer already called it Conditional — Ask the Agency.
   const asked = reportEntry({ candidate: candidate('asked'), preliminary: preliminary(66),
     final: result({ recommendation: 'Conditional — Ask the Agency', potential: 71, extra: { conditional } }), documentStatus: 'full-text' });
   assert.deepEqual([asked.tier, asked.reason], ['check', 'agency']);
+  // Gate 2, a product buy, keeps the blunt wording, also when the model writes the rule as a number.
+  for (const rule of ['2', 2]) {
+    const product = reportEntry({ candidate: candidate('erp', { title: 'ERP software', issuer: 'Village of Example' }), preliminary: preliminary(66),
+      final: result({ recommendation: 'Needs review', potential: 70, judgment: { conditional: { ...conditional, rule } },
+        gates: { gate2: { pass: null, reason: 'Licensed ERP implementation, not a material custom build.' } } }), documentStatus: 'full-text' });
+    assert.equal(product.agencyRule, '2');
+    assert.match(plainOutcome(product).why, /^Looks like a product buy, so it needs the agency's answer on a custom build first\./);
+  }
+  // A results file written before agencyRule existed reads as before.
+  const { agencyRule, ...older } = raleigh;
+  assert.match(plainOutcome(older).why, /^Looks like a product buy/);
 });
 
 // What the agency-posting attempt found, as posting-documents.mjs returns it.
