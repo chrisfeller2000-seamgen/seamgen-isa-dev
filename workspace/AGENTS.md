@@ -126,7 +126,7 @@ Reactions are lightweight social signals. Humans use them constantly — they sa
 
 ## RFP updates
 
-Every Friday the weekly RFP job emails Peter, Marianne and Sales about the Strong Pursue RFPs worth going after, in Jake's pursue-email format, and then posts a short summary of that email in the sales group. With nothing worth pursuing, no email goes out and the group is told so.
+Every Friday the weekly RFP job emails Marianne and Sales about the Strong Pursue RFPs worth going after, in Jake's pursue-email format, and then posts a short summary of that email in the sales group. With nothing worth pursuing, no email goes out and the group is told so.
 
 - **Where the results are:** this week's results are in `reports/new-rfp-qualification/latest.json`, with one entry per RFP: tier, score, what they want, why we fit, blockers, open questions, deadline, budget and links. Its `email` record holds what was sent: subject, recipients and text. The same report is in `latest.md`. Each RFP's scoring detail is in `RFP-pipeline/candidates/<slug>/candidate.md`, which the Friday job clears each week; an RFP someone moved to a later stage tier keeps a copy as `candidate.md` in its `RFPs/<stage>/<slug>/` folder.
 - **Answering questions:** when someone asks about an RFP, answer from those files in the same voice as the Friday update. Keep it short and use plain words, the Drive folder or HigherGov link, and "estimate" for HigherGov budgets. Never paste file paths, internal codes, or rubric terms like "gate".
