@@ -1,17 +1,17 @@
 ---
 name: rfp-email-pursue
-purpose: Generate the brief "pursue" email sent to Peter, Marianne and Sales when Seamgen is pursuing an RFP. The email names the opportunity (title + source + link to the RFP's Google Drive folder), says what the agency runs today and what they hope to get, why it fits Seamgen, and what could stop us winning. One code-built Key dates line carries the questions and proposal deadlines; clarifying questions do NOT go in this email (they come from the rfp-email-agency-questions skill on request).
+purpose: Generate the brief "pursue" email sent to Marianne and Sales when Seamgen is pursuing an RFP. The email names the opportunity (title + source + link to the RFP's Google Drive folder), says what the agency runs today and what they hope to get, why it fits Seamgen, and what could stop us winning. One code-built Key dates line carries the questions and proposal deadlines; clarifying questions do NOT go in this email (they come from the rfp-email-agency-questions skill on request).
 audience: This skill is written to be read by both Claude (who drafts the email) and a human teammate (who reads, sanity-checks, and edits the template over time).
-version: 1.9 — November 2026
+version: 1.10 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-scoring skill (this template reads from that skill's output)
 ---
 
-# Pursue-to-Peter Email Skill
+# Pursue Email Skill
 
 ## What this skill does
 
-Turns the output of the RFP Scoring Skill into a **short** email to Peter, Marianne and Sales that does four things:
+Turns the output of the RFP Scoring Skill into a **short** email to Marianne and Sales that does four things:
 
 1. Names the opportunity and where it came from — full RFP title + source + link.
 2. **Current solution & hopeful objective** — what they're using now to solve the problem, and what they hope the new build achieves.
@@ -46,7 +46,7 @@ Paste the RFP Scoring Skill output and say "draft the pursue email." Claude prod
 
 ## The pattern
 
-- **Recipients:** Peter, Marianne, and the Sales team.
+- **Recipients:** Marianne and the Sales team, for now (November 2026). Peter is not on it, matching the Friday job's email.
 - **Subject line:** Name the RFP with a "pursue"/"opportunity" cue (for a multi-RFP email, name the set).
 - **Opening:** a single framing sentence — how many opportunities, from which sweep, and whether they were full-text reviewed.
 - **Body — four beats per opportunity:**
@@ -54,7 +54,7 @@ Paste the RFP Scoring Skill output and say "draft the pursue email." Claude prod
   - Beat 2: **Current solution & hopeful objective.**
   - Beat 3: **Why it fits us.**
   - Beat 4: **Blockers.**
-- **Sensitive-industry flag (optional, one line):** if the scoring output raised a sensitive-industry flag but the RFP still scored as a pursue, add a single "Note for Peter/Marianne:" line before the close. The flag isn't a kill — Peter and Marianne decide — so it must reach them visible.
+- **Sensitive-industry flag (optional, one line):** if the scoring output raised a sensitive-industry flag but the RFP still scored as a pursue, add a single "Note for Marianne:" line before the close. The flag isn't a kill — leadership decides — so it must be visible in the email.
 - **Close:** "Cheers," and the sender's first name, left as a placeholder for whoever sends it.
 
 ## Which link to use — Google Drive, not HigherGov
@@ -110,7 +110,7 @@ Draw from the scoring output's gates and Category 7, and from the meeting brief'
 ## Template
 
 ```
-To: Peter, Marianne, Sales
+To: Marianne, Sales
 
 Subject: [RFP short title / set name] — pursuing
 
@@ -131,7 +131,7 @@ Blockers: [Most severe first, max 3, one line each — or "None identified."]
 [repeat per opportunity]
 
 [Optional, only if the scoring output raised a sensitive-industry flag:]
-Note for Peter/Marianne: this one falls in a sensitive category ([defense / gambling /
+Note for Marianne: this one falls in a sensitive category ([defense / gambling /
 tobacco / etc.]) and still scored as a pursue — flagging it for your call before we invest.
 
 Cheers,
@@ -144,7 +144,7 @@ When someone asks ISA in chat to write a pursue email, **print it in chat as tex
 
 **ISA never creates a Gmail draft and never sends this email from chat.** (The Friday job's automated pursue email is separate: it is code-built and sent by the weekly job, per the pursue email spec.)
 
-Above the code block, put one line: `Intended recipients: Peter, Marianne, Sales`. Inside the code block, give the subject line and the email exactly as written, ending with the internal signature placeholder (`Cheers,` / `[Sender's first name]`).
+Above the code block, put one line: `Intended recipients: Marianne, Sales`. Inside the code block, give the subject line and the email exactly as written, ending with the internal signature placeholder (`Cheers,` / `[Sender's first name]`).
 
 ## Worked example: Yonkers (v1.6 format)
 
@@ -183,6 +183,8 @@ Note what the Blockers section does here: it surfaces, in three lines, the exact
 - **The full Blockers analysis** — severity labels, the requirement quoted, what would clear it, and who owns clearing it. This email carries the headline; the brief carries the argument.
 
 ## Notes and edit history
+
+**v1.10 — November 2026.** For now the pursue email goes to **Marianne and Sales only**, as the Friday job's email already does. Peter is off the recipients, the template's "To:" line and the `Intended recipients:` line, and the sensitive-industry note is addressed to Marianne.
 
 **v1.9 — November 2026.** Jake has left Seamgen, so the skill has no single owner or approver. **No more Gmail drafts:** when someone asks in chat, ISA prints the email as text to copy, with the intended recipients on a line above it and a placeholder signature ("Cheers, / [Sender's first name]") instead of Jake's. The draft addressed to `joliker@seamgen.com` and the "stop and tell Jake" fallback are gone. "Ask Jake" for a missing Drive link is now "ask the requester". The Friday job's automated email is unchanged.
 

@@ -2,7 +2,7 @@
 name: rfp-document-refresh
 purpose: Re-check the listings of RFPs currently being built, catch addenda and Q&A answers posted since the last fetch, file them, and tell the person who asked what actually changed — especially if a deadline moved.
 audience: This skill is written to be read by both Claude (who runs the re-check) and a human teammate (who reads the change report and acts on it).
-version: 1.7 — November 2026
+version: 1.8 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 ---
 
@@ -77,7 +77,9 @@ Follow the **"Open"** button in the Overview section through to the agency's own
 
 **Check the Procurement portal accounts table in `reference-team-and-signature.md` first.** It is the single source of truth for which portals Seamgen can already reach, and it is what stops this step raising an account request for an account we hold.
 
-#### DemandStar (account held)
+#### OpenBids, formerly DemandStar (account held)
+
+**DemandStar is now OpenBids** (November 2026). The account carries over, and its password is in Secret Server. A person with Secret Server access signs in; ISA never handles the password. The steps and addresses below were written against DemandStar's site in July 2026, so menus, names and URLs may have changed: check them on the first run, and report what differs rather than guessing.
 
 **DemandStar is a small share of the pipeline by volume — 11 of 512 candidates, 2.1%** — but it is disproportionately worth checking, because for several agencies it *is* the addendum channel rather than a mirror, and because we hold the account. SW Wisconsin's RFP says so outright: > *"All addenda will be supplied to Proposers of record via the College's e-bidding third party provider, Onvia DemandStar."*
 
@@ -88,7 +90,7 @@ Follow the **"Open"** button in the Overview section through to the agency's own
 4. Read the **Due Date** shown on the bid page and compare it against `key-dates_<slug>.md`. **Where the portal and the solicitation disagree, report both and resolve it with the agency — do not silently pick one.** 2627-09 shows `08/10/2026 1:00 AM Central` on DemandStar against *"1:00 p.m."* in the RFP; a submission timed to the wrong one is late with no remedy.
 5. Note whether we appear as a **proposer of record** — that status is what makes future addenda arrive by email rather than requiring this check.
 
-Signing in is not a blocker here: the account exists and someone on the sales team (often Marianne, whose name it is in) signs in once in the bridge window. **Do not route a DemandStar sign-in to Tina.**
+Signing in is not a blocker here: the account exists, and its password is in Secret Server. A person with Secret Server access signs in once in the bridge window; ISA never handles the password. **Do not route an OpenBids sign-in to Tina as an account request** — the account already exists.
 
 **⚠ Two mechanics learned the hard way on 2026-07-27, both of which will waste a session if ignored.**
 
@@ -108,7 +110,7 @@ Signing in is not a blocker here: the account exists and someone on the sales te
 
 **Put a bid on Watch when its RFP reaches `2-intermediate-stage/`.** From the bid page, use the **Watch** control; confirm it by returning to Bids → **Watched Bids** and checking the bid is listed. Record it in the RFP's `resources/_document-manifest.md` (`DemandStar watch: ACTIVE — set YYYY-MM-DD`).
 
-**⚠ Do not depend on DemandStar's email alerts.** The account is in **Marianne Faro's** name, so any notification goes to her inbox, not to whoever runs the refresh. **The watch list read on each refresh run is the mechanism; the email is a bonus.** A run that skips the portal because "we'd have been emailed" is a run that misses the addendum.
+**⚠ Do not depend on OpenBids' email alerts.** On DemandStar the account was in **Marianne Faro's** name, so any notification goes to her inbox, not to whoever runs the refresh. **The watch list read on each refresh run is the mechanism; the email is a bonus.** A run that skips the portal because "we'd have been emailed" is a run that misses the addendum.
 
 ##### The purchase gate — what to do when a new document appears
 
@@ -224,6 +226,8 @@ Identical to the fetch skill, and they carry the same weight:
 ---
 
 ## Notes and edit history
+
+**v1.8 — November 2026.** DemandStar is now OpenBids. The account carries over and its password is in Secret Server; a person with access signs in. The portal section says so, and that its July 2026 steps and addresses need checking on the first run.
 
 **v1.7 — November 2026, Seamgen.** Jake has left Seamgen, so this skill has no single owner or approver. Refresh reports, sign-ins, purchase confirmations and rebuild decisions now go to the person who asked for the refresh, or the sales team. The purchase gate is unchanged: still a named yes, per bid, before any order.
 

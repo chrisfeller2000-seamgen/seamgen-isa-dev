@@ -1,8 +1,8 @@
 ---
 name: rfp-email-nobid
-purpose: Generate the "no-bid" email sent when an RFP has been evaluated and Seamgen has decided not to pursue it. Two modes — an announcement to Peter, Marianne and the Sales team for RFPs Seamgen sourced itself, or a short reply to whoever forwarded the opportunity.
+purpose: Generate the "no-bid" email sent when an RFP has been evaluated and Seamgen has decided not to pursue it. Two modes — an announcement to Marianne and the Sales team for RFPs Seamgen sourced itself, or a short reply to whoever forwarded the opportunity.
 audience: This skill is written to be read by both Claude (who drafts the email) and a human teammate (who reads, sanity-checks, and edits the template over time).
-version: 1.7 — November 2026
+version: 1.8 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-scoring skill (this template reads from that skill's output)
 ---
@@ -33,8 +33,8 @@ Paste the RFP Scoring Skill output and say "draft the no-bid email." Claude will
 | | **Mode A — Announcement** (the default) | **Mode B — Reply to whoever forwarded it** |
 |---|---|---|
 | **When** | Seamgen sourced the RFP itself (HigherGov intake, a platform sweep, preliminary scoring) | A specific person sent it over and is waiting to hear back |
-| **To** | Peter, Marianne, Sales | **That person, on that thread. Nobody else.** |
-| **Greeting** | "Hello Peter," | Match the relationship — "Hey Marianne," |
+| **To** | Marianne, Sales | **That person, on that thread. Nobody else.** |
+| **Greeting** | "Hello Marianne," | Match the relationship — "Hey Marianne," |
 | **Source note** | Required — leadership needs to see where it came from | **Omit.** They sent it; telling them where it came from is padding |
 | **Scope** | The RFP that was scored | **Only what they asked about** |
 | **Verdict line** | "I don't think this is a good fit for Seamgen because…" | Softer, conversational: "It doesn't seem like either of those would be the best fit for us." |
@@ -49,9 +49,9 @@ Paste the RFP Scoring Skill output and say "draft the no-bid email." Claude will
 
 Katie's no-bid emails have a specific shape that works well and should be preserved:
 
-- **Recipients:** Peter, Marianne, and the Sales team. Wider distribution than pursue emails — leadership sees what's being rejected and why. **(Mode B overrides this — reply to the sender alone.)**
+- **Recipients:** Marianne and the Sales team, for now (November 2026), the same as the pursue email, so leadership sees what's being rejected and why. **(Mode B overrides this — reply to the sender alone.)**
 - **Subject line:** Short and factual. Names the RFP.
-- **Opening:** One sentence. "Hello Peter," or similar.
+- **Opening:** One sentence. "Hello Marianne," or similar.
 - **Body:** Two beats (preceded by a one-line **source note** — "This one came in via [platform]" — so leadership always sees where the opportunity originated).
   - Beat 1: "I have attached the RFP" (or equivalent — makes clear the RFP was reviewed).
   - Beat 2: "I don't think this is a good fit for Seamgen because [specific reason]" followed by a bulleted list of the disqualifying details.
@@ -64,11 +64,11 @@ That's it. No hedging, no extended justification. The bullets do the work.
 ## Template
 
 ```
-To: Peter, Marianne, Sales
+To: Marianne, Sales
 
 Subject: [RFP short title] — Not a fit
 
-Hello Peter,
+Hello Marianne,
 
 This one came in via [sourcing platform — e.g., HigherGov].
 
@@ -83,7 +83,7 @@ categories as bullets — see mapping table below.]
 
 [If the sensitive-industry flag was raised, add:]
 Additional note: This RFP is in the [defense / tobacco / gambling / etc.]
-category. Flagging in case you or Marianne would like to weigh in
+category. Flagging in case you would like to weigh in
 before I close it out.
 
 Cheers,
@@ -98,7 +98,7 @@ Once the email is written, **print it in chat as text to copy**, in a code block
 
 **ISA never creates a Gmail draft and never sends this email.**
 
-Above the code block, put one line: `Intended recipients: ...` — **Mode A:** `Peter, Marianne, Sales`. **Mode B:** the one person who forwarded it, and no one else. Inside the code block, give the subject line and the email exactly as written, ending with the internal signature placeholder (`Cheers,` / `[Sender's first name]`).
+Above the code block, put one line: `Intended recipients: ...` — **Mode A:** `Marianne, Sales`. **Mode B:** the one person who forwarded it, and no one else. Inside the code block, give the subject line and the email exactly as written, ending with the internal signature placeholder (`Cheers,` / `[Sender's first name]`).
 
 ## Mapping from scoring output to bullet content
 
@@ -157,7 +157,7 @@ Kind Regards,
 [Your name]
 ```
 
-That's Katie's real email almost verbatim. The template preserves what worked. **One deliberate exception: the closing.** Katie signed "Kind Regards," and this example keeps her wording as a historical record — a generated email closes **"Cheers, / [Sender's first name]"**. Copy the structure here, not the sign-off.
+That's Katie's real email almost verbatim. The template preserves what worked. **Two deliberate exceptions: the recipients and the closing.** Katie's email went to Peter, Marianne and Sales and greeted Peter; a generated announcement goes to Marianne and Sales and greets Marianne. Katie signed "Kind Regards," and this example keeps her wording as a historical record — a generated email closes **"Cheers, / [Sender's first name]"**. Copy the structure here, not the sign-off.
 
 ## Second worked example: hypothetical low-score no-bid
 
@@ -170,11 +170,11 @@ That's Katie's real email almost verbatim. The template preserves what worked. *
 **Generated email:**
 
 ```
-To: Peter, Marianne, Sales
+To: Marianne, Sales
 
 Subject: [State] DMV Fleet Management System Rewrite — Not a fit
 
-Hello Peter,
+Hello Marianne,
 
 This one came in via HigherGov.
 
@@ -227,6 +227,8 @@ Jacob
 The finished email is 60 words. Aim there.
 
 ## Notes and edit history
+
+**v1.8 — November 2026.** For now the Mode A announcement goes to **Marianne and Sales only**, the same as the pursue email, and greets Marianne. Mode B is unchanged. Katie's LA Water & Power example keeps its original recipients and greeting as a historical record.
 
 **v1.7 — November 2026.** Jake has left Seamgen, so the skill has no single owner or approver. **No more Gmail drafts:** ISA prints the email in chat as text to copy, with the intended recipients on a line above it, and the signature is a placeholder ("Cheers, / [Sender's first name]") instead of "Jacob". The draft addressed to `joliker@seamgen.com` and the "stop and tell Jake" fallback are gone; "ask Jake" for an unclear Mode B recipient is now "ask the requester". Jake's Mode B email keeps its original "Jacob" sign-off as a historical record.
 
