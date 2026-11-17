@@ -1,9 +1,9 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { resourcesDirForFetch } from './rfp-folders.mjs';
 
 const WORKSPACE = process.env.WORKSPACE_DIR || '/home/azureuser/.openclaw/workspace';
-const PRE_SUBMISSION_ROOT = path.join(WORKSPACE, 'RFPs', '1-pre-submission');
 
 function normalizeText(value = '') {
   return String(value || '').replace(/\s+/g, ' ').trim();
@@ -112,10 +112,10 @@ function looksLikeSolicitationText(text = '') {
   return SOLICITATION_TEXT.test(value) && SUBMISSION_TEXT.test(value) && SCOPE_TEXT.test(value);
 }
 
-async function ensureCandidateResourcesDir(slug, { stage = '1-pre-submission' } = {}) {
-  const resourcesDir = path.join(WORKSPACE, 'RFPs', stage, slug, 'resources');
-  await fs.mkdir(resourcesDir, { recursive: true });
-  return resourcesDir;
+// The RFP's existing folder in whatever tier someone moved it to, else a new one in
+// 1-pre-submission (rfp-folders.mjs).
+async function ensureCandidateResourcesDir(slug) {
+  return resourcesDirForFetch(slug, { workspace: WORKSPACE });
 }
 
 const RETRIABLE_STATUSES = [429, 500, 502, 503, 504];
