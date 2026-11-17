@@ -22,7 +22,7 @@ The weekly job in `workspace/scripts/weekly-rfp-pursue-decision.mjs` runs intake
 From that file:
 
 - **The pursue email** goes to Marianne and Sales (`RFP_EMAIL_TO`), with Chris and jgaribay@ copied (`RFP_EMAIL_CC`), when there are Strong Pursue RFPs, in Jake's format (`workspace/skills/rfp-email-pursue-skill.md`): per RFP, a Drive folder link, what they use today and want, why it fits us, and up to three blockers. ISA's model writes only the sentences; code adds the subject, titles, links and sign-off, and `checkPursueSentences()` checks the sentences against the facts. If anything differs or the writer fails, code-built sentences are used. What the buyer uses today comes from the scorer's `buyer` field, which never affects points.
-- **The Drive folder.** Each Strong Pursue gets a folder under the favorable-RFP folder (an existing one is reused by name), and its `resources/` files are uploaded there. A new folder's ID comes from `gog drive mkdir`'s `id` line. Listing the parent again is only a fallback, because a listing made straight after creation can miss the new folder: on November 6, 2026 the City of Chandler folder was made but never filled, and its email had no link. Failed listings, mkdirs and uploads are logged to `cron.log`.
+- **The Drive folder.** Each Strong Pursue gets a folder under the favorable-RFP folder (an existing one is reused by name), and its agency documents in `resources/` are uploaded there. Files starting with `_` (the document manifests) stay on the VM; until November 17, 2026 they were uploaded too. A new folder's ID comes from `gog drive mkdir`'s `id` line. Listing the parent again is only a fallback, because a listing made straight after creation can miss the new folder: on November 6, 2026 the City of Chandler folder was made but never filled, and its email had no link. Failed listings, mkdirs and uploads are logged to `cron.log`.
 - **The subject must never match the mail-to-HubSpot job's pursue pattern** (`RFP_PURSUE_SUBJECT_PATTERN`). That job turns matching emails from isa@ into deals, paragraph by paragraph, so a match would create junk deals. A test keeps the two patterns in step.
 - **Already in HubSpot.** A Strong Pursue that matches a deal in HubSpot's RFP pipeline (`workspace/scripts/rfp-hubspot-match.mjs`) stays a pick. Its email card says "Already in HubSpot as …", so sales sees it and a wrong match costs nothing. A match needs the same agency and project: two distinctive words in common, or the agency's acronym. Generic words like *website* or *development* don't count. Until October 16 a match hid the pick; that day a commercial "… Website Design and Development" deal hid the week's only Strong Pursue.
 - **At most one pursue email per week.** A re-run in the same week sends nothing new; a failed send can be retried.
@@ -38,7 +38,7 @@ Each run deletes the previous week's candidate files before intake, so the resul
 
 There is one line per listing the run pulled:
 - **Each report entry,** written the moment the entry is.
-- **Listings that never reached scoring,** with `outcome.tier: "skipped"`: those the intake filter dropped (`intake-due-soon`, `intake-set-aside`, `intake-not-a-bid`) and duplicates of an RFP already scored that run (`duplicate`). The duplicate check now runs before the listing is scored, so a duplicate no longer costs a model call.
+- **Listings that never reached scoring,** with `outcome.tier: "skipped"`: those the intake filter dropped (`intake-due-soon`, `intake-set-aside`, `intake-not-a-bid`), new versions of RFPs already being worked on (`in-progress`), and duplicates of an RFP already scored that run (`duplicate`). The duplicate check now runs before the listing is scored, so a duplicate no longer costs a model call.
 
 Each line holds:
 - **The RFP:** HigherGov `versionKey`/`oppKey`, title, agency, listing due date and links, plus `listingText`, the HigherGov summary and description the scorer read.
@@ -118,8 +118,48 @@ Before November 17, 2026 nothing moved RFPs between tiers, so on the VM every RF
 - **Moves happen only when someone asks.** ISA's chat runs `node scripts/rfp-stage.mjs <slug> <tier> --by "<name>" [--note "<why>"]` (`workspace/AGENTS.md`). The skills ask the requester instead of moving an RFP themselves: the fetch skill no longer moves a 50+ RFP to tier 2 on its own, and the submission email asks before moving to tier 4.
 - **A move renames the whole folder**, so `resources/` and the deliverables stay together. It copies this week's `candidate.md` into the folder, because the Friday job clears the candidate files each week, and appends the move to `_stage.json` ([data models](../../data-models.md)). An RFP with no folder yet gets one if this week's candidate file exists. Moving back to tier 1 means nobody is working on it.
 - **It refuses** while the Friday job runs on the same workspace (it saves documents into these folders), when the RFP is already in that tier, when it has folders in two tiers, and when there is neither a folder nor a candidate file. `node scripts/rfp-stage.mjs list` shows tiers 2–4.
-- **The Friday job uses the moved folder.** When a listing comes back (an amendment, say), its documents are saved into the RFP's existing folder in whatever tier, latest tier first (`rfp-folders.mjs`); only an RFP with no folder gets a new one in tier 1. Before this, the job always wrote to tier 1, which would have made a second copy.
+- **A new version of an RFP being worked on isn't scored again.** An amendment is a new HigherGov version, which the Friday intake hasn't seen. Without a check it would be scored as a new RFP, re-downloaded under the Friday job's file names, and could reach the pursue email again. Before scoring, the Friday job reads the `opp_key` of every RFP in tiers 2–4 (`rfpsInProgress()` in `rfp-folders.mjs`, from `_refresh.json`, the manifest or the `candidate.md` copy). A listing with one of those keys:
+- **A forwarded RFP is recognized when its listing arrives.** An RFP moved with no HigherGov key has nothing to match on, so `rfp-stage.mjs` records its agency and solicitation number (`--agency`, `--number`; a move without them says so). HigherGov's API can't look one up. Checked against its published schema on November 17, 2026:
+  - there is no keyword or title search, except inside a saved search built in HigherGov's website;
+  - `source_id` is the posting site's internal ID ("39891" for an RFP numbered "1913-27"), not the solicitation number;
+  - a HigherGov page link ends in yet another internal number.
+
+  So the Friday run matches each new listing against these key-less RFPs before scoring (`matchKeylessRfp()`). A listing matches on either:
+  - the solicitation number as a whole token in the listing's title or text, from the same agency; the number has to be distinctive (more than one part, letters and digits, or at least five digits), so a bare "2026" never matches;
+  - or the same title and agency, by the duplicate-posting rule.
+
+  A match is treated as in progress, and its keys are saved in the RFP's `_refresh.json` (`adoptHigherGovKeys()`), with the documents already in the folder counted as known. From then on the Tuesday check follows it, downloading only what HigherGov has that the folder lacks. A listing outside Seamgen's HigherGov saved search never reaches Friday, so it is never matched, and never scored either.
+  - goes into the results file's `inProgress` list and a report section, "Updated listings already being worked on";
+  - is audited as skipped (`in-progress`);
+  - is never counted, picked, emailed or posted.
+  The Tuesday document check handles its documents and due date, and anyone can ask ISA to rescore it.
+- **The Friday job uses the moved folder** for any other listing that maps to it by slug: its documents are saved into the RFP's existing folder, latest tier first, and only an RFP with no folder gets a new one in tier 1.
 - **Not done yet:** tier 1 still only grows. Clearing old tier-1 folders on a timer is safe only once moving is routine. The solution-landscape and capability-verification skills still cite CLAUDE.md Rule 10, because they are part of the scoring prompt and were left unchanged. Tests: `devtools/rfp-stage.test.mjs`, including a whole offline Friday run after a move. See the [stage folders spec](../../specs/2026-11-17__rfp-stage-folders/spec.md).
+
+## Tuesday document check
+
+Agencies amend an RFP by adding documents to the listing or by moving the deadline. `workspace/scripts/rfp-refresh.mjs` catches both for the RFPs someone is working on.
+
+- **When:** the system crontab runs `scripts/run-rfp-refresh-cron.sh` every Tuesday morning. It checks every RFP in `2-intermediate-stage` (Looking closer) and `3-building` (Building). On request, ISA's chat runs `node scripts/rfp-refresh.mjs <slug>` for one RFP in any tier.
+- **HigherGov's model:** an amendment is a new version of the opportunity, with the same `opp_key`. The script reads every version newest first (`listOpportunityVersions()`). A read-only check of 15 saved RFPs on November 17, 2026 found:
+  - one whose November 3 version moved the due date from November 2 to November 30 with no new file;
+  - that both versions shared one `document_path`, so the document list belongs to the opportunity.
+  - So the due date is compared every week, not only the documents.
+- **Matching documents:** HigherGov's document records have no ID (`file_name`, `file_type`, `file_size`, `posted_date`, `download_url`), so they are matched by name and size. A new name is new; a saved name with a new size is re-issued; a saved file no longer listed is reported and kept.
+- **Saving:** only new and re-issued files are downloaded. A re-issued file is saved as `…-updated-<date>` beside the original, and nothing in `resources/` is overwritten. The manifest gets a row per file (`added_by_refresh`), so a rescore reads them.
+- **Drive:** new files go straight to the RFP's one Drive folder (flat, one per RFP, whatever its tier), agency documents only. The folder is the one a Friday report linked to, or one found or made by the Friday job's naming rule. Its ID is then kept in `_refresh.json`, so later uploads don't depend on the Friday job's loose name match, which also lists only the first 200 folders. Nothing in Drive is replaced or deleted. `--drive` uploads what Drive lacks even with nothing new on HigherGov, for files a person sent ISA.
+- **Telegram:** one code-built message to the sales group, only when something changed:
+  - per RFP: a moved due date, new and re-issued documents by name, and the Drive link;
+  - "Couldn't check" for RFPs with no HigherGov key, but only when a message goes out anyway.
+  - A file HigherGov lists but won't hand over is reported once.
+  - A quiet week sends nothing.
+- **Retry and failure notice:** if the run fails, including an unsent Telegram message, the wrapper tries once more 10 minutes later. Only if that fails too does it post one failure notice, so silence never hides a failure. A retry is safe:
+  - files already saved aren't downloaded again;
+  - each recorded change stays `notified: false` in `_refresh.json` until a message carrying it is sent, so a change recorded before a crash is still announced, once;
+  - a Drive upload that failed is tried again.
+- **Record:** `RFPs/<tier>/<slug>/_refresh.json` and `reports/rfp-refresh/<date>.json` (see [data models](../../data-models.md)).
+- **Never:** reads agency portals (a person checks those, per the refresh skill), deletes anything, or sends email. It refuses while the Friday job runs. `RFP_REFRESH_DELIVERY=preview` is a dry run: it reports what it would download, and saves, records, uploads and sends nothing.
+- **Tests:** `devtools/rfp-refresh.test.mjs` (stand-in HigherGov, `gog` and Telegram) and the wrapper case in `devtools/rfp-cron-wrapper.test.mjs`. See the [Tuesday refresh spec](../../specs/2026-11-17__rfp-tuesday-refresh/spec.md).
 
 ## Invariants and sharp edges
 
@@ -127,7 +167,7 @@ Before November 17, 2026 nothing moved RFPs between tiers, so on the VM every RF
 - The real solicitation and required scoring attachments matter. Empty or portal-gated document sets cannot become full-text simply because HigherGov returned a listing or a public summary.
 - From a `candidate.md`, the scorer reads only listed frontmatter fields and HigherGov's summary and description sections (`intakeText` in `rfp-scoring-policy.mjs`). Scores and notes written into the file never reach it. Examples are the preliminary-scoring skill's results, Jake's "KILL GATES" screens, and the intake's note to the old chat scorer. Jake's candidate files can be re-scored as they are.
 - Candidate and `resources/` folders are runtime/customer data, not versioned source. The document manifest should describe what was returned, saved, extracted, blocked, or missing without storing credentials or signed links.
-- RFP skills are not all consistent with current code. Until October 12, 2026 `rfp-document-fetch-skill.md` was a byte-identical copy of the refresh skill (`devtools/rfp-skill-files.test.mjs` now catches that); the refresh skill still assumes a Windows browser bridge and Drive uploads ISA doesn't have. Verify a skill's procedure against the code before relying on it.
+- RFP skills are not all consistent with current code. Until October 12, 2026 `rfp-document-fetch-skill.md` was a byte-identical copy of the refresh skill (`devtools/rfp-skill-files.test.mjs` now catches that); until November 2026 the refresh skill assumed a Windows browser bridge and Drive uploads ISA didn't have. Verify a skill's procedure against the code before relying on it.
 
 Offline RFP tests include a whole weekly run in preview mode in `devtools/rfp-audit.test.mjs` (intake replay, recorded scoring, documents, report and audit, with nothing sent), the synthetic document-flow fixture in `devtools/rfp-fixture.test.mjs`, pure deadline/scoring regressions in `devtools/rfp-deadline.test.mjs`, the isolated secondary report fixture in `devtools/rfp-deadline-report.test.mjs`, the secondary evidence gate and file-role checks in `devtools/rfp-secondary-evidence.test.mjs`, and the rubric cases in `devtools/rfp-alignment.test.mjs`. They do not prove real portal access, complete document qualification, or scheduled production behavior. See [integrations](../../integrations.md) and [security](../../security.md).
 

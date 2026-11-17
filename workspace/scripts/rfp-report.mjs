@@ -985,11 +985,24 @@ export function renderMarkdown(results) {
     '## Worth a look', '', ...(tier('worth').length ? tier('worth').flatMap(card) : ['None this week.', '']),
     "## Couldn't check yet", '',
     ...listOr(checks),
+    ...inProgressSection(results.inProgress),
     '## Screened out', '',
     ...listOr(screenedGroups(results).flatMap(([reason, entries]) => [`**${REASONS[reason].heading} (${entries.length})**`, '',
       ...entries.map(entry => `- ${entry.title}${placeOf(entry)}. ${link(entry)}`.trim()), '']).slice(0, -1)),
     ...rescoreSection(results.rescores),
   ].join('\n');
+}
+
+// New HigherGov versions of RFPs someone already moved to Looking closer, Building or
+// Submitted. They aren't scored or picked again; the Tuesday document check (rfp-refresh.mjs)
+// handles their documents and due date. Shown only in weeks that have one.
+function inProgressSection(items = []) {
+  if (!items?.length) return [];
+  const due = item => (item.due ? ` Listing due date: ${item.due}.` : '');
+  const links = item => [['HigherGov', item.links?.highergov], ['agency posting', item.links?.posting]].filter(([, url]) => url).map(([label, url]) => `[${label}](${url})`).join(' · ');
+  return ['## Updated listings already being worked on', '',
+    'HigherGov posted a new version of these. They weren\'t scored again; the Tuesday document check picks up their new documents and due date.', '',
+    ...items.map(item => `- ${item.title} (${item.stageLabel}): ${item.matchedBy ? `now on HigherGov as "${item.listingTitle}", matched by its ${item.matchedBy === 'number' ? 'solicitation number' : 'title and agency'}; the Tuesday check follows it from now on` : `new version captured ${item.versionCaptured || 'recently'}`}.${due(item)} ${links(item)}`.trim()), ''];
 }
 
 // RFPs rescored after the Friday run (rfp-rescore.mjs). Their entries above already show

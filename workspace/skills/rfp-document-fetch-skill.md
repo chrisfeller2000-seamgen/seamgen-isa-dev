@@ -2,7 +2,7 @@
 name: rfp-document-fetch
 purpose: Pull an opportunity's complete set of agency source documents into its RFP folder using the Chrome browser bridge, then re-score the RFP on the full text instead of the metadata summary.
 audience: This skill is written to be read by both Claude (who drives the browser and files the documents) and a human teammate (who reads it to understand what was fetched and why something was skipped).
-version: 1.12 — November 2026
+version: 1.13 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 ---
 
@@ -260,7 +260,7 @@ Either way, tell the person who asked what the documents changed about the score
 
 **Only once the RFP has been moved to `2-intermediate-stage/` or a later tier.** A killed RFP gets no Drive folder, the same way it gets no local folder.
 
-**ISA cannot do this step.** `Sync-RfpToDrive.ps1` runs on the operator's Windows machine, and ISA on the VM cannot upload to the shared Drive. When ISA runs this skill it skips the transfer, leaves the manifest's `Drive folder:` line as it found it, and says in its report that a person still has to move the files. It never says a document is in Drive when it is not, and never gives a path on its own disk as a link, because nobody else can open one. When someone asks ISA for a document, it attaches the file from `resources/` in the chat.
+**ISA does this step with `node scripts/rfp-refresh.mjs <rfp-slug> --drive`.** It uploads the agency documents in `resources/` that the RFP's Drive folder doesn't have — never the `_document-manifest` files — and never replaces or deletes anything in Drive. It uses the folder the Friday run linked to, or makes one the same way, and keeps its ID in the RFP's `_refresh.json`. Report the folder link it prints. When someone asks ISA for a document, it still attaches the file from `resources/` in the chat. The numbered steps and `Sync-RfpToDrive.ps1` below describe the operator's Windows path from July 2026; ISA doesn't use them.
 
 Being moved to Looking closer is what earns an RFP a folder under **`Sales (shared drive) > Favorable RFP's`** (parent ID `1FgeVVURDnS-JyQTyapa7pCl3BN4_PmaW`). This exists so Peter and Marianne can read the solicitation from a link instead of navigating HigherGov, which they've said they don't want to do — and it's the link the pursue email carries (`rfp-email-pursue` v1.6). It's on the **Sales shared drive** so the files belong to the team rather than to one person's account; an abandoned empty folder of the same name sits in Jake's My Drive, so **resolve by ID, not by name**.
 
@@ -397,6 +397,8 @@ What's missing is the PowerShell — `Get-HGDocuments` and `ConvertTo-HGAttachme
 ---
 
 ## Notes and edit history
+
+**v1.13 — November 2026.** ISA can now do Step 12 itself: `scripts/rfp-refresh.mjs <slug> --drive` uploads the RFP's agency documents to its one Drive folder. "ISA cannot do this step" is gone. The Windows `Sync-RfpToDrive.ps1` path stays as a record.
 
 **v1.12 — November 2026.** DemandStar is also called OpenBids (same site). Its account password is in Secret Server, and a person with access signs in.
 

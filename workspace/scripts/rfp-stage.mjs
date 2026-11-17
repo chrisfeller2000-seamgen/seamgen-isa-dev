@@ -4,7 +4,11 @@
 // RFP sits in always reflects a person's decision. Nothing moves automatically.
 //
 //   node scripts/rfp-stage.mjs list
-//   node scripts/rfp-stage.mjs <slug> <tier> --by "<name>" [--note "<why>"]
+//   node scripts/rfp-stage.mjs <slug> <tier> --by "<name>" [--note "<why>"] [--agency ..] [--number ..] [--title ..]
+//   node scripts/rfp-stage.mjs <slug> --agency "<agency>" --number "<solicitation number>" --by "<name>"
+//
+// The agency and solicitation number matter for an RFP with no HigherGov key (one a teammate
+// forwarded): they are how the Friday run recognizes its listing if it reaches HigherGov.
 //
 // Tiers: 1 Scored (1-pre-submission), 2 Looking closer (2-intermediate-stage),
 // 3 Building (3-building), 4 Submitted (4-submitted). Moving back to 1 means nobody is working
@@ -40,7 +44,32 @@ async function writeAtomic(file, text) {
  * documents were never saved (a portal login, say) gets one, as long as this week's candidate
  * file exists to say what it is.
  */
-export async function moveRfp({ slug, to, by, note = '', at = new Date().toISOString(), workspace = workspaceDir() }) {
+// Whether a HigherGov key is known for the RFP in `dir`. Without one, the Friday run can only
+// recognize its listing from the agency and solicitation number recorded here.
+async function hasHigherGovKey(dir) {
+  const refresh = await readJson(path.join(dir, '_refresh.json')).catch(() => null);
+  const manifest = await readJson(path.join(dir, 'resources', '_document-manifest.json')).catch(() => null);
+  const candidate = await fs.readFile(path.join(dir, 'candidate.md'), 'utf8').catch(() => '');
+  return Boolean(refresh?.oppKey || manifest?.opp_key || /^opp_key:\s*"?[^"\s]/m.test(candidate));
+}
+
+/**
+ * Records an RFP's title, agency and solicitation number in its _stage.json without moving it.
+ * They let the Friday run recognize a forwarded RFP's listing if it reaches HigherGov.
+ */
+export async function updateDetails({ slug, by, title = '', agency = '', number = '', at = new Date().toISOString(), workspace = workspaceDir() }) {
+  const folders = await findRfpFolders(slug, { workspace });
+  if (!folders.length) throw new StageError(`There is no folder for ${slug}. Nothing changed.`);
+  if (folders.length > 1) throw new StageError(`${slug} has folders in ${folders.map(item => item.stage.dir).join(' and ')}. Ask a developer to merge them. Nothing changed.`);
+  const [{ dir, stage }] = folders;
+  const record = await readJson(path.join(dir, STAGE_FILE)).catch(() => ({ slug, history: [] }));
+  const updated = { ...record, slug, stage: record.stage || stage.dir, ...(title ? { title } : {}), ...(agency ? { agency } : {}), ...(number ? { number } : {}),
+    details: [...(record.details || []), { at, by, ...(title ? { title } : {}), ...(agency ? { agency } : {}), ...(number ? { number } : {}) }] };
+  await writeAtomic(path.join(dir, STAGE_FILE), `${JSON.stringify(updated, null, 2)}\n`);
+  return { title: updated.title || slug, agency: updated.agency || '', number: updated.number || '', stage, hasKey: await hasHigherGovKey(dir) };
+}
+
+export async function moveRfp({ slug, to, by, note = '', title: givenTitle = '', agency = '', number = '', at = new Date().toISOString(), workspace = workspaceDir() }) {
   const folders = await findRfpFolders(slug, { workspace });
   if (folders.length > 1) {
     throw new StageError(`${slug} has folders in ${folders.map(item => item.stage.dir).join(' and ')}. Ask a developer to merge them. Nothing changed.`);
@@ -64,13 +93,16 @@ export async function moveRfp({ slug, to, by, note = '', at = new Date().toISOSt
   if (hasCandidate) await fs.copyFile(candidateFile, path.join(target, 'candidate.md'));
   const record = await readJson(path.join(target, STAGE_FILE)).catch(() => ({ slug, history: [] }));
   const candidate = hasCandidate ? await readPortalCandidate(candidateFile).catch(() => null) : null;
-  const title = cleanName(candidate?.title || '') || record.title || slug;
+  const title = givenTitle || cleanName(candidate?.title || '') || record.title || slug;
   const updated = {
     ...record, slug, title, stage: to.dir,
+    ...((agency || record.agency || candidate?.issuer) ? { agency: agency || record.agency || cleanName(candidate.issuer) } : {}),
+    ...((number || record.number) ? { number: number || record.number } : {}),
     history: [...(record.history || []), { at, from: current?.stage.dir || null, to: to.dir, by, ...(note ? { note } : {}) }],
   };
   await writeAtomic(path.join(target, STAGE_FILE), `${JSON.stringify(updated, null, 2)}\n`);
-  return { title, from: current?.stage || null, to, dir: target, created: !current };
+  return { title, from: current?.stage || null, to, dir: target, created: !current, agency: updated.agency || '', number: updated.number || '',
+    hasKey: await hasHigherGovKey(target) };
 }
 
 /** The RFPs in tiers 2–4, latest tier first, plus how many sit in tier 1. */
@@ -106,7 +138,9 @@ function renderList({ tiers, scored }) {
   return `${lines.join('\n')}\n`;
 }
 
-const USAGE = 'Usage: node scripts/rfp-stage.mjs list\n       node scripts/rfp-stage.mjs <slug> <1|2|3|4|scored|looking|building|submitted> --by "<name>" [--note "<why>"]';
+const USAGE = 'Usage: node scripts/rfp-stage.mjs list\n'
+  + '       node scripts/rfp-stage.mjs <slug> <1|2|3|4|scored|looking|building|submitted> --by "<name>" [--note "<why>"] [--agency "<agency>"] [--number "<solicitation number>"] [--title "<title>"]\n'
+  + '       node scripts/rfp-stage.mjs <slug> --agency "<agency>" --number "<solicitation number>" [--title "<title>"] --by "<name>"';
 
 async function main(args = process.argv.slice(2)) {
   const option = name => {
@@ -119,20 +153,32 @@ async function main(args = process.argv.slice(2)) {
   }
   const by = option('--by').trim();
   const note = option('--note').trim();
+  const details = { title: option('--title').trim(), agency: option('--agency').trim(), number: option('--number').trim() };
   const [slug, tier, ...extra] = args;
   const to = findStage(tier);
-  if (!slug || !to || extra.length || !/^[a-z0-9][a-z0-9-]*$/.test(slug)) throw new StageError(USAGE);
-  if (!by) throw new StageError('Say who asked for the move with --by "<name>". Nothing changed.');
+  const detailsOnly = !tier && Object.values(details).some(Boolean);
+  if (!slug || (!to && !detailsOnly) || extra.length || !/^[a-z0-9][a-z0-9-]*$/.test(slug)) throw new StageError(USAGE);
+  if (!by) throw new StageError(`Say who asked for the ${detailsOnly ? 'change' : 'move'} with --by "<name>". Nothing changed.`);
   // The Friday job saves documents into these folders while it runs; a move mid-run could
   // split an RFP's documents between two tiers.
   if (await weeklyJobRunning()) throw new StageError('The Friday RFP job is running. Try again when it has finished.');
+  // An RFP with no HigherGov key (a forwarded one) is recognized on Friday only by these.
+  const reminder = item => (item.hasKey || (item.agency && item.number) ? []
+    : [`It has no HigherGov listing key, so the Friday run can only recognize its listing by agency and solicitation number. Add them from its documents: node scripts/rfp-stage.mjs ${slug} --agency "<agency>" --number "<solicitation number>" --by "<name>"`]);
 
-  const moved = await moveRfp({ slug, to, by, note });
+  if (detailsOnly) {
+    const done = await updateDetails({ slug, by, ...details });
+    process.stdout.write([`${done.title} (${done.stage.label}): agency "${done.agency || 'not recorded'}", solicitation number "${done.number || 'not recorded'}".`,
+      `Recorded as asked by ${by}.`, ...reminder(done)].join('\n') + '\n');
+    return;
+  }
+  const moved = await moveRfp({ slug, to, by, note, ...details });
   process.stdout.write([
     moved.from
       ? `${moved.title} moved from ${moved.from.label} to ${moved.to.label}.`
       : `${moved.title} is now in ${moved.to.label}. It had no folder yet, so its documents were never saved.`,
     `Recorded as asked by ${by}.`,
+    ...(moved.to.dir === STAGES[0].dir ? [] : reminder(moved)),
     'Nothing was deleted, uploaded or sent.',
   ].join('\n') + '\n');
 }

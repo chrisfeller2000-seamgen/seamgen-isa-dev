@@ -1,8 +1,8 @@
 ---
 name: rfp-document-refresh
-purpose: Re-check the listings of RFPs currently being built, catch addenda and Q&A answers posted since the last fetch, file them, and tell the person who asked what actually changed — especially if a deadline moved.
-audience: This skill is written to be read by both Claude (who runs the re-check) and a human teammate (who reads the change report and acts on it).
-version: 1.8 — November 2026
+purpose: Check the RFPs Seamgen is working on for new documents and deadline changes, save new documents beside the originals, put them in the RFP's Google Drive folder, and tell the team what actually changed — especially if a deadline moved.
+audience: This skill is written to be read by both ISA (who runs the check and reads what it finds) and a human teammate (who reads the change report, checks agency portals ISA can't sign in to, and acts on it).
+version: 2.0 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 ---
 
@@ -10,136 +10,45 @@ owner: Seamgen sales team (no single owner or approver)
 
 ## What this skill does
 
-**Agencies amend RFPs by posting new documents to the same listing page.** A deadline extension, a scope change, the answers to every vendor's questions — these don't arrive as an email. They appear as `Addendum_2.pdf` on a page nobody thought to re-open.
+**Agencies amend RFPs by posting new documents to the same listing, or by moving the deadline.** A deadline extension, a scope change, the answers to every vendor's questions — these don't arrive as an email. They appear as `Addendum_2.pdf` on a page nobody thought to re-open, or as a new due date on the listing.
 
-That makes a fetched document set quietly perishable. The `resources/` folder that was complete on Monday can be missing the amendment that moved Friday's deadline.
+That makes a saved document set quietly perishable. The `resources/` folder that was complete on Monday can be missing the amendment that moved Friday's deadline. This skill catches that and reports **what changed** — not just that something did.
 
-This skill re-checks the listings for RFPs currently being built, downloads whatever is new, reads it, and reports **what changed** — not just that something did.
+## How it runs
 
-## When to use it
+**Every Tuesday morning, on a schedule.** The system crontab runs `scripts/run-rfp-refresh-cron.sh`, which runs `node scripts/rfp-refresh.mjs --scheduled`. It checks every RFP in **Looking closer** (`RFPs/2-intermediate-stage/`) and **Building** (`RFPs/3-building/`). The tiers record a person's decision (see "RFP stage folders" in `AGENTS.md`), so these are exactly the RFPs someone is working on.
 
-Run it on demand against everything in **`RFPs/3-building/`** — the RFPs where a proposal is actively being written.
+- When something changed, it posts **one message** in the sales group: per RFP, a moved due date, the new or re-issued documents by name, and the link to the RFP's Drive folder.
+- **When nothing changed, it sends nothing.** A quiet week is silent.
+- If the run fails, it is tried once more 10 minutes later; only if that fails too does the wrapper post one failure notice. A silent week is never a failed one, and a change found before a failure is still announced, once.
+- The results are in `reports/rfp-refresh/latest.json` (and `<date>.json`). Answer questions about the Tuesday check from there.
 
-Good moments to run it:
-- At the start of a working session on a proposal.
-- Before a review meeting with Peter or Marianne.
-- Right after a Q&A deadline passes (that's when answers get posted).
-- Before submission — the last check that nothing moved.
+**On request, for one RFP:** `node scripts/rfp-refresh.mjs <slug>`. The same check for one RFP in any tier. New documents go to Drive the same way, and nothing is posted to the group. Tell the person what it printed, in plain words.
 
-**Scope note (widened July 27, 2026).** This now watches **`RFPs/2-intermediate-stage/` and `RFPs/3-building/`** — every RFP we are actively working, not only the ones being written.
+**Drive only:** `node scripts/rfp-refresh.mjs <slug> --drive` also uploads any agency document in `resources/` that the Drive folder doesn't have. Use it after saving a file someone sent you, or one a person downloaded from a portal (see "Agency portals" below).
 
-It used to watch the building tier alone, and the v1.0 note predicted the consequence: *"an addendum can land on one of those unseen until it is promoted. If that gap ever bites, widening this skill to cover tier 2 is a one-line change."* **It bit within a month.** SW Wisconsin (2627-09) sat in tier 2 while its Q&A addendum posted on DemandStar, unseen — and the RFP's own schedule said that addendum was due four days earlier than it actually appeared, so even a diligent reader working from the printed timeline would have missed it. Its meeting brief ended up carrying an `[UNKNOWN]` blocker admitting we might be reading a superseded document set.
+## What the check does
 
-Tier 1 (`1-pre-submission/`) stays out of scope. Those carry metadata-only scores and may never be pursued; watching them is volume work the HigherGov intake already covers.
+1. **Reads the newest version of the listing on HigherGov.** An amendment arrives as a new version of the same opportunity (same `opp_key`). On November 17, 2026, one saved RFP's November 3 version had moved its due date from November 2 to November 30 with no new file, so **the due date is compared every time**, not only the documents.
+2. **Compares HigherGov's document list with what is saved.** HigherGov's document records have no ID, so documents are matched by **file name and size**:
+   - **New:** a name not saved before.
+   - **Re-issued:** a saved name with a different size.
+   - **No longer listed:** saved, but gone from HigherGov. Reported, and kept.
+3. **Downloads only new and re-issued files into `resources/`, and never overwrites an original.** A re-issued document is saved as `…-updated-<date>` beside the old one, so both versions stay. The document manifest gets a row for each, so a rescore reads them.
+4. **Uploads to the RFP's Drive folder straight away:** agency documents only, never the `_document-manifest` files, and never replacing or deleting anything in Drive. Drive is **one flat folder per RFP** under **Sales (shared drive) › Favorable RFP's**, whatever tier the RFP is in. The folder is the one the Friday run linked to, or one made the same way if the RFP never had one. Its ID is kept in the RFP's `_refresh.json`, so later uploads always go to the same folder.
+5. **Keeps a record** in `RFPs/<tier>/<slug>/_refresh.json`: the due date and documents last seen, the Drive folder, and a dated line per change.
 
-## Before you start
+A file HigherGov lists but won't hand over (portal-gated) is reported once and tried again each week.
 
-Same prerequisites as `skills/rfp-document-fetch-skill.md`: the browser bridge live, someone on the sales team signed in to HigherGov in it, and the whole run completed in one session because document links expire in about an hour.
-
-Each RFP also needs a **`resources/_document-manifest.md`** — the baseline this skill diffs against. If one is missing, run the fetch skill first to establish it; without a manifest there is nothing to compare to, and "is this new?" becomes unanswerable.
+**It never** reads agency portals, reads the documents' contents, deletes anything, or emails anyone. **It refuses** while the Friday job is running. An RFP with no saved HigherGov key (one forwarded by a teammate, say) can't be checked automatically: the Tuesday message lists it under "Couldn't check" when a message goes out anyway.
 
 ---
 
-## The procedure
+## When someone asks what changed: read the new documents
 
-Repeat for each RFP folder in `RFPs/2-intermediate-stage/` and `RFPs/3-building/`.
+The script reports **that** something changed. This part says **what**, and it can't be skipped or skimmed — downloading an addendum without reading it just moves the problem onto the sales team's desk.
 
-### Step 1 — Read the baseline
-
-Open `RFPs/3-building/<rfp-slug>/resources/_document-manifest.md` and note:
-- the file list,
-- the **Docs count at last fetch**,
-- the date of the last fetch.
-
-### Step 2 — Re-open the HigherGov listing
-
-Navigate to the `HigherGov page` recorded in the manifest, and read the current **Docs** count from the section headers.
-
-**A changed count is the fastest signal there is.** Docs 2 → Docs 4 means two new documents, before reading a single file.
-
-But don't rely on the count alone — a replaced document can leave the count unchanged. Compare the actual **file list** against the manifest.
-
-### Step 3 — Diff
-
-Sort what you find into three buckets:
-
-- **New** — on the page, not in the manifest.
-- **Changed** — same name, different size (a re-issued exhibit).
-- **Unchanged** — ignore, don't re-download.
-
-### Step 4 — Work the agency's portal (this skill owns it)
-
-Follow the **"Open"** button in the Overview section through to the agency's own listing, and diff that as well.
-
-**This is a first-class part of this skill, not an optional extra.** The fetch skill deliberately only *records* the portal's name and URL — chasing access during scoring is work spent in the wrong order, on an opportunity that may not survive. By the building stage that calculus flips: the opportunity has been accepted as worth building, so **getting in is now worth the effort**, including asking **Tina** to set up a vendor account (portal credentials live in Secret Server, never in this folder).
-
-**HigherGov is a mirror and it can lag.** Yonkers' Q&A answers issue as a formal addendum on **BidNet Direct / Empire State Purchasing Group**; an RFP watched only on HigherGov can miss them entirely. The manifest's `Agency portal:` field already names the site and holds the link — that's what the fetch skill recorded it for.
-
-**Check the Procurement portal accounts table in `reference-team-and-signature.md` first.** It is the single source of truth for which portals Seamgen can already reach, and it is what stops this step raising an account request for an account we hold.
-
-#### DemandStar, also called OpenBids (account held)
-
-**DemandStar is also called OpenBids**; the site is `demandstar.com`. Seamgen's account password is in Secret Server (November 2026). A person with Secret Server access signs in; ISA never handles the password.
-
-**DemandStar is a small share of the pipeline by volume — 11 of 512 candidates, 2.1%** — but it is disproportionately worth checking, because for several agencies it *is* the addendum channel rather than a mirror, and because we hold the account. SW Wisconsin's RFP says so outright: > *"All addenda will be supplied to Proposers of record via the College's e-bidding third party provider, Onvia DemandStar."*
-
-0. **Start from the Watch list, not from individual bids.** Sign in, go to **Bids**, and filter by **Watched Bids**. Every RFP we are tracking appears in one view, which is faster than visiting bid pages one at a time and avoids the direct-URL session drop below. Bids are put on Watch when they reach `2-intermediate-stage/` — see "Watching a bid" below.
-1. Open each watched bid **by clicking it from that list**. (The bid ID is in the candidate file's `solicitation_url` if you need to confirm identity: `https://www.demandstar.com/app/suppliers/bids/<bid-id>/details`.)
-2. Read the **Documents** table — filename, type (Addendum / Bid Document / Attachment), **Date Modified**, status — and diff it against the manifest.
-3. **Trust the portal's list over the RFP's printed schedule.** On 2627-09 the RFP said the Q&A addendum would post July 23; DemandStar shows it dated July 27. The schedule is a plan, the portal is the record.
-4. Read the **Due Date** shown on the bid page and compare it against `key-dates_<slug>.md`. **Where the portal and the solicitation disagree, report both and resolve it with the agency — do not silently pick one.** 2627-09 shows `08/10/2026 1:00 AM Central` on DemandStar against *"1:00 p.m."* in the RFP; a submission timed to the wrong one is late with no remedy.
-5. Note whether we appear as a **proposer of record** — that status is what makes future addenda arrive by email rather than requiring this check.
-
-Signing in is not a blocker here: the account exists, and its password is in Secret Server. A person with Secret Server access signs in once in the bridge window; ISA never handles the password. **Do not route a DemandStar sign-in to Tina as an account request** — the account already exists.
-
-**⚠ Two mechanics learned the hard way on 2026-07-27, both of which will waste a session if ignored.**
-
-- **Sessions expire between visits — check before assuming, and never sign in yourself.** On 2026-07-28 the bridge landed on the login form with empty fields; that is a person's action, not ours, and it stops the run until someone signs in. Signed in, the header shows the account holder's name (**Marianne Faro**) — a cheap way to confirm.
-  - **⚠ Correction, 2026-07-28.** v1.5 recorded that *"the session does not survive direct URL navigation… treat a typed URL as a session-ender."* **That is too strong.** With a live session, navigating straight to `https://www.demandstar.com/app/suppliers/bids/<id>/details` worked fine and stayed signed in. The original failure was almost certainly an **expired session**, or the older `/app/limited/` path. Clicking through the app is still the safer default, but a direct `/app/suppliers/...` URL is a legitimate fallback when search can't find a bid — which is exactly what recovered SW Wisconsin.
-- **Bid names on the portal often differ from the RFP's filename — search accordingly.** SW Wisconsin's document is *"RFP 2627-09 Web Design & Development"*, but the bid is listed as **"Website Design, Development, Hosting Solution, and Content Management."** A bid-name search for "Web Design" returns **nothing**. Search a distinctive fragment, the agency, or fall back to the bid ID from the manifest.
-- **The Bid Status filter is single-select and defaults to Active.** A watched bid that has closed disappears from the default view — switch the status to find it. That is how the **USM-MDSG** bid surfaced, sitting at *Under Evaluation*.
-- **Documents cost money. Monitoring does not.** Clicking a document name leads to a **purchase page**: *"You will be charged a nominal fee of $5.00. Once you purchase this Bid Package by using Place Order option there will be no cost for subsequent document downloads associated with this Bid."* So it is **$5 once per bid**, then that bid's documents are free forever. **Never click "Place Order."** Report the cost and let the requester decide — Jake's 2026-07-27 decision authorised accepting *planholder visibility*, not **spending money**, and "never click anything that commits Seamgen" governs a paid transaction. Clicking **Cancel** backs out cleanly. *(Seamgen's billing address is on file but no payment method is set, so an order would need one added — another reason this is Jake's or Marianne's action, not ours.)*
-
-**This split is what makes the free tier worth running on every pass.** Without spending anything you can read the **full document list with filenames, file sizes, types and Date Modified**, the **due date as the portal enforces it**, the **planholder names and count**, and whether a **pre-bid conference** exists. That is the entire monitoring job — *has a new addendum appeared, and has the deadline moved* — and it is exactly what was missed on SW Wisconsin. The $5 buys only the bytes.
-
-**Useful side-effect worth capturing while you are in there:** the signed-in bid page lists **planholders by name** — 48 firms on 2627-09. That is a competitor list we have no other source for, and it belongs in the meeting brief's Blockers section when the field is crowded or a known incumbent appears.
-
-##### Watching a bid
-
-**Watching is free, commits nothing, and does not put Seamgen's name on any public list.** Watchers appear only as a count; planholders appear by name. That distinction is why Watch is the default and ordering is not.
-
-**Put a bid on Watch when its RFP reaches `2-intermediate-stage/`.** From the bid page, use the **Watch** control; confirm it by returning to Bids → **Watched Bids** and checking the bid is listed. Record it in the RFP's `resources/_document-manifest.md` (`DemandStar watch: ACTIVE — set YYYY-MM-DD`).
-
-**⚠ Do not depend on DemandStar's email alerts.** In July 2026 the account was in **Marianne Faro's** name, so any notification goes to her inbox, not to whoever runs the refresh. **The watch list read on each refresh run is the mechanism; the email is a bonus.** A run that skips the portal because "we'd have been emailed" is a run that misses the addendum.
-
-##### The purchase gate — what to do when a new document appears
-
-Monitoring is free; the bytes are not. When the diff shows something new, follow this exactly.
-
-1. **Report before doing anything else.** Name the bid, the exact **filename, type, size and Date Modified**, and say what it probably is — a document typed *Addendum* is likely material (scope, dates, Q&A answers), one typed *Attachment* is likely boilerplate. State that the cost is **$5 once for the whole bid package**, not per document, and that it makes every future document on that bid free.
-2. **Stop there.** Do **not** open the order page "so it's ready." Do not treat reporting as implied permission.
-3. **Wait for the requester to confirm that specific purchase, on that specific bid.** A general "yes to buying documents when needed" is **not** authorisation for any particular order. Neither is Jake's 2026-07-27 decision, which covered planholder visibility and explicitly not spend.
-4. **Only after a named per-bid yes**, place the order. Jake's 2026-07-28 decision authorises clicking **Place Order** once the requester has said yes to that bid.
-5. **Record the spend** in the manifest's change log — date, bid, amount, what it bought, and who authorised it. That is the audit trail.
-
-**Two standing blocks:**
-
-- **No payment method is on file.** Seamgen's billing address is stored but no card is set, so the first purchase needs one added — **a person's action (Marianne holds the account), not ours**, regardless of authorisation.
-- **SW Wisconsin (2627-09) is a standing no.** Do not propose buying its package while the **$5M cyber-liability requirement** is unresolved; it is redundant spend on a bid we probably cannot make. If that blocker clears, it becomes a fresh decision, not a resumed one.
-
-If a portal genuinely blocks the way, apply the **escalation ladder in `skills/rfp-document-fetch-skill.md`** — sign-in needed, bot challenge, registration required, paywall. **Never work around a barrier.** Report a blocked portal *immediately* rather than at the end of the run: this is exactly the window where a missed addendum does real damage, and an account request has lead time.
-
-**Pull documents incrementally.** The browser bridge jams after roughly five downloads, when the native Windows file-picker sticks open and blocks Chrome — a hung `take_screenshot` is the tell, and only a person at the bridge machine can clear it. Take the new and changed files first; if the set is large, expect to stop and hand off.
-
-### Step 5 — Download what's new
-
-Into the same `resources/` folder, following the fetch skill's Step 5 (read the real file address from the network request list; never write the signed address to disk).
-
-### Step 6 — Read the new documents and extract what changed
-
-This is the part that matters, and it can't be skipped or skimmed. Downloading an addendum without reading it just moves the problem onto the sales team's desk.
-
-For each new document, pull out:
+Read each new or re-issued document from `resources/` with `node scripts/document-text.mjs <file>`, and pull out:
 
 | Look for | Because |
 |---|---|
@@ -153,79 +62,97 @@ For each new document, pull out:
 
 Quote the document and cite the section or page — the same discipline the engineering brief uses. **Do not paraphrase a date.** If the addendum says "October 3, 2026 at 4:00 PM PST," write that, not "early October."
 
-### Step 7 — Update the RFP's records
+**HigherGov's due date and the documents can disagree.** The Tuesday check reads HigherGov's; the addendum is the agency's own word. Where they differ, report both and say the agency should be asked — do not silently pick one. A submission timed to the wrong one is late with no remedy.
 
-- **`key-dates_<rfp-slug>.md`** — if any date moved, update it and cite the new source, matching the existing format (`Confirmed from [document], [page]`). Keep the superseded date visible with a strikethrough or a "was:" note so the change is legible rather than silent. **Then re-run `skills/rfp-calendar-logging-skill.md`** so the moved date updates the calendar event (it reconciles against the sync-block ledger in this same note, so it moves the existing event rather than making a duplicate). A due date that moves on disk but not on the calendar is the same silent-staleness failure this skill exists to prevent, one layer out.
-- **`resources/_document-manifest.md`** — add the new files to the table and append a dated line to the change log:
-  ```
-  - **2026-07-21** — refresh: +Addendum_2.pdf (due date moved Aug 7 → Aug 21), +QA_Responses.pdf. Docs count 2 → 4.
-  ```
+### Then update the RFP's records
+
+- **`key-dates_<rfp-slug>.md`** — if a date moved, update it and cite the new source (`Confirmed from [document], [page]`). Keep the superseded date visible with a "was:" note. **Then re-run `skills/rfp-calendar-logging-skill.md`**, so the person gets the changed event text for their calendar. ISA never writes to a calendar.
 - **Downstream deliverables** — if a new mandatory form appeared, say which existing deliverable is now stale (usually the submission checklist, sometimes the proposal deck). Don't silently regenerate them; tell the person who asked what needs rebuilding and let them decide.
-- **The RFP's Google Drive folder** — push every newly downloaded document into it with `.\tools\Sync-RfpToDrive.ps1 -Slug <rfp-slug>`, and say in the report that you did. The folder is under `Sales (shared drive) > Favorable RFP's`; its URL is on the manifest's `Drive folder:` line. The script copies the whole `resources/` folder and skips what's already there, so re-running it after a refresh is safe and only moves the new files.
-
-**Why this matters more here than at fetch time.** The Drive folder is what Peter and Marianne read from (it's the link in the pursue email, `rfp-email-pursue` v1.6). If a refresh pulls an addendum that moves the due date and it lands only on disk, leadership is reading a superseded document set from a link that looks current — with no signal that anything changed. That is precisely the silent-staleness failure this skill exists to prevent, reintroduced one layer out.
-
-If the folder has no `Drive folder:` line (an RFP promoted before `rfp-document-fetch` v1.3), create the folder now per that skill's Step 12 and record it.
-
-### Step 8 — Report
-
-Deadline changes first. Always.
 
 ---
 
-## Output format
+## Agency portals: a person checks these
+
+**HigherGov is a mirror, and it can lag.** Yonkers' Q&A answers issued as a formal addendum on **BidNet Direct / Empire State Purchasing Group**, and SW Wisconsin's addendum reached **DemandStar** four days after the RFP's own printed schedule said it would, and never reached HigherGov. ISA has no browser on the VM and never signs in, so portals are a person's check.
+
+When an RFP's manifest names an agency portal (its `source_path` or `Agency portal:` line), end your reply with a short checklist for the person: which portal, which RFP, and what to look for — **new documents, the due date the portal shows, and whether a pre-bid conference exists.** **Trust the portal's list over the RFP's printed schedule:** the schedule is a plan, the portal is the record.
+
+When the person sends you a new document from a portal, save it in the RFP's `resources/` folder (as `skills/rfp-document-fetch-skill.md` says), run `node scripts/rfp-refresh.mjs <slug> --drive` so it reaches Drive, and read it as above.
+
+#### DemandStar, also called OpenBids (account held)
+
+**DemandStar is also called OpenBids**; the site is `demandstar.com`. Seamgen has an account, and its password is in **Secret Server**. A person with Secret Server access signs in; ISA never handles the password. **Do not route a DemandStar sign-in to Tina as an account request** — the account already exists. For a portal where Seamgen has no account, a new vendor account is Tina's to set up; ISA never registers.
+
+DemandStar is a small share of the pipeline (11 of 512 candidates in July 2026), but for several agencies it *is* the addendum channel. SW Wisconsin's RFP said so outright: *"All addenda will be supplied to Proposers of record via the College's e-bidding third party provider, Onvia DemandStar."* What the person checks, from July 2026's runs:
+
+- **Start from the Watch list.** Sign in, go to **Bids**, filter by **Watched Bids**. Every tracked RFP is in one view. The **Bid Status** filter is single-select and defaults to Active, so switch it to find a bid that has closed.
+- **Read the Documents table** — filename, type (Addendum / Bid Document / Attachment), **Date Modified** — and compare it with the RFP's `resources/`.
+- **Read the Due Date on the bid page** and compare it with `key-dates_<slug>.md`. SW Wisconsin showed `08/10/2026 1:00 AM Central` against the RFP's *"1:00 p.m."*: report both and resolve it with the agency.
+- **Bid names often differ from the RFP's title**, so search a distinctive fragment, the agency, or the bid ID (`https://www.demandstar.com/app/suppliers/bids/<bid-id>/details`).
+- **Planholders are listed by name** on the signed-in bid page — a competitor list nothing else gives us. Note it when the field is crowded or a known incumbent appears.
+- **Put a bid on Watch when its RFP moves to Looking closer.** Watching is free, commits nothing, and shows only as a count. Don't depend on DemandStar's email alerts: they go to the account holder's inbox, not to whoever checks.
+
+##### The purchase gate — what to do when a new document appears
+
+**Monitoring is free; the bytes are not.** Clicking a document name leads to a purchase page: *"You will be charged a nominal fee of $5.00. Once you purchase this Bid Package by using Place Order option there will be no cost for subsequent document downloads associated with this Bid."* So it is **$5 once per bid**, then that bid's documents are free.
+
+1. **Report before doing anything else.** Name the bid, the exact **filename, type, size and Date Modified**, and say what it probably is — *Addendum* is likely material, *Attachment* likely boilerplate. State the $5 covers the whole bid package.
+2. **Stop there.** Don't open the order page "so it's ready."
+3. **Wait for the requester to confirm that specific purchase, on that specific bid.** A general "yes to buying documents when needed" authorises **no specific order**.
+4. **Only after a named per-bid yes** does the person place the order.
+5. **Record the spend** in the manifest's change log — date, bid, amount, what it bought, and who authorised it.
+
+**Two standing blocks:**
+- **No payment method was on file** in July 2026, so the first purchase needs one added — a person's action, regardless of authorisation.
+- **SW Wisconsin (2627-09) is a standing no.** Don't propose buying its package while the **$5M cyber-liability requirement** is unresolved. If that blocker clears, it's a fresh decision.
+
+If a portal blocks the way, apply the **escalation ladder in `skills/rfp-document-fetch-skill.md`** — sign-in needed, bot challenge, registration required, paywall. **Never work around a barrier.**
+
+---
+
+## Output format (a refresh on request, or "what changed?")
 
 ```
-DOCUMENT REFRESH — [date]
-=========================
-
-Checked: [n] RFPs in 3-building/
+DOCUMENT CHECK — [RFP title] — [date]
 
 ⚠ DEADLINE CHANGES
-------------------
-- [RFP title]: Proposal due [old] → [NEW] — per [document], [section/page]
-- [RFP title]: Questions due [old] → [NEW] — per [document], [section/page]
+- Proposal due [old] → [NEW] — per [HigherGov / document, section/page]
   (or "None")
 
 NEW DOCUMENTS
--------------
-[RFP title] — Docs [old count] → [new count]
-  + [filename] ([size]) — [one line: what it is]
-  + [filename] ([size]) — [one line: what it is]
++ [filename] — [one line: what it is]
+~ [filename] — re-issued; saved beside the earlier copy
 
 WHAT CHANGED
-------------
-[RFP title]
-  - [Scope/requirement/criteria change, with a verbatim quote + §/page]
-  - [Q&A answer worth knowing, quoted]
+- [Scope/requirement/criteria change, with a verbatim quote + §/page]
+- [Q&A answer worth knowing, quoted]
 
-NO CHANGE
----------
-- [RFP title] — Docs still [n], nothing new since [date]
+DRIVE
+[folder link] — [n] file(s) uploaded (or why not)
 
-NEEDS YOUR ACTION
------------------
-- [Blocked portal, stale deliverable, or time-critical item — or "none"]
+NEEDS SOMEONE
+- [Portal to check, purchase to decide, stale deliverable — or "none"]
 ```
 
-**Report the no-change case explicitly.** "Checked, nothing new" is a real result and it's what makes the report trustworthy. A refresh that only ever speaks up when something changed leaves the sales team unable to tell "all clear" from "didn't run."
+**Report the no-change case explicitly** when someone asks: "Checked, nothing new since [date]" is a real result. (The Tuesday message is different: a quiet week sends nothing.)
 
 ---
 
 ## Guardrails
 
-Identical to the fetch skill, and they carry the same weight:
-
-- **Read-only browsing.** Never submit a form, register, or accept terms without asking.
-- **Never spend money without a named, per-bid confirmation from the requester.** A general "yes to buying documents" authorises **no specific order**. Watching is free and is the default; ordering is a separate decision, taken once, per bid, out loud. See "The purchase gate" above.
-- **Never persist signed URLs** — they carry AWS credentials.
-- **Never handle credentials.** A person signs in.
+- **Never overwrite or delete a saved document.** Re-issued files sit beside the originals.
+- **Never replace or delete anything in Drive.** Uploads add agency documents only.
+- **Never spend money without a named, per-bid confirmation from the requester.**
+- **Never handle credentials, sign in, register, submit a form, or accept terms.** A person does.
 - **Never bypass a bot challenge.**
+- **Never persist signed download URLs.**
 - **Never paraphrase a date or a requirement.** Quote it, cite it.
 
 ---
 
 ## Notes and edit history
+
+**v2.0 — November 2026.** Rewritten for ISA on the VM. The check is now `scripts/rfp-refresh.mjs`: every Tuesday for the RFPs in Looking closer and Building (one Telegram message only when something changed), or on request for one RFP. It reads the newest HigherGov version, compares the due date as well as the documents (matched by name and size, since HigherGov's records have no ID), saves re-issued files beside the originals, and uploads new agency documents straight to the RFP's one Drive folder, whose ID it keeps. Gone: the Windows browser bridge, the file-picker workaround, `Sync-RfpToDrive.ps1`, `reference-team-and-signature.md`, and the calendar "sync-block ledger" (removed from the calendar skill in v1.1). DemandStar and other portals are now a person's check, with the same purchase gate; ISA reads what the person sends.
 
 **v1.8 — November 2026.** DemandStar is also called OpenBids (same site, `demandstar.com`). Its account password is in Secret Server, and a person with access signs in; ISA never handles it. Sign-in no longer assumes Marianne.
 
