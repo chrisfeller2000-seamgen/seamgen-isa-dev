@@ -48,7 +48,7 @@
 - Weekly reengagement advice may include existing lead follow-ups when the last outreach mail, last communication, or reply thread gives a clear follow-up trigger.
 - For new leads in weekly reengagement advice, use creative outreach angles by learning from prior outreaches, comparing similar companies, and finding a believable reference-case bridge.
 - For new leads in weekly reengagement advice, also use recent web news from the last 14 days and an outdated or stale company website as possible outreach triggers when they reveal a real business signal.
-- Weekly reengagement advice currently emails `nurrea@seamgen.com` with `mariannefaro@seamgen.com` on CC and sends a Telegram group update to `-1003890997073` with a client-ready draft prompt based on the strongest signal per company.
+- Weekly reengagement advice currently emails `nurrea@seamgen.com` (Nicolas Urrea, from Itility, working with Seamgen; not Seamgen staff) with `mariannefaro@seamgen.com` on CC and sends a Telegram group update to `-1003890997073` with a client-ready draft prompt based on the strongest signal per company.
 - Weekly reengagement advice should open with the applied filter and the companies scanned so the reader immediately sees the review scope.
 - Weekly reengagement advice should use the exact opening format `Filter applied: ...` and `Companies scanned: ...` on separate lines.
 - Weekly reengagement advice should always include an explicit `Companies scanned: N` line in the summary.
