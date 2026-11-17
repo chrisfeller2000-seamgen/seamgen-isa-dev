@@ -17,8 +17,9 @@
   - Chris Feller
   - Yulieth Ramsey
   - Oleg Gorbatchev
+- Also at Seamgen, confirmed by J Garibay on 2026-11-17: Peter Schepers, Marianne Faro, Tina Alringer and Nick Buchan. In the skills, "Peter" is Peter Schepers, not Pete Nystrom. The skills give Marianne, Tina and Nick proposal roles (Marianne signs binding documents with Peter's approval, Tina handles registrations and portal accounts, Nick handles financial-responsibility documents); those roles come from July 2026 and haven't been reconfirmed.
 - Each person's role and bio are in `resources/proposal-sources/Proposal - People.txt` (added 2026-11-12). Its roles haven't been reconfirmed with each person, so confirm before a submission. Where the org chart or the Drive deck gives a different title, use the People file.
-- No longer at Seamgen: Marc Alringer (former CEO), Katie Bielawiec, Josh Kirkland, Scott Sanders, Bryer Cole, Trevor Keller and Jake. Never propose them as key personnel or route work to them.
+- No longer at Seamgen: Marc Alringer (former CEO), Katie Bielawiec, Josh Kirkland, Scott Sanders, Bryer Cole, Trevor Keller, Adan Aispuro and Jake. Never propose them as key personnel or route work to them.
 - The Drive "Proposal - People" deck and the org chart in `resources/proposal-sources/Proposal - Assets.txt` both still list people who have left. Only the people in the current list above are still at Seamgen. Build team sections from that list.
 - Bios come from `resources/proposal-sources/Proposal - People.txt`. If someone isn't in it, or the file is missing, say so and ask Marianne. Don't write a bio or resume from memory or from another person's text.
 - Some other resume-like files in Drive appear to be partner or proposal personnel and should not be treated as Seamgen staff without checking the document context.
@@ -47,7 +48,7 @@
 - Weekly reengagement advice may include existing lead follow-ups when the last outreach mail, last communication, or reply thread gives a clear follow-up trigger.
 - For new leads in weekly reengagement advice, use creative outreach angles by learning from prior outreaches, comparing similar companies, and finding a believable reference-case bridge.
 - For new leads in weekly reengagement advice, also use recent web news from the last 14 days and an outdated or stale company website as possible outreach triggers when they reveal a real business signal.
-- Weekly reengagement advice currently emails `nurrea@seamgen.com` with `mariannefaro@seamgen.com` on CC and sends a Telegram group update to `-1003890997073` with a client-ready draft prompt based on the strongest signal per company.
+- Weekly reengagement advice currently emails `nurrea@seamgen.com` (Nicolas Urrea, from Itility, working with Seamgen; not Seamgen staff) with `mariannefaro@seamgen.com` on CC and sends a Telegram group update to `-1003890997073` with a client-ready draft prompt based on the strongest signal per company.
 - Weekly reengagement advice should open with the applied filter and the companies scanned so the reader immediately sees the review scope.
 - Weekly reengagement advice should use the exact opening format `Filter applied: ...` and `Companies scanned: ...` on separate lines.
 - Weekly reengagement advice should always include an explicit `Companies scanned: N` line in the summary.
