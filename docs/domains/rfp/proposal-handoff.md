@@ -12,4 +12,4 @@ After qualification, ISA's RFP skills describe engineering briefs, submission ch
 
 ## Known sharp edge
 
-`workspace/tools/README.md` describes a broader Slack/PowerShell setup and refers to helper files not present in this source snapshot. Treat it as a workflow note to verify, not proof that those tools are installed or configured. See [RFP overview](README.md), [security](../../security.md), and [integrations](../../integrations.md).
+ISA has no Slack connection. Materials requests and capability checks are drafted as plain text for the person who asked to approve and paste into Slack themselves. `workspace/tools/README.md` describes PowerShell helpers from a Windows laptop setup; treat it as a workflow note to verify, not proof that those tools are installed or configured on the VM. See [RFP overview](README.md), [security](../../security.md), and [integrations](../../integrations.md).
