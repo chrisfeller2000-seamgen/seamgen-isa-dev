@@ -214,6 +214,28 @@ async function lookupOpportunityRecord({
   return { record: null, method: null, pageNumber: null, pages: null };
 }
 
+/**
+ * Every version HigherGov holds of one opportunity, newest capture first. An amendment
+ * arrives as a new version with the same opp_key: on November 17, 2026 a check of 15 saved
+ * RFPs found one whose November 3 version moved the due date from November 2 to November 30.
+ * Both versions shared one document_path, so the document list belongs to the opportunity;
+ * the due date has to be read from the newest version.
+ */
+async function listOpportunityVersions({ apiKey, oppKey, fetchImpl = fetch, retryDelayMs }) {
+  const target = normalizeText(oppKey);
+  if (!apiKey) throw new Error('HIGHERGOV_API_KEY is required.');
+  if (!target) throw new Error('oppKey is required.');
+  const url = new URL('https://www.highergov.com/api-external/opportunity/');
+  url.searchParams.set('api_key', apiKey);
+  url.searchParams.set('opp_key', target);
+  url.searchParams.set('page_size', '25');
+  const data = await fetchHigherGovJson(url, { label: 'opportunity versions', fetchImpl, retryDelayMs });
+  const results = Array.isArray(data.results) ? data.results : [];
+  // Only exact matches: a filter the API ignored would return unrelated opportunities.
+  return results.filter((record) => normalizeText(record?.opp_key || '') === target)
+    .sort((a, b) => String(b.captured_date || '').localeCompare(String(a.captured_date || '')));
+}
+
 function documentListUrl(documentPath, apiKey, pageNumber) {
   let url;
   try {
@@ -446,6 +468,7 @@ export {
   evaluateDocumentCompleteness,
   hashFile,
   listDocumentRecords,
+  listOpportunityVersions,
   looksLikeSolicitationText,
   lookupOpportunityRecord,
   safeExtension,

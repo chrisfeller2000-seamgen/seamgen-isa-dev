@@ -171,10 +171,12 @@ function intakeDrop(drop) {
  * the RFP I saw on HigherGov?" had no answer: on October 14, 53 of 240 listings were
  * dropped at intake and 2 were duplicates.
  */
-export function auditSkippedRecord({ run, listing, duplicateOf = null }) {
-  const plain = duplicateOf
-    ? { reason: 'duplicate', why: `Same RFP as "${duplicateOf}", which was scored instead.` }
-    : intakeDrop(listing);
+export function auditSkippedRecord({ run, listing, duplicateOf = null, inProgress = null }) {
+  const plain = inProgress
+    ? { reason: 'in-progress', why: `A new version of "${inProgress.title}", which is already in ${inProgress.stage.label}. Not rescored; the Tuesday document check handles its documents and due date.` }
+    : duplicateOf
+      ? { reason: 'duplicate', why: `Same RFP as "${duplicateOf}", which was scored instead.` }
+      : intakeDrop(listing);
   return {
     schemaVersion: AUDIT_SCHEMA_VERSION,
     run: { date: run.date, week: Number(run.week) || null },

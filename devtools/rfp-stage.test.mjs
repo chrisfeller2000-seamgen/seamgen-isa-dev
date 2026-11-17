@@ -65,7 +65,7 @@ test('a move takes the whole folder, keeps this week\'s scoring and records who 
     assert.match(await fs.readFile(path.join(dir, 'candidate.md'), 'utf8'), /title: City Permit Portal/);
     assert.deepEqual(await readJson(path.join(dir, STAGE_FILE)), {
       slug: 'city-portal', history: [{ at: '2026-11-18T17:00:00.000Z', from: '1-pre-submission', to: '3-building', by: 'Marianne', note: 'Peter approved' }],
-      title: 'City Permit Portal', stage: '3-building',
+      title: 'City Permit Portal', stage: '3-building', agency: 'City of Example',
     });
 
     // After the Friday job clears the candidate file, a move still works and keeps the copy.
@@ -144,7 +144,17 @@ test('from the command line: --by is required, list shows the tiers, and nothing
     }
     const moved = await run('rfp-stage.mjs', root, ['city-portal', 'looking', '--by', 'Marianne Faro']);
     assert.equal(moved.code, 0, moved.stderr);
-    assert.equal(moved.stdout, 'City Permit Portal moved from Scored to Looking closer.\nRecorded as asked by Marianne Faro.\nNothing was deleted, uploaded or sent.\n');
+    // This RFP has no HigherGov key, so the move asks for what lets Friday recognize its listing.
+    assert.equal(moved.stdout, ['City Permit Portal moved from Scored to Looking closer.', 'Recorded as asked by Marianne Faro.',
+      'It has no HigherGov listing key, so the Friday run can only recognize its listing by agency and solicitation number. Add them from its documents: node scripts/rfp-stage.mjs city-portal --agency "<agency>" --number "<solicitation number>" --by "<name>"',
+      'Nothing was deleted, uploaded or sent.', ''].join('\n'));
+    const noByDetails = await run('rfp-stage.mjs', root, ['city-portal', '--number', 'RFP 2026-14']);
+    assert.match(noByDetails.stderr, /Say who asked for the change with --by/);
+    const details = await run('rfp-stage.mjs', root, ['city-portal', '--number', 'RFP 2026-14', '--by', 'Marianne Faro']);
+    assert.equal(details.code, 0, details.stderr);
+    assert.equal(details.stdout, 'City Permit Portal (Looking closer): agency "City of Example", solicitation number "RFP 2026-14".\nRecorded as asked by Marianne Faro.\n');
+    const record = await readJson(path.join(root, 'RFPs', '2-intermediate-stage', 'city-portal', STAGE_FILE));
+    assert.deepEqual([record.number, record.agency, record.history.length, record.details.map(item => item.by)], ['RFP 2026-14', 'City of Example', 1, ['Marianne Faro']]);
     const listed = await run('rfp-stage.mjs', root, ['list']);
     assert.equal(listed.code, 0, listed.stderr);
     assert.match(listed.stdout, /^Submitted \(4-submitted\): none\nBuilding \(3-building\): none\nLooking closer \(2-intermediate-stage\): 1\n- City Permit Portal \[city-portal\]: moved \d{4}-\d{2}-\d{2} by Marianne Faro; 1 document\nScored \(1-pre-submission\): 0 RFP folders\.\n$/);
@@ -153,7 +163,7 @@ test('from the command line: --by is required, list shows the tiers, and nothing
   }
 });
 
-test('a whole Friday run after a move adds documents to the moved folder, not a new tier-1 copy', async () => {
+test('a whole Friday run after a move lists the returning listing once as being worked on: not rescored, re-downloaded or copied to tier 1', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'isa-stage-week-'));
   const pipeline = path.join(root, 'RFP-pipeline');
   try {
@@ -176,9 +186,19 @@ test('a whole Friday run after a move adds documents to the moved folder, not a 
     const building = path.join(root, 'RFPs', '3-building', portal.slug);
     await fs.writeFile(path.join(building, 'proposal-notes.md'), 'draft');
 
-    // The same listing comes back the next week (replayed here).
+    // The same listing comes back the next week (replayed here; an amendment is a new version
+    // with the same opp_key, which the Friday intake would otherwise treat as new).
     const second = await run('weekly-rfp-pursue-decision.mjs', root);
     assert.equal(second.code, 0, second.stderr);
+    const next = await readJson(path.join(root, 'reports', 'new-rfp-qualification', 'latest.json'));
+    assert.equal(next.entries.some(entry => entry.title === 'Synthetic Case Management Portal'), false, 'not scored or picked again');
+    assert.deepEqual(next.inProgress.map(item => [item.slug, item.stage, item.stageLabel, item.title]),
+      [[portal.slug, '3-building', 'Building', 'Synthetic Case Management Portal']]);
+    assert.equal(next.total, week.total - 1);
+    assert.match(await fs.readFile(path.join(root, 'reports', 'new-rfp-qualification', 'latest.md'), 'utf8'),
+      /## Updated listings already being worked on\n\n.*\n\n- Synthetic Case Management Portal \(Building\): new version captured /);
+    const auditLines = (await fs.readFile(path.join(root, 'reports', 'new-rfp-qualification', 'audit', '2026-10-16-2.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+    assert.deepEqual(auditLines.filter(line => line.outcome.reason === 'in-progress').map(line => line.rfp.title), ['Synthetic Case Management Portal']);
     assert.equal(await exists(tier1), false, 'no second copy in tier 1');
     assert.deepEqual((await fs.readdir(path.join(building, 'resources'))).sort(), saved);
     assert.equal(await fs.readFile(path.join(building, 'proposal-notes.md'), 'utf8'), 'draft');

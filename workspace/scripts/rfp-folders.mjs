@@ -50,6 +50,72 @@ export async function findLocalResourcesDir(slug, { workspace = workspaceDir() }
   return '';
 }
 
+const readJson = async file => JSON.parse(await fs.readFile(file, 'utf8'));
+
+/**
+ * The RFPs someone is working on (Looking closer, Building, Submitted), by HigherGov
+ * opp_key: Map<oppKey, { slug, title, stage, dir }>. The Friday job uses it to leave a new
+ * version of one of these alone. An amendment is a new HigherGov version, which the Friday
+ * intake hasn't seen, so before November 17, 2026 it would have been scored again as a new
+ * RFP, re-downloaded under the Friday job's file names, and could reach the pursue email again.
+ */
+export async function rfpsInProgress({ workspace = workspaceDir() } = {}) {
+  return (await scanRfpsInProgress({ workspace })).byOpp;
+}
+
+const frontValue = (text, key) => String(text.match(new RegExp(`^${key}:\\s*"?([^"\\n]*?)"?\\s*$`, 'm'))?.[1] || '').trim();
+
+/**
+ * The RFPs in tiers 2–4, split by whether a HigherGov key is known. `byOpp` is the map above.
+ * `keyless` lists the rest (an RFP a teammate forwarded, say) with the title, agency and
+ * solicitation number recorded when it was moved, so the Friday run can recognize its
+ * listing if it ever reaches HigherGov. HigherGov's API has no keyword or solicitation-number
+ * search (its `source_id` is the posting site's internal ID), so matching happens when the
+ * listing arrives.
+ */
+export async function scanRfpsInProgress({ workspace = workspaceDir() } = {}) {
+  const byOpp = new Map();
+  const keyless = [];
+  for (const stage of STAGES.slice(1)) {
+    const tierDir = path.join(rfpsDir(workspace), stage.dir);
+    const slugs = (await fs.readdir(tierDir, { withFileTypes: true }).catch(() => [])).filter(entry => entry.isDirectory()).map(entry => entry.name);
+    for (const slug of slugs) {
+      const dir = path.join(tierDir, slug);
+      const refresh = await readJson(path.join(dir, '_refresh.json')).catch(() => null);
+      const manifest = await readJson(path.join(dir, 'resources', '_document-manifest.json')).catch(() => null);
+      const candidate = await fs.readFile(path.join(dir, 'candidate.md'), 'utf8').catch(() => '');
+      const record = await readJson(path.join(dir, '_stage.json')).catch(() => null);
+      const title = record?.title || manifest?.candidate_title || frontValue(candidate, 'title') || slug;
+      const oppKey = String(refresh?.oppKey || manifest?.opp_key || frontValue(candidate, 'opp_key')).trim();
+      if (oppKey) byOpp.set(oppKey, { slug, title, stage, dir });
+      else keyless.push({ slug, title, agency: record?.agency || frontValue(candidate, 'agency_name'), number: record?.number || '', stage, dir });
+    }
+  }
+  return { byOpp, keyless };
+}
+
+/**
+ * Records a HigherGov listing found for an RFP that had no key, in its _refresh.json, so the
+ * Tuesday check follows it from then on. The agency documents already saved count as known,
+ * so only documents HigherGov has that the folder doesn't are downloaded.
+ */
+export async function adoptHigherGovKeys(dir, { slug, oppKey, versionKey = '', dueDate = '', captured = '', rule, listingTitle = '', at = new Date().toISOString() }) {
+  const file = path.join(dir, '_refresh.json');
+  const state = await readJson(file).catch(() => null) || { version: 1, slug, history: [] };
+  if (!state.documents) {
+    const resources = path.join(dir, 'resources');
+    const names = (await fs.readdir(resources, { withFileTypes: true }).catch(() => []))
+      .filter(entry => entry.isFile() && !entry.name.startsWith('_') && !entry.name.startsWith('.')).map(entry => entry.name);
+    state.documents = await Promise.all(names.map(async name => ({ name, size: (await fs.stat(path.join(resources, name))).size, localFile: name })));
+  }
+  Object.assign(state, { oppKey, versionKey: versionKey || state.versionKey || '', dueDate: dueDate || state.dueDate || null,
+    matched: { at, rule, listingTitle, captured: captured || null } });
+  const temp = `${file}.tmp-${process.pid}`;
+  await fs.writeFile(temp, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+  await fs.rename(temp, file);
+  return state;
+}
+
 /**
  * The resources/ folder the Friday job saves an RFP's documents into: the RFP's existing folder
  * in whatever tier it has been moved to, else a new one in 1-pre-submission. Without this, a

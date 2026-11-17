@@ -24,7 +24,7 @@ import {
   writeDocumentManifestJson,
   writeDocumentManifestMarkdown,
 } from './highergov-document-flow.mjs';
-import { findLocalResourcesDir as findResourcesInAnyStage } from './rfp-folders.mjs';
+import { adoptHigherGovKeys, findLocalResourcesDir as findResourcesInAnyStage, scanRfpsInProgress } from './rfp-folders.mjs';
 
 const WORKSPACE = process.env.WORKSPACE_DIR || '/home/azureuser/.openclaw/workspace';
 // This job implements the rfp-flow workflow: portal intake, qualification, document handling, and digest drafting.
@@ -184,6 +184,44 @@ function normalizeRfpCore(value = '') {
     .filter((word) => word && !['rfp', 'request', 'for', 'proposal', 'proposals', 'solicitation', 'document', 'addendum', 'rfq', 'bid', 'invitation', 'to', 'the', 'and', 'of', 'services', 'service', 'powered', 'assistant', 'solution', 'platform', 'system', 'tool', 'tools', 'program', 'initiative', 'project', 'implementation'].includes(word))
     .join(' ')
     .trim();
+}
+
+// Words every agency name shares, which can't tell two agencies apart.
+const GENERIC_AGENCY_WORDS = new Set(['city', 'county', 'of', 'the', 'state', 'department', 'dept', 'town', 'village', 'district', 'office', 'board',
+  'authority', 'public', 'and', 'for', 'agency', 'commission', 'division', 'services', 'government']);
+const agencyWords = (value) => normalizeSearchText(value).split(' ').filter((word) => word.length > 2 && !GENERIC_AGENCY_WORDS.has(word));
+function sameAgency(a = '', b = '') {
+  const left = normalizeSearchText(a);
+  const right = normalizeSearchText(b);
+  if (!left || !right) return false;
+  if (left === right || left.includes(right) || right.includes(left)) return true;
+  const words = new Set(agencyWords(a));
+  return agencyWords(b).some((word) => words.has(word));
+}
+
+/**
+ * Whether a new listing is an RFP someone is already working on that had no HigherGov key
+ * (one a teammate forwarded). `keyless` comes from scanRfpsInProgress(). A match needs either
+ * the RFP's solicitation number, as a whole token, in the listing's title or text from the
+ * same agency, or the same title and agency by the rule that catches duplicate postings.
+ * Generic titles ("Website Redesign") only match with the same agency. Returns
+ * { rfp, rule } or null.
+ */
+export function matchKeylessRfp({ title = '', agency = '', text = '' }, keyless = []) {
+  for (const rfp of keyless) {
+    const chunks = String(rfp.number || '').toLowerCase().match(/[a-z0-9]+/g) || [];
+    const compact = chunks.join('');
+    // A real solicitation number: more than one part ("1913-27"), letters and digits
+    // ("RFP-561"), or at least five digits. A bare "2026" would match any listing that names the year.
+    const distinctive = compact.length >= 4 && /\d/.test(compact) && (chunks.length > 1 || /[a-z]/.test(compact) || compact.length >= 5);
+    if (distinctive && sameAgency(agency, rfp.agency)) {
+      const pattern = new RegExp(`(?<![a-z0-9])${chunks.join('[\\s\\-_./#]*')}(?![a-z0-9])`, 'i');
+      if (pattern.test(`${title}\n${text}`)) return { rfp, rule: 'number' };
+    }
+    const key = buildRfpKey(title, agency);
+    if (key && rfp.agency && sameAgency(agency, rfp.agency) && key === buildRfpKey(rfp.title, rfp.agency)) return { rfp, rule: 'title' };
+  }
+  return null;
 }
 
 function buildRfpKey(title = '', issuer = '') {
@@ -1154,23 +1192,33 @@ export async function resolveRfpFolderId(issuer, title, slug = '', { gog = (args
   return created?.id || '';
 }
 
-async function folderHasFile(folderId, fileName) {
+const defaultGog = (args) => runJson('gog', args, { timeoutMs: 120000 });
+
+async function folderHasFile(folderId, fileName, { gog = defaultGog } = {}) {
   const rows = await driveSearchRaw(`name = '${String(fileName || '').replaceAll("'", "\\'")}' and trashed = false`, {
     parent: folderId,
     max: 20,
+    gog,
   }).catch(() => []);
   return rows.some((row) => normalizeText(row.NAME || row.Name || row.name || '') === normalizeText(fileName));
 }
 
-async function copyLocalFileToFolder(localPath, folderId) {
+// Uploads one file unless a file of that name is already in the folder. Never replaces or
+// deletes anything in Drive, so a re-issued document needs a new name to reach it.
+export async function copyLocalFileToFolder(localPath, folderId, { gog = defaultGog } = {}) {
   const targetName = path.basename(localPath);
-  const exists = await folderHasFile(folderId, targetName).catch(() => false);
+  const exists = await folderHasFile(folderId, targetName, { gog }).catch(() => false);
   if (exists) {
     return { copied: false, reason: 'File already exists in destination folder.' };
   }
-  await runJson('gog', ['-a', 'isa@seamgen.com', 'drive', 'upload', localPath, '--name', targetName, '--parent', folderId, '--no-input'], { timeoutMs: 120000 });
+  await gog(['-a', 'isa@seamgen.com', 'drive', 'upload', localPath, '--name', targetName, '--parent', folderId, '--no-input']);
   return { copied: true, folderId, fileName: targetName };
 }
+
+// Only the agency's documents go to Drive. Files starting with "_" (the document manifest)
+// or "." are Seamgen's own tracking and working files; until November 17, 2026 the Friday
+// job uploaded the manifests too.
+export const isAgencyDocument = (fileName) => Boolean(fileName) && !fileName.startsWith('_') && !fileName.startsWith('.');
 
 async function ensureRfpDriveFolder(issuer, title, slug = '') {
   const folderId = await resolveRfpFolderId(issuer, title, slug);
@@ -1180,25 +1228,30 @@ async function ensureRfpDriveFolder(issuer, title, slug = '') {
   return { created: true, folderId, folderUrl: driveFolderUrl(folderId) };
 }
 
-async function mirrorLocalResourcesToDrive(folderId, slug) {
-  const resourcesDir = await findLocalResourcesDir(slug);
+// Uploads the agency documents in the RFP's resources/ that the Drive folder doesn't have
+// yet. `uploaded` and `failed` list file names, for the Tuesday refresh's message.
+export async function mirrorLocalResourcesToDrive(folderId, slug, { gog = defaultGog, resourcesDir = '', log = '[weekly-rfp]' } = {}) {
+  resourcesDir = resourcesDir || await findLocalResourcesDir(slug);
   if (!resourcesDir) {
-    return { mirrored: 0, reason: 'No local resources folder found.' };
+    return { mirrored: 0, uploaded: [], failed: [], reason: 'No local resources folder found.' };
   }
-  const files = await listFilesRecursive(resourcesDir);
-  let mirrored = 0;
+  const files = (await listFilesRecursive(resourcesDir)).filter((filePath) => isAgencyDocument(path.basename(filePath)));
+  const uploaded = [];
+  const failed = [];
   for (const filePath of files) {
     const fileName = path.basename(filePath);
-    if (!fileName) continue;
-    const result = await copyLocalFileToFolder(filePath, folderId).catch((error) => ({
+    const result = await copyLocalFileToFolder(filePath, folderId, { gog }).catch((error) => ({
       copied: false,
       failed: true,
       reason: error?.message || 'Drive upload failed.',
     }));
-    if (result.copied) mirrored += 1;
-    else if (result.failed) process.stderr.write(`[weekly-rfp] drive upload failed for ${fileName}: ${result.reason}\n`);
+    if (result.copied) uploaded.push(fileName);
+    else if (result.failed) {
+      failed.push(fileName);
+      process.stderr.write(`${log} drive upload failed for ${fileName}: ${result.reason}\n`);
+    }
   }
-  return { mirrored, resourcesDir };
+  return { mirrored: uploaded.length, uploaded, failed, resourcesDir };
 }
 
 async function downloadDriveFile(fileId, outputPath) {
@@ -1616,6 +1669,13 @@ async function main() {
   };
   // The first title scored for each RFP, so a duplicate's audit line can name it.
   const seenRfpKeys = new Map();
+  // RFPs someone moved to Looking closer, Building or Submitted, by opp_key. A new version
+  // of one is listed once in the report's inProgress list, not scored, downloaded or picked.
+  const inProgress = await scanRfpsInProgress({ workspace: WORKSPACE }).catch((error) => {
+    process.stderr.write(`[weekly-rfp] could not read the RFPs in progress: ${error.message}\n`);
+    return { byOpp: new Map(), keyless: [] };
+  });
+  const inProgressEntries = [];
   const apiKey = getHigherGovApiKey();
   const config = await loadHigherGovConfig();
   // Shared by every scoring call below, so a model outage pauses the run once instead
@@ -1643,6 +1703,35 @@ async function main() {
       continue;
     }
     if (rfpKey) seenRfpKeys.set(rfpKey, title);
+    const oppKey = normalizeText(candidate.frontmatter?.opp_key || '');
+    let worked = oppKey ? inProgress.byOpp.get(oppKey) : null;
+    let matchedBy = null;
+    // A forwarded RFP's listing reaching HigherGov: recognize it, and keep its keys so the
+    // Tuesday check follows it from now on.
+    if (!worked && oppKey && inProgress.keyless.length) {
+      const match = matchKeylessRfp({ title, agency: issuer, text: candidate.body || '' }, inProgress.keyless);
+      if (match) {
+        worked = match.rfp;
+        matchedBy = match.rule;
+        await adoptHigherGovKeys(match.rfp.dir, { slug: match.rfp.slug, oppKey, versionKey: normalizeText(candidate.frontmatter?.version_key || ''),
+          dueDate: normalizeText(candidate.frontmatter?.due_date || ''), captured: normalizeText(candidate.frontmatter?.captured_date || ''),
+          rule: match.rule, listingTitle: title }).catch((error) => process.stderr.write(`[weekly-rfp] could not save HigherGov keys for ${match.rfp.slug}: ${error.message}\n`));
+        inProgress.byOpp.set(oppKey, match.rfp);
+        inProgress.keyless = inProgress.keyless.filter((rfp) => rfp !== match.rfp);
+      }
+    }
+    if (worked) {
+      const links = { highergov: candidate.sourceUrl || '', posting: candidate.portalUrl || '' };
+      inProgressEntries.push({ slug: worked.slug, title: worked.title, stage: worked.stage.dir, stageLabel: worked.stage.label,
+        versionCaptured: normalizeText(candidate.frontmatter?.captured_date || '') || null, due: normalizeText(candidate.frontmatter?.due_date || '') || null, links,
+        ...(matchedBy ? { matchedBy, listingTitle: title } : {}) });
+      await audit.append(auditSkippedRecord({ run: auditRun, inProgress: worked, listing: {
+        slug, versionKey: candidate.frontmatter?.version_key, oppKey: candidate.frontmatter?.opp_key, title, agency: issuer,
+        captured: candidate.frontmatter?.captured_date, due: candidate.frontmatter?.due_date, links, listingText: intakeText(candidate.body) || null,
+      } }));
+      process.stderr.write(`[weekly-rfp] new version of an RFP in ${worked.stage.label}, not rescored: ${title}\n`);
+      continue;
+    }
     const preliminary = await scoreMetadataCandidate(candidate, runDate, outage);
     const preliminaryScore = preliminary.score;
 
@@ -1803,7 +1892,8 @@ async function main() {
   }
 
   if (process.env.RFP_REPORT_WEEK_OF) process.stderr.write(`[weekly-rfp] late delivery: counted as week ${week}; deadlines count from ${runDate}\n`);
-  const results = buildResults({ runDate, week, entries, intake });
+  // inProgress sits beside the entries, so it is never counted, picked, emailed or posted.
+  const results = { ...buildResults({ runDate, week, entries, intake }), inProgress: inProgressEntries };
   const { strong, worth, check, screened } = results.counts;
   process.stderr.write(`[weekly-rfp] qualification complete: ${strong} strong pursue, ${worth} worth a look, ${check} to check, ${screened} screened out\n`);
 
