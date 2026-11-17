@@ -24,6 +24,7 @@ import {
   writeDocumentManifestJson,
   writeDocumentManifestMarkdown,
 } from './highergov-document-flow.mjs';
+import { findLocalResourcesDir as findResourcesInAnyStage } from './rfp-folders.mjs';
 
 const WORKSPACE = process.env.WORKSPACE_DIR || '/home/azureuser/.openclaw/workspace';
 // This job implements the rfp-flow workflow: portal intake, qualification, document handling, and digest drafting.
@@ -511,15 +512,9 @@ export async function readPortalCandidate(candidatePath) {
   };
 }
 
-export async function findLocalResourcesDir(slug) {
-  const stageDirs = ['1-pre-submission', '2-intermediate-stage', '3-building', '4-submitted'];
-  for (const stage of stageDirs) {
-    const resourcesDir = path.join(WORKSPACE, 'RFPs', stage, slug, 'resources');
-    if (await fs.access(resourcesDir).then(() => true).catch(() => false)) {
-      return resourcesDir;
-    }
-  }
-  return '';
+// The RFP's resources/ folder in whatever tier it sits in, latest tier first (rfp-folders.mjs).
+export function findLocalResourcesDir(slug) {
+  return findResourcesInAnyStage(slug, { workspace: WORKSPACE });
 }
 
 async function driveSearchRaw(query, options = {}) {

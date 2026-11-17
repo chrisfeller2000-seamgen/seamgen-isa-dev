@@ -2,7 +2,7 @@
 name: rfp-email-submission
 purpose: Draft the external transmittal email that accompanies a submitted proposal — naming the RFP, stating how the proposal is organised against the RFP's own required structure, requesting confirmation of receipt, and offering availability during evaluation.
 audience: This skill is written to be read by both Claude (who drafts the email) and a human teammate (who checks it against the RFP's submission rules before anything is sent).
-version: 1.3 — November 2026
+version: 1.4 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-submission-checklist skill (submission mechanics)
 ---
@@ -183,12 +183,14 @@ Run these against the RFP's submission section or the RFP's submission checklist
 ## After sending
 
 - Note the send time and keep the confirmation reply — that is the receipt record.
-- **Promote the RFP folder to `RFPs/4-submitted/<rfp-slug>/`** per CLAUDE.md Rule 10; the whole folder travels with its deliverables and `resources/`.
+- **Ask the requester whether to move the RFP to Submitted.** On their yes, run `node scripts/rfp-stage.mjs <rfp-slug> submitted --by "<their name>"`; the whole folder moves to `RFPs/4-submitted/<rfp-slug>/` with its deliverables and `resources/` (see "RFP stage folders" in `AGENTS.md`).
 - Log the outcome when it lands, and capture lessons in `feedback-log.md` (Phase 10).
 
 ---
 
 ## Notes and edit history
+
+**v1.4 — November 2026.** After sending, ISA asks the requester whether to move the RFP to Submitted, and moves it with `scripts/rfp-stage.mjs` only on their yes (see "RFP stage folders" in `AGENTS.md`), instead of citing CLAUDE.md Rule 10.
 
 **v1.3 — November 2026.** Jake has left Seamgen, so the skill has no single owner or approver. **No more Gmail drafts:** ISA prints the email in chat as text to copy, with the intended recipient on a line above it, and the external signature is a placeholder instead of "Jacob Oliker / AI Sales Consultant". The draft addressed to `joliker@seamgen.com` and the "stop and tell Jake" fallback are gone; the three-situation gate now decides whether ISA gives the email at all, and the portal-upload confirmation comes from the requester. The Rancho Palos Verdes worked example keeps Jake's real signature as a historical record.
 

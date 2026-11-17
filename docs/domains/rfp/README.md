@@ -102,13 +102,32 @@ The job now limits the damage:
 
 An answer that fails validation (`invalid-judgment`) is not an outage. Since October 14 the model gets one more try, with the validator's reason in the request (`previousAnswerRejected`); a second rejection stays unscored. On October 14 these rejections, mostly "Missing scoring evidence.", left 20 of 185 RFPs unchecked. On October 23 and 30, 21 of 45 retried answers were rejected again. That message came from about 25 checks and named none of them, so the retry could only guess what to fix. Since November 3 every citation rejection names the answer field and the problem, for example `Missing scoring evidence at gates.gate3.evidence.` or `… at requiredDocuments[0].evidence[0]: needs a document excerpt, cites metadata.` Unknown eligibility (no qualification answer and no reference count) also no longer needs a citation, as the prompt always said; Gate 6 stays open. A document set over the size limit (`context-unavailable`) is not retried. Whether a fresh connection recovers after an update has replaced the install has not been tested against a real OpenClaw.
 
+## Stage folders
+
+Each RFP's folder sits in one of four tiers under `RFPs/`. The folder names are the ones the proposal skills and `Sync-RfpToDrive.ps1` were written for:
+
+| Folder | Label | Means |
+| --- | --- | --- |
+| `1-pre-submission` | Scored | The Friday job saved its documents. Every RFP starts here. |
+| `2-intermediate-stage` | Looking closer | Someone decided to look closer or collect more information. |
+| `3-building` | Building | The proposal is being written, up to submission-ready. |
+| `4-submitted` | Submitted | The proposal went in. |
+
+Before November 17, 2026 nothing moved RFPs between tiers, so on the VM every RFP (302 folders) sat in tier 1, and nothing recorded which RFPs Seamgen was working on. HubSpot's RFP pipeline was checked as an alternative that day and doesn't record it either: no deal in "Qualified RFP" or "Response submitted", nearly all stages set in two bulk passes in August, and no deal created since August 20.
+
+- **Moves happen only when someone asks.** ISA's chat runs `node scripts/rfp-stage.mjs <slug> <tier> --by "<name>" [--note "<why>"]` (`workspace/AGENTS.md`). The skills ask the requester instead of moving an RFP themselves: the fetch skill no longer moves a 50+ RFP to tier 2 on its own, and the submission email asks before moving to tier 4.
+- **A move renames the whole folder**, so `resources/` and the deliverables stay together. It copies this week's `candidate.md` into the folder, because the Friday job clears the candidate files each week, and appends the move to `_stage.json` ([data models](../../data-models.md)). An RFP with no folder yet gets one if this week's candidate file exists. Moving back to tier 1 means nobody is working on it.
+- **It refuses** while the Friday job runs on the same workspace (it saves documents into these folders), when the RFP is already in that tier, when it has folders in two tiers, and when there is neither a folder nor a candidate file. `node scripts/rfp-stage.mjs list` shows tiers 2–4.
+- **The Friday job uses the moved folder.** When a listing comes back (an amendment, say), its documents are saved into the RFP's existing folder in whatever tier, latest tier first (`rfp-folders.mjs`); only an RFP with no folder gets a new one in tier 1. Before this, the job always wrote to tier 1, which would have made a second copy.
+- **Not done yet:** tier 1 still only grows. Clearing old tier-1 folders on a timer is safe only once moving is routine. The solution-landscape and capability-verification skills still cite CLAUDE.md Rule 10, because they are part of the scoring prompt and were left unchanged. Tests: `devtools/rfp-stage.test.mjs`, including a whole offline Friday run after a move. See the [stage folders spec](../../specs/2026-11-17__rfp-stage-folders/spec.md).
+
 ## Invariants and sharp edges
 
 - A metadata score is provisional; it must not be presented as document-backed qualification. Track `document_status`, `qualification_status`, and `scoring_confidence` separately.
 - The real solicitation and required scoring attachments matter. Empty or portal-gated document sets cannot become full-text simply because HigherGov returned a listing or a public summary.
 - From a `candidate.md`, the scorer reads only listed frontmatter fields and HigherGov's summary and description sections (`intakeText` in `rfp-scoring-policy.mjs`). Scores and notes written into the file never reach it. Examples are the preliminary-scoring skill's results, Jake's "KILL GATES" screens, and the intake's note to the old chat scorer. Jake's candidate files can be re-scored as they are.
 - Candidate and `resources/` folders are runtime/customer data, not versioned source. The document manifest should describe what was returned, saved, extracted, blocked, or missing without storing credentials or signed links.
-- RFP skills are not all consistent with current code: in this snapshot, `rfp-document-fetch-skill.md` is byte-identical to `rfp-document-refresh-skill.md` and identifies itself as refresh. Verify the intended fetch procedure before relying on that file.
+- RFP skills are not all consistent with current code. Until October 12, 2026 `rfp-document-fetch-skill.md` was a byte-identical copy of the refresh skill (`devtools/rfp-skill-files.test.mjs` now catches that); the refresh skill still assumes a Windows browser bridge and Drive uploads ISA doesn't have. Verify a skill's procedure against the code before relying on it.
 
 Offline RFP tests include a whole weekly run in preview mode in `devtools/rfp-audit.test.mjs` (intake replay, recorded scoring, documents, report and audit, with nothing sent), the synthetic document-flow fixture in `devtools/rfp-fixture.test.mjs`, pure deadline/scoring regressions in `devtools/rfp-deadline.test.mjs`, the isolated secondary report fixture in `devtools/rfp-deadline-report.test.mjs`, the secondary evidence gate and file-role checks in `devtools/rfp-secondary-evidence.test.mjs`, and the rubric cases in `devtools/rfp-alignment.test.mjs`. They do not prove real portal access, complete document qualification, or scheduled production behavior. See [integrations](../../integrations.md) and [security](../../security.md).
 

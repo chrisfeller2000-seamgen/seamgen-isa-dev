@@ -2,7 +2,7 @@
 name: rfp-proposal-deck-rough-draft
 purpose: Turn an RFP's submission checklist plus available materials into a **review-ready rough draft** of a Seamgen proposal deck — a self-contained HTML slideshow rendered to PDF, in Seamgen's house style, with case-study and understanding language spun to the RFP. This is the FIRST iteration: it fills what can be responsibly grounded, keeps visible scaffolding (draft flags, placeholders) for small unknowns, and stubs whole components that need human-collected data. A companion `rfp-proposal-deck-final-draft` skill (planned) will strip that scaffolding into a submission-ready deck. Covers Phase 8 (Proposal development), the build side of Adan's Playbook Phases 4–6.
 audience: Written for both Claude (who plans and assembles the draft) and the sales teammate running the proposal (who gathers the content/images and reviews it). This rough draft is an INTERNAL review artifact for Marianne/Peter and the team — not yet the client-facing submission.
-version: 1.5 — November 2026
+version: 1.6 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-submission-checklist skill (defines the required contents + the "Forms to extract, complete & sign" list the deck's Appendix mirrors), the RFP itself, and resources/proposal-sources/ (Proposal - Case Studies.txt, Proposal - People.txt, Proposal - Assets.txt, Adan's RFP Playbook), and resources/proposal-templates/ (the example proposal decks that define house style). Reads technical content from the rfp-engineering-brief output when one exists.
 ---
@@ -161,7 +161,7 @@ Embed every image asset the requester provides (as a data URI, so the HTML stays
 
 ## Output
 
-- **File:** `RFPs/[stage]/[rfp-slug]/proposal-deck_YYYY-MM-DD_[rfp-slug].pdf` — saved in the RFP's own folder (created if it doesn't exist yet), the submission-ready PDF. The self-contained HTML source is kept in the scratchpad and offered on request (useful if the team rebuilds it in Google Slides). Every deliverable for a given RFP lives together in the RFP's own folder — `RFPs/[stage]/[rfp-slug]/`, where `[stage]` is its current lifecycle tier (`1-pre-submission` / `2-intermediate-stage` / `3-building` / `4-submitted`; a deck draft usually means the RFP is in `3-building/`). Save into that `[rfp-slug]/` folder wherever it already exists; don't assume the tier or create a duplicate (see CLAUDE.md Rule 10).
+- **File:** `RFPs/[stage]/[rfp-slug]/proposal-deck_YYYY-MM-DD_[rfp-slug].pdf` — saved in the RFP's own folder (created if it doesn't exist yet), the submission-ready PDF. The self-contained HTML source is kept in the scratchpad and offered on request (useful if the team rebuilds it in Google Slides). Every deliverable for a given RFP lives together in the RFP's own folder — `RFPs/[stage]/[rfp-slug]/`, where `[stage]` is its current lifecycle tier (`1-pre-submission` / `2-intermediate-stage` / `3-building` / `4-submitted`; a deck draft usually means the RFP is in `3-building/`). Save into that `[rfp-slug]/` folder wherever it already exists; don't assume the tier or create a duplicate (see "RFP stage folders" in `AGENTS.md`).
 - Regenerate with today's date when the deck materially changes; older versions stay as a paper trail.
 
 ## Worked example (abbreviated)
@@ -171,6 +171,8 @@ For a hypothetical transit-website RFP, Mode A returns: Cover → TOC → Compan
 Mode B then assembles that into `RFPs/[stage]/samtd-cherriots-website/proposal-deck_YYYY-MM-DD_samtd-cherriots-website.pdf`.
 
 ## Notes and edit history
+
+**v1.6 — November 2026.** The folder rule now points at "RFP stage folders" in `AGENTS.md` instead of CLAUDE.md Rule 10.
 
 **v1.5 — November 2026.** Jake left Seamgen, so the skill has no single owner. The teammate who asks for the deck gathers the content and reviews it, where earlier versions named Jake. No change to the modes, house style or rules.
 
