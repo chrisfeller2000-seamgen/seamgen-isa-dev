@@ -148,14 +148,14 @@ HigherGov is a mirror, not the origin. The **Overview** section has an **"Open"*
 **Always capture it.** Specifically:
 
 1. Read the "Open" button's URL.
-2. Identify the site by name — OpenBids (formerly DemandStar), BidNet Direct, OpenGov Procurement, MyFloridaMarketPlace, PlanetBids, and so on.
+2. Identify the site by name — DemandStar (also called OpenBids), BidNet Direct, OpenGov Procurement, MyFloridaMarketPlace, PlanetBids, and so on.
 3. Write both into the manifest's `Agency portal:` field (Step 9).
 
 **Then check one thing before deciding whether to open it: the Procurement portal accounts table in `reference-team-and-signature.md`.**
 
 | Portal status in the inventory | What to do now |
 |---|---|
-| **Account held** (e.g. **OpenBids**, formerly DemandStar, and HigherGov) | **Open it and diff it.** Compare the portal's document list against what HigherGov served. Pull anything HigherGov is missing, and record the portal as the source in the manifest table. No account work is required, so none of the reasoning below applies. |
+| **Account held** (e.g. **DemandStar**, also called OpenBids, and HigherGov) | **Open it and diff it.** Compare the portal's document list against what HigherGov served. Pull anything HigherGov is missing, and record the portal as the source in the manifest table. No account work is required, so none of the reasoning below applies. |
 | **No account**, or **unknown** | **Record and move on.** Do not log in, register, or attempt downloads. A locked portal is a **line in the manifest, not an interruption** — record it under `## Not retrieved` and carry on. |
 
 **Why the no-account case stays deferred.** The documents HigherGov lists are enough for the first and second scoring, provided the actual RFP is among them (Step 7). Chasing portal *access* — account requests, registration, credentials — is real work with real turnaround, and spending it on an opportunity that may not survive scoring is backwards. That work belongs to the **building stage**, and it is owned by `skills/rfp-document-refresh-skill.md`.
@@ -313,7 +313,7 @@ Once the ladder does apply, classify what you hit and either proceed or stop. **
 | What you find | What to do |
 |---|---|
 | Documents openly downloadable | Pull them into `resources/`, note the portal in the manifest. Proceed. |
-| **Sign-in required** on a portal **the inventory records as held** — check the **Procurement portal accounts** table in `reference-team-and-signature.md`, which is the single source of truth for this and includes **OpenBids** (formerly DemandStar; password in Secret Server) | Not a blocker. Tell the person who asked which portal needs signing into in the bridge browser; a person with Secret Server access signs in. They sign in once, the session persists across sessions, and the fetch resumes. **Do not route this to Tina** — there is no account to set up. |
+| **Sign-in required** on a portal **the inventory records as held** — check the **Procurement portal accounts** table in `reference-team-and-signature.md`, which is the single source of truth for this and includes **DemandStar** (also called OpenBids; password in Secret Server) | Not a blocker. Tell the person who asked which portal needs signing into in the bridge browser; a person with Secret Server access signs in. They sign in once, the session persists across sessions, and the fetch resumes. **Do not route this to Tina** — there is no account to set up. |
 | **Bot / security challenge** (e.g. Cloudflare "verify you are not a bot") | **Stop. Do not attempt to bypass it** — it is an explicit anti-automation control, and defeating it is not something this system does. Ask the person who asked to pull those documents manually, or to clear the check themselves in the bridge window. |
 | **Account registration required** (new vendor account, registration forms, W-9 up front) | Stop and notify. Route to **Tina**, who owns vendor and portal account setup, with **Nick** for financial-responsibility items. Credentials go to Secret Server — never into this folder. |
 | **Paywall**, or documents released only on written request | Stop and notify, quoting the portal's stated process verbatim. |
@@ -334,7 +334,7 @@ Every stop produces the same message, and it is short:
 
 - **Read-only browsing.** Navigate, read, download. Never submit a form, register an account, accept terms, or click anything that commits Seamgen — without asking the person who asked first.
 - **Downloading on a portal we hold is permitted, including where it lists us publicly.** Jake's decision, 2026-07-27: on portals in the inventory, pull documents freely even though doing so typically adds Seamgen to the agency's planholder list, which competitors can see. Appearing on a list for a bid we are genuinely considering is not a cost worth a round trip. **This does not extend to anything else** — form submission, new-account registration and accepting terms all still stop and ask.
-- **Never spend money without a named, per-bid confirmation from the requester.** *Free* downloading is authorised above; **paid** access is not, and the two look identical until a price appears. Some portals charge for a bid package — DemandStar was **$5 once per bid** (check OpenBids' price when one appears) — and a general "yes to buying documents" authorises **no specific order**. Report what appeared and what it costs, stop, and wait for a yes on that bid. The full procedure lives in `skills/rfp-document-refresh-skill.md` → "The purchase gate."
+- **Never spend money without a named, per-bid confirmation from the requester.** *Free* downloading is authorised above; **paid** access is not, and the two look identical until a price appears. Some portals charge for a bid package — DemandStar is **$5 once per bid** — and a general "yes to buying documents" authorises **no specific order**. Report what appeared and what it costs, stop, and wait for a yes on that bid. The full procedure lives in `skills/rfp-document-refresh-skill.md` → "The purchase gate."
 - **Never persist signed URLs.** They carry AWS credentials.
 - **Never handle credentials.** A person signs in; you don't ask for passwords, and you don't screenshot a login screen.
 - **Targeted, not bulk.** Only opportunities actually being pursued.
@@ -398,7 +398,7 @@ What's missing is the PowerShell — `Get-HGDocuments` and `ConvertTo-HGAttachme
 
 ## Notes and edit history
 
-**v1.11 — November 2026.** DemandStar is now OpenBids; the account carries over and its password is in Secret Server.
+**v1.11 — November 2026.** DemandStar is also called OpenBids (same site). Its account password is in Secret Server, and a person with access signs in.
 
 **v1.10 — November 2026, Seamgen.** Jake has left Seamgen, so this skill has no single owner or approver. Sign-ins, notices, reports, purchase confirmations and "ask first" checks now go to the person who asked for the fetch, or the sales team, instead of Jake. No change to the fetch steps or rules.
 
