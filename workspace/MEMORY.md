@@ -17,7 +17,7 @@
   - Chris Feller
   - Yulieth Ramsey
   - Oleg Gorbatchev
-- Also still at Seamgen, confirmed by J Garibay on 2026-11-17: Nick Buchan. The proposal skills route financial-responsibility documents (financial statements, D&B report) to him; that role hasn't been confirmed with him.
+- Also at Seamgen, confirmed by J Garibay on 2026-11-17: Peter Schepers, Marianne Faro, Tina Alringer and Nick Buchan. In the skills, "Peter" is Peter Schepers, not Pete Nystrom. The skills give Marianne, Tina and Nick proposal roles (Marianne signs binding documents with Peter's approval, Tina handles registrations and portal accounts, Nick handles financial-responsibility documents); those roles come from July 2026 and haven't been reconfirmed.
 - Each person's role and bio are in `resources/proposal-sources/Proposal - People.txt` (added 2026-11-12). Its roles haven't been reconfirmed with each person, so confirm before a submission. Where the org chart or the Drive deck gives a different title, use the People file.
 - No longer at Seamgen: Marc Alringer (former CEO), Katie Bielawiec, Josh Kirkland, Scott Sanders, Bryer Cole, Trevor Keller, Adan Aispuro and Jake. Never propose them as key personnel or route work to them.
 - The Drive "Proposal - People" deck and the org chart in `resources/proposal-sources/Proposal - Assets.txt` both still list people who have left. Only the people in the current list above are still at Seamgen. Build team sections from that list.
