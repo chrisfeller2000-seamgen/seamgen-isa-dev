@@ -2,9 +2,9 @@
 name: rfp-capability-verification
 purpose: Turn an RFP's technical asks into a per-operation checklist for a named engineer, so the answer comes back specific the first time. Confirms what Seamgen has actually done — as distinct from how long something would take, which is the engineering brief's job.
 audience: Written to be read by both Claude (who builds the checklist) and a human teammate (who edits the recipe over time). The OUTPUT is written for a named lead engineer.
-version: 1.1 — November 2026
+version: 1.2 — November 2026
 owner: Seamgen sales team (no single owner or approver)
-depends_on: the full RFP (for verbatim extraction), rfp-scoring output (Category 1 case-study match), and `resources/proposal-sources/Proposal - Case Studies.txt` + `resources/proposal-sources/Proposal - People.txt` for what the record already claims. Feeds rfp-meeting-brief (Blockers, Five Key Points), rfp-solution-landscape (our viable role) and eventually the proposal itself.
+depends_on: the full RFP (for verbatim extraction), rfp-scoring output (Category 1 case-study match), and `resources/proposal-sources/Proposal - Case Studies.txt` + `resources/proposal-sources/Proposal - People.txt` for what the record already claims. Feeds rfp-solution-landscape (our viable role) and eventually the proposal itself.
 ---
 
 # Capability Verification Skill
@@ -183,7 +183,7 @@ If any of these is really someone else's area, say so and I'll route it — a
 
 That last line is deliberate. It gives the engineer explicit permission to decline a row, which is what turns a hedge into a routable "not mine."
 
-**Sending:** Slack, once `tools/team.json` is populated (it is currently blank). Until then, copy-paste. Either way — **show the person who asked the message and get their go-ahead before anything reaches a teammate.** Hard rule, per CLAUDE.md.
+**Sending:** copy-paste only. Give the message as plain text in chat for the person who asked to send themselves; never send it to a teammate yourself. **Show them the message and get their go-ahead before it reaches a teammate.** Hard rule.
 
 ---
 
@@ -198,6 +198,8 @@ That last line is deliberate. It gives the engineer explicit permission to decli
 
 ## Notes and edit history
 
+**v1.2 — November 2026, Seamgen.** Messages are copy-paste only: the Slack sending route this pointed to was never set up for ISA and has been removed. The person who asked still approves each message before it reaches a teammate. The sending rule no longer cites `CLAUDE.md`, which ISA doesn't have, and the retired meeting brief is gone from what this skill feeds.
+
 **v1.1 — November 2026, Seamgen.** Jake has left Seamgen: the owner is now the sales team, with no single owner or approver. The go-ahead before a message reaches a teammate now comes from the person who asked for it.
 
 **v1.0 — July 28, 2026, Jake + Claude.** First version, built after Peter's 2026-07-28 instruction to ask engineers about *the specific workflows an RFP names* rather than about a technology in general. The worked case throughout is Suwannee's ArcGIS question, which took three rounds and produced two wrong briefs because it was never decomposed — a hedge from Seth was recorded as a yes, a correction over-swung to read-only, and Pete finally narrowed it to attributes-not-geometry, which is the distinction the RFP's *"managing parcel boundaries"* actually turns on. Four design decisions carry the weight: **"Not answered" is a first-class answer** so a hedge cannot be silently upgraded; **routing goes to whoever built the thing**, since Seth's *"Pete would know more"* was the system flagging bad routing; **every row shows the proposal sentence a yes authorises**, so the engineer sees the claim they are creating; and **read/write and attributes/geometry are always split**, because that is where this one turned and it generalises. Kept separate from `rfp-engineering-brief` (timeline estimation) while reusing its guided-extraction pattern and its shift-interpretation-to-the-engineer principle.
@@ -205,5 +207,4 @@ That last line is deliberate. It gives the engineer explicit permission to decli
 **Known limitations of v1.0:**
 - The decomposition is judgement. Two people would produce different row counts from the same paragraph; the 8–10 cap is a guess at where skim-answers begin.
 - No mechanism yet for tracking an unanswered row across time — it lives in the RFP folder and relies on someone re-reading it.
-- Slack delivery is blocked on `tools/team.json` being populated.
 - Does not yet feed the proposal-deck skills, which are where an overclaim would actually reach a buyer.
