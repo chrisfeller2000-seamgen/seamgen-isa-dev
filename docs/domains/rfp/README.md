@@ -92,7 +92,7 @@ If the run fails, the cron wrapper posts one failure notice to the group. See th
 
 ## When OpenClaw is unavailable during the run
 
-The weekly job scores through the OpenClaw install on the VM and sends Telegram through its gateway, and it runs for about three hours from 12:00 UTC on Fridays. On October 9 an OpenClaw update (2026.9.6 to 2026.9.9) ran during it: 58 RFPs were left unscored and the Telegram message was not sent. Keep OpenClaw updates and gateway restarts out of that window.
+The weekly job scores through the OpenClaw install on the VM and sends Telegram through its gateway, and it runs for about three hours from noon Pacific on Fridays (the crontab sets `CRON_TZ=America/Los_Angeles`). On October 9 an OpenClaw update (2026.9.6 to 2026.9.9) ran during it: 58 RFPs were left unscored and the Telegram message was not sent. Keep OpenClaw updates and gateway restarts out of that window.
 
 The job now limits the damage:
 
@@ -140,7 +140,7 @@ Before November 17, 2026 nothing moved RFPs between tiers, so on the VM every RF
 
 Agencies amend an RFP by adding documents to the listing or by moving the deadline. `workspace/scripts/rfp-refresh.mjs` catches both for the RFPs someone is working on.
 
-- **When:** the system crontab runs `scripts/run-rfp-refresh-cron.sh` every Tuesday morning. It checks every RFP in `2-intermediate-stage` (Looking closer) and `3-building` (Building). On request, ISA's chat runs `node scripts/rfp-refresh.mjs <slug>` for one RFP in any tier.
+- **When:** the system crontab runs `scripts/run-rfp-refresh-cron.sh` every Tuesday at 7:00 a.m. Pacific (`0 7 * * 2`, installed November 17, 2026). It checks every RFP in `2-intermediate-stage` (Looking closer) and `3-building` (Building). On request, ISA's chat runs `node scripts/rfp-refresh.mjs <slug>` for one RFP in any tier.
 - **HigherGov's model:** an amendment is a new version of the opportunity, with the same `opp_key`. The script reads every version newest first (`listOpportunityVersions()`). A read-only check of 15 saved RFPs on November 17, 2026 found:
   - one whose November 3 version moved the due date from November 2 to November 30 with no new file;
   - that both versions shared one `document_path`, so the document list belongs to the opportunity.

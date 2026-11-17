@@ -18,7 +18,7 @@ A read-only HigherGov check of 15 saved RFPs on November 17, 2026 found:
 
 ## Decisions (sales team, November 17)
 
-- Check every **Tuesday** at 15:00 UTC, for the RFPs in Looking closer and Building. **No new documents or updates, no Telegram message.**
+- Check every **Tuesday** at 7:00 a.m. Pacific (15:00 UTC in winter), for the RFPs in Looking closer and Building. **No new documents or updates, no Telegram message.**
 - **Keep the failure notice, but try again first.**
 - **A new HigherGov version of an RFP already in Looking closer, Building or Submitted isn't rescored on Friday.** It is listed once as "already being worked on".
 - **Close the gap for forwarded RFPs.** One moved with no HigherGov key is recognized by agency and solicitation number (or title and agency) when its listing reaches the Friday run, and its keys are kept.
@@ -42,7 +42,7 @@ A read-only HigherGov check of 15 saved RFPs on November 17, 2026 found:
 
 ## Out of scope
 
-- Installing the crontab line (`0 15 * * 2` UTC). That is a scheduler change for the release.
+- Installing the crontab line. That is a scheduler change for the release. It went in as `0 7 * * 2`, because the crontab runs on `CRON_TZ=America/Los_Angeles`.
 - Reading agency postings anonymously (`RFP_POSTING_FETCH_ENABLED` is 0 live) or signing in to portals.
 - Reading the new documents' contents in the scheduled run. ISA reads them in chat when asked, per the skill.
 - Making the Friday job use the kept Drive folder ID.
