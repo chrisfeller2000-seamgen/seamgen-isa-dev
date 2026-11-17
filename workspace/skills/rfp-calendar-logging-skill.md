@@ -2,7 +2,7 @@
 name: rfp-calendar-logging
 purpose: Give an RFP's action-item deadlines — Q&A due, pre-proposal conference (with its sign-up link and a few-days-prior registration alert), and proposal due — as calendar-event text in chat, with clear opportunity-identifying `[RFP]` titles and reminder offsets, so the person who asked can add them to their own calendar.
 audience: This skill is written to be read by both ISA (who reads the dates and writes the event text) and a human teammate (who adds the events and lives off the resulting alerts).
-version: 1.1 — November 2026
+version: 1.2 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: the per-RFP key-dates note (this skill authors it) and the RFP's documents in `resources/`.
 ---
@@ -33,7 +33,7 @@ Run it for a single RFP that has reached **`RFPs/2-intermediate-stage/`, `3-buil
 `4-submitted/`** — i.e. an opportunity whose *real documents have been fetched and whose dates
 are confirmed on the full text*. Common triggers:
 
-- **At promotion into `2-intermediate-stage/`** — get the dates onto someone's calendar the moment an RFP is worth pursuing.
+- **When an RFP is moved to Looking closer (`2-intermediate-stage/`)** — get the dates onto someone's calendar the moment an RFP is worth pursuing.
 - **When `rfp-document-refresh` reports a moved date** — re-run so the person can move their event.
 - **On demand** — "give me the calendar dates for [RFP]."
 
@@ -57,7 +57,7 @@ Run for **one** RFP at a time.
 
 Find the existing `<rfp-slug>/` folder under `RFPs/2-intermediate-stage/`, `3-building/`, or
 `4-submitted/`. Don't assume a tier and don't create a duplicate — locate the folder wherever it
-currently sits (Rule 10). If the only match is in `1-pre-submission/`, **stop**: it isn't
+currently sits (see "RFP stage folders" in `AGENTS.md`). If the only match is in `1-pre-submission/`, **stop**: it isn't
 eligible yet (see "When to use it").
 
 ### Step 2 — Build or refresh the `key-dates_<rfp-slug>.md` note
@@ -209,6 +209,8 @@ result and it's what makes the dates trustworthy.
 ---
 
 ## Notes and edit history
+
+**v1.2 — November 2026.** RFPs reach `2-intermediate-stage/` only when someone asks for the move (`scripts/rfp-stage.mjs`; see "RFP stage folders" in `AGENTS.md`), so that move is the trigger here. The folder rule no longer cites Rule 10.
 
 **v1.1 — November 2026.** Jake has left Seamgen, so the skill has no single owner or approver, and there is no longer one calendar to write to. **ISA no longer writes calendar events.** It gives each event — title, date/time with time zone, description, reminder offsets and sign-up link — as text in chat for the person who asked to add to their own calendar. Removed the `joliker@seamgen.com` calendar target, the calendar-ID and event-ID ledger, the connector checks, and the "preview, then create on Jake's OK" step. The key-dates note now records the dates last given, so a re-run lists what moved. Date selection, the four action items, title convention, tiered reminders, timezone handling and the never-invent rules are unchanged.
 

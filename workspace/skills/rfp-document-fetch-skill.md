@@ -2,7 +2,7 @@
 name: rfp-document-fetch
 purpose: Pull an opportunity's complete set of agency source documents into its RFP folder using the Chrome browser bridge, then re-score the RFP on the full text instead of the metadata summary.
 audience: This skill is written to be read by both Claude (who drives the browser and files the documents) and a human teammate (who reads it to understand what was fetched and why something was skipped).
-version: 1.11 — November 2026
+version: 1.12 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 ---
 
@@ -251,21 +251,21 @@ Expect the score to move. Metadata summaries routinely omit the due time, the co
 
 ### Step 11 — File it, or kill it
 
-- **Score holds at 50+** → keep the RFP folder and promote it to `RFPs/2-intermediate-stage/<rfp-slug>/` (documents in hand, re-scored on full text — that's exactly what tier 2 means).
+- **Score holds at 50+** → keep the RFP folder where it is, and ask the person who asked whether to move it to Looking closer (`RFPs/2-intermediate-stage/<rfp-slug>/`). Move it only on their yes, with `node scripts/rfp-stage.mjs <rfp-slug> looking --by "<their name>"` (see "RFP stage folders" in `AGENTS.md`).
 - **Full text kills it** → draft the no-bid (`skills/rfp-email-nobid-skill.md`) and **purge the downloaded documents**. This is the standing download-once → cache → purge-after-no-bid policy; dead RFPs don't keep 40 MB of PDFs on disk. This purge is the **only** time an RFP's documents are removed, and it follows a no-bid decision; it is never part of tidying up after a task (see "Keeping the originals").
 
 Either way, tell the person who asked what the documents changed about the score. "It stayed a Strong Pursue" is a useful result; "the full text revealed a mandatory on-site requirement" is a more useful one.
 
 ### Step 12 — Mirror the documents to Google Drive
 
-**Only when Step 11 promoted the RFP to `2-intermediate-stage/`.** A killed RFP gets no Drive folder, the same way it gets no local folder.
+**Only once the RFP has been moved to `2-intermediate-stage/` or a later tier.** A killed RFP gets no Drive folder, the same way it gets no local folder.
 
 **ISA cannot do this step.** `Sync-RfpToDrive.ps1` runs on the operator's Windows machine, and ISA on the VM cannot upload to the shared Drive. When ISA runs this skill it skips the transfer, leaves the manifest's `Drive folder:` line as it found it, and says in its report that a person still has to move the files. It never says a document is in Drive when it is not, and never gives a path on its own disk as a link, because nobody else can open one. When someone asks ISA for a document, it attaches the file from `resources/` in the chat.
 
-Promotion to intermediate stage is what earns an RFP a folder under **`Sales (shared drive) > Favorable RFP's`** (parent ID `1FgeVVURDnS-JyQTyapa7pCl3BN4_PmaW`). This exists so Peter and Marianne can read the solicitation from a link instead of navigating HigherGov, which they've said they don't want to do — and it's the link the pursue email carries (`rfp-email-pursue` v1.6). It's on the **Sales shared drive** so the files belong to the team rather than to one person's account; an abandoned empty folder of the same name sits in Jake's My Drive, so **resolve by ID, not by name**.
+Being moved to Looking closer is what earns an RFP a folder under **`Sales (shared drive) > Favorable RFP's`** (parent ID `1FgeVVURDnS-JyQTyapa7pCl3BN4_PmaW`). This exists so Peter and Marianne can read the solicitation from a link instead of navigating HigherGov, which they've said they don't want to do — and it's the link the pursue email carries (`rfp-email-pursue` v1.6). It's on the **Sales shared drive** so the files belong to the team rather than to one person's account; an abandoned empty folder of the same name sits in Jake's My Drive, so **resolve by ID, not by name**.
 
 1. **Create the subfolder.** Name it the local `<rfp-slug>` verbatim, minus any leading `(NN) ` score prefix — internal scores shouldn't be the first thing leadership reads off a folder name.
-2. **Copy in the contents of `resources/` — and nothing else.** The agency's documents only. Scoring PDFs, meeting briefs, engineering briefs and key-dates notes stay local. This is the same separation Rule 10 draws on disk, and the reason the RFP folder has a `resources/` subfolder at all.
+2. **Copy in the contents of `resources/` — and nothing else.** The agency's documents only. Scoring PDFs, meeting briefs, engineering briefs and key-dates notes stay local. This is the same separation the RFP folder keeps on disk, and the reason the RFP folder has a `resources/` subfolder at all.
 3. **Write the `Drive folder:` line** into `resources/_document-manifest.md`, alongside `HigherGov page:` and `Agency portal:` (Step 9).
 4. **Report the folder link** to the person who asked, with the score result.
 
@@ -285,7 +285,7 @@ If the transfer can't run at all, **still create the folder and record its link*
 
 ### Step 13 — Log the deadlines to the calendar
 
-Now that the RFP is in `2-intermediate-stage/` and its dates are confirmed on the full text, run **`skills/rfp-calendar-logging-skill.md`** to put its action-item deadlines — Q&A due, pre-proposal conference (+ a register-by alert), proposal due — on the "Seamgen RFPs" Google Calendar. That skill authors the `key-dates_<rfp-slug>.md` note as it goes. This is the moment the dates become trustworthy enough to schedule; before promotion the score was metadata-only and its dates weren't.
+Once the RFP has been moved to `2-intermediate-stage/` and its dates are confirmed on the full text, run **`skills/rfp-calendar-logging-skill.md`** to give its action-item deadlines — Q&A due, pre-proposal conference (+ a register-by alert), proposal due — as calendar-event text for the person who asked. That skill authors the `key-dates_<rfp-slug>.md` note as it goes. This is the moment the dates become trustworthy enough to schedule; before the full text was read the score was metadata-only and its dates weren't.
 
 ---
 
@@ -398,7 +398,9 @@ What's missing is the PowerShell — `Get-HGDocuments` and `ConvertTo-HGAttachme
 
 ## Notes and edit history
 
-**v1.11 — November 2026.** DemandStar is also called OpenBids (same site). Its account password is in Secret Server, and a person with access signs in.
+**v1.12 — November 2026.** DemandStar is also called OpenBids (same site). Its account password is in Secret Server, and a person with access signs in.
+
+**v1.11 — November 2026.** An RFP moves between the stage tiers only when someone asks, through `scripts/rfp-stage.mjs` (see "RFP stage folders" in `AGENTS.md`). Step 11 no longer moves a 50+ RFP to `2-intermediate-stage/` by itself: it keeps the folder where it is and asks the person who asked whether to move it. Steps 12 and 13 now follow that move, and Step 13 gives the deadlines as calendar-event text, as `rfp-calendar-logging` v1.1 does.
 
 **v1.10 — November 2026, Seamgen.** Jake has left Seamgen, so this skill has no single owner or approver. Sign-ins, notices, reports, purchase confirmations and "ask first" checks now go to the person who asked for the fetch, or the sales team, instead of Jake. No change to the fetch steps or rules.
 

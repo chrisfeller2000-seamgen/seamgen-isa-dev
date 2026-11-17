@@ -2,7 +2,7 @@
 name: rfp-engineering-brief
 purpose: Extract the engineering-relevant scope from an RFP into a short, structured document that a lead engineer can read in 5–10 minutes and use to give a reliable timeline estimate — without having to read the full 20–100 page RFP themselves.
 audience: This skill is written to be read by both Claude (who drafts the brief) and a human teammate (who reads, sanity-checks, and edits the template over time). The BRIEF ITSELF is written for lead engineers who have not read the RFP.
-version: 1.6 — November 2026
+version: 1.7 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-scoring skill (the scoring output confirms this RFP is being pursued). Feeds into: rfp-email-agency-questions skill (via the "Ambiguities Requiring Clarification" section) and downstream engineer timeline estimates.
 ---
@@ -45,7 +45,7 @@ Claude will:
 ```
 RFPs/[stage]/[rfp-slug]/engineering-brief_YYYY-MM-DD_[rfp-slug].pdf
 ```
-Every deliverable for a given RFP lives together in the RFP's own folder — `RFPs/[stage]/[rfp-slug]/`, where `[stage]` is its current lifecycle tier (`1-pre-submission` / `2-intermediate-stage` / `3-building` / `4-submitted`). Save into that `[rfp-slug]/` folder wherever it already exists; don't assume the tier or create a duplicate (see CLAUDE.md Rule 10).
+Every deliverable for a given RFP lives together in the RFP's own folder — `RFPs/[stage]/[rfp-slug]/`, where `[stage]` is its current lifecycle tier (`1-pre-submission` / `2-intermediate-stage` / `3-building` / `4-submitted`). Save into that `[rfp-slug]/` folder wherever it already exists; don't assume the tier or create a duplicate (see "RFP stage folders" in `AGENTS.md`).
 
 **Why PDF for the deliverable:** The engineering brief gets forwarded to engineers (Chris and others) who may open it in Slack, email, or on their phone. PDF renders identically everywhere and preserves the section headers, bolded labels, and blockquoted verbatim quotes that make the guided-extraction format scannable.
 
@@ -475,6 +475,8 @@ deliverables inside each required track.
 That's the full worked example. Real quotes, real page numbers, honest ambiguity flags.
 
 ## Notes and edit history
+
+**v1.7 — November 2026.** The folder rule now points at "RFP stage folders" in `AGENTS.md` instead of CLAUDE.md Rule 10.
 
 **v1.6 — November 2026.** Jake left Seamgen, so the skill has no single owner. The brief is prepared by whoever asks, and its "For Jake" block is now "For the sales team". `rfp-email-agency-questions` v1.6 now reads this brief's Ambiguities section by default, which closes the last known limitation below. The worked example keeps its original "Prepared by" line as history.
 
