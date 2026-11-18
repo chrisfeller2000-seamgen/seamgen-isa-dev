@@ -2,9 +2,9 @@
 name: rfp-submission-checklist
 purpose: Generate a "packing list" for the actual proposal submission — every document, form, signature, cost item, and file that must be included in the proposal package before it can be submitted to the agency. Used during Phase 8 (Proposal development) as a living checklist that prevents responsiveness rejections.
 audience: This skill is written to be read by both Claude (who drafts the checklist) and the proposal lead (the sales teammate who asked, who uses the checklist to run the submission through to completion). The CHECKLIST ITSELF is written for the proposal lead, Marianne, Peter, and anyone else who touches the proposal package.
-version: 1.8 — November 2026
+version: 1.9 — November 2026
 owner: Seamgen sales team (no single owner or approver)
-depends_on: rfp-scoring skill (confirms pursue), rfp-engineering-brief skill (informs technical content items), Adan's RFP Playbook (standard Seamgen inclusions). Also references: the RFP itself (primary source), any clarifying-questions responses from the agency, and any addenda.
+depends_on: rfp-scoring skill (confirms pursue), rfp-engineering-brief skill (informs technical content items), and Marianne for the standard Seamgen inclusions. Also references: the RFP itself (primary source), any clarifying-questions responses from the agency, and any addenda.
 label: Submission checklist
 command: checklist
 phase: 3
@@ -115,16 +115,16 @@ For each item:
 - **Owner:** who's producing this item
 - **Notes:** any specific formatting or content requirements
 
-### Section 3: Standard Seamgen Inclusions (from Adan's Playbook)
+### Section 3: Standard Seamgen Inclusions
 
-Items Seamgen always includes regardless of whether the RFP asks for them, per Adan's Playbook. Examples typically include:
+Items Seamgen usually includes even when the RFP doesn't ask for them. No confirmed standard list exists; Adan's RFP Playbook does not have one. Use these defaults and ask Marianne before treating any other item as standard:
 
 - Seamgen company overview / capabilities statement
 - **Relevant case studies** — pick from the clean case-study library at `resources/proposal-sources/Proposal - Case Studies.txt`, applying the **adjacent-experience principle** (rfp-scoring Category 1): choose the *closest real* Seamgen projects and frame each as transferable to this RFP's ask ("we built X → we can do Y"). Never invent a project; if a match is a stretch, present it as adjacent/transferable, not a direct claim.
 - **Team resumes** — use only current staff from `MEMORY.md`, with bios from `resources/proposal-sources/Proposal - People.txt`. Write the paragraph about this RFP; keep the rest of each bio as written. If someone the team needs isn't in the file, list them as missing and ask Marianne. Never write a bio from memory or adapt another person's.
 - Standard past performance references
 
-Cross-check the Playbook for the current standard list. If the Playbook lists items and the RFP already required them, note that in the item description — don't double-list.
+If the RFP already requires one of these items, note that in its Section 2 entry instead. Don't list it twice.
 
 ### Section 4: Technical Content Requirements (from the engineering brief)
 
@@ -198,7 +198,7 @@ Also include a **"stop and verify with Marianne or Peter before submitting"** li
 
 ```
 ☐ [Item name — verbatim from source when possible]
-   Source: [where this requirement came from — RFP § and page, or "Adan's Playbook," or "Engineering Brief"]
+   Source: [where this requirement came from — RFP § and page, "Seamgen standard," or "Engineering Brief"]
    Owner: [Proposal lead / Peter / Marianne / Tina / Nick / Chris / Frank / Hoda / External / Multiple]
    Notes: [Any specific requirements — page limit, format, content specifics, deadline within the deadline]
 ```
@@ -239,7 +239,7 @@ Proposal due: July 6, 2026 by 3:00 PM MST
 Submission method: Email to david.green@usu.edu
 Format requirements: Three separate files (see Section 2)
 Checklist generated: 2026-07-08
-Sources consulted: RFP (27 pages), Adan's RFP Playbook,
+Sources consulted: RFP (27 pages),
                     resources/proposal-sources/Proposal - Case Studies.txt,
                     resources/proposal-sources/Proposal - People.txt.
 Engineering brief: Skipped (Jake approved with "yes I understand" —
@@ -357,11 +357,11 @@ FILE THREE — Cost Proposal (§6.01C, p. 20)
 
 ---
 
-SECTION 3: STANDARD SEAMGEN INCLUSIONS (from Adan's Playbook)
---------------------------------------------------------------
+SECTION 3: STANDARD SEAMGEN INCLUSIONS
+--------------------------------------
 
 ☐ Seamgen company overview / capabilities statement
-  Source: Adan's Playbook (standard)
+  Source: Seamgen standard
   Owner: Jake
   Notes: Cross-check with RFP §6.01B — may already be covered by
          Executive Summary.
@@ -461,6 +461,8 @@ SECTION 6: PRE-SUBMISSION VERIFICATION
 
 ## Notes and edit history
 
+**v1.9 — November 2026.** Section 3 no longer cites Adan's RFP Playbook. J Garibay checked the playbook on 2026-11-18 and it has no list of standard inclusions, so the section's items are defaults to confirm with Marianne, and checklist items cite "Seamgen standard" instead of the playbook.
+
 **v1.8 — November 2026.** The folder rule now points at "RFP stage folders" in `AGENTS.md` instead of CLAUDE.md Rule 10.
 
 **v1.7 — November 2026.** Jake left Seamgen, so the skill has no single owner. Prerequisite approvals now come from the person who asked, and the "Jake" ownership role is now **Proposal lead**: the sales teammate running the submission, named on each checklist. Tina and Nick were added to the owner placeholder. Signing now points at the authorized signatory rather than Jake. The USU worked example keeps Jake as owner, with a note that it is history.
@@ -481,7 +483,7 @@ SECTION 6: PRE-SUBMISSION VERIFICATION
 
 **Known limitations of v1.0:**
 - Assumes public-sector RFPs. Federal, state, and local government RFPs share common structure. Private-sector RFPs may have different required items.
-- Section 3 (Standard Seamgen Inclusions) needs a real inventory from Adan's Playbook rather than the placeholder examples listed. When Adan's Playbook is next reviewed, extract the actual standard list.
+- Section 3 (Standard Seamgen Inclusions) needs a real inventory rather than the placeholder examples listed. Adan's Playbook turned out not to have one (checked 2026-11-18), so the list has to come from Marianne.
 - Ownership tags are best-guess based on team roster. If ownership responsibilities have shifted (e.g., Marianne handling more/less of the legal side), update the ownership guidance section.
 - Does not include a "cost sheet build" workflow — that's a separate skill worth building later once we have Marianne's actual cost sheet template.
 - Does not currently handle multi-vendor teaming arrangements where Seamgen is a subcontractor. If that comes up, add a teaming variant.
