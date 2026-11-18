@@ -143,3 +143,13 @@ Before the router (the `exp/rfp-router` experiment), the same requests reached t
 | Engineering brief (free text and `rfp brief`) | 9 of 9 read the saved documents by number and never used a file name |
 
 In the first six brief runs, ISA reported that the three-line test files lacked scope and page numbers, which is accurate. With a PDF and page markers added, the briefs were built from the saved documents and flagged the addendum's date change.
+
+**Release of the documents follow-up:** November 18, 2026 at 22:55 UTC, at `main` `1d9c5cd` (PR #72). Backup: `backups/dev-deploy-2026-11-18T22-55-02-624Z-1d9c5cd`.
+- **What went up:** `scripts/document-text.mjs`, `scripts/rfp-route.mjs`, `skills/document-text-skill.md` and `skills/rfp/INDEX.md`.
+- **Before:** `live:pull` showed no VM changes since the accepted baseline. Nothing was restarted.
+- **After:** `live:pull` showed no differences from `main`.
+- **Read-only check on the VM:** both scripts pass `node --check`. For a Phase 1 RFP with one saved agency PDF:
+  - `--rfp` listed the PDF;
+  - `--file 1` read it with page markers;
+  - `rfp brief <slug>` gave `ask-move`, as expected for Phase 1;
+  - `rfp brief <slug> --stay` gave `run-skill` with `documents` (1 saved, 1 readable, and the read and notes commands).
