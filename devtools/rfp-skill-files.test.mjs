@@ -45,3 +45,13 @@ test('the meeting brief and fetch skills keep original RFP documents out of clea
   // The sentence that read as "clear out everything except the brief" must not come back.
   assert.doesNotMatch(briefSkill, /the folder holds only the `\.md` working copy/);
 });
+
+// Every skill named here is pasted into the Friday scoring prompt, so editing one changes
+// scoring. Capability verification was taken out on November 17, 2026: it is a chat step
+// that writes an engineer's checklist and has no field in the scored answer.
+test('the scorer sends the scoring and solution-landscape skills, and not capability verification', async () => {
+  const { policyNames } = await import('../workspace/scripts/rfp-scoring-judgment.mjs');
+  assert.deepEqual(policyNames, ['rfp-scoring-skill.md', 'rfp-preliminary-scoring-skill.md', 'rfp-solution-landscape-skill.md']);
+  for (const name of policyNames) await fs.access(path.join(skillsRoot, name));
+  await fs.access(path.join(skillsRoot, 'rfp-capability-verification-skill.md'));
+});

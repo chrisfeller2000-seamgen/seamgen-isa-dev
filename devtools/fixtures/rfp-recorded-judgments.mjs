@@ -2,6 +2,7 @@
 // claim to reproduce Jake's subjective points. Tests supply explicit decisions
 // to exercise the production validator and both callers, without API calls.
 import fs from 'node:fs/promises';
+import { policyNames } from '../../workspace/scripts/rfp-scoring-judgment.mjs';
 
 export const companySources = [
   { id: 'case-library', kind: 'case-study', text: 'Example Secure Portal: custom Azure portal, data warehouse, AI analytics, security and HIPAA workflows. This is an invented test project.' },
@@ -9,8 +10,7 @@ export const companySources = [
 ];
 
 export async function fixturePolicies() {
-  return Promise.all(['rfp-scoring-skill.md', 'rfp-preliminary-scoring-skill.md', 'rfp-solution-landscape-skill.md', 'rfp-capability-verification-skill.md']
-    .map(async name => ({ name, text: await fs.readFile(new URL('../../workspace/skills/' + name, import.meta.url), 'utf8') })));
+  return Promise.all(policyNames.map(async name => ({ name, text: await fs.readFile(new URL('../../workspace/skills/' + name, import.meta.url), 'utf8') })));
 }
 
 const decisions = {

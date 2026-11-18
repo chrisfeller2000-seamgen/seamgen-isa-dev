@@ -33,7 +33,11 @@ const REJECTED_ANSWER_CHARS = 40000;
 const judgeSymbol = Symbol.for('isa.rfp.testJudge');
 const sourcesSymbol = Symbol.for('isa.rfp.testCompanySources');
 const policiesSymbol = Symbol.for('isa.rfp.testPolicies');
-const policyNames = ['rfp-scoring-skill.md', 'rfp-preliminary-scoring-skill.md', 'rfp-solution-landscape-skill.md', 'rfp-capability-verification-skill.md'];
+// The skill files sent to the model as scoring instructions. Editing any of them changes how
+// the Friday job scores. rfp-capability-verification-skill.md was taken out on November 17,
+// 2026: it writes a checklist for an engineer in chat and had no field in the scored answer.
+// Category 1's rule that a case study must name the project is in SYSTEM_RULES below.
+export const policyNames = ['rfp-scoring-skill.md', 'rfp-preliminary-scoring-skill.md', 'rfp-solution-landscape-skill.md'];
 
 // What the model returns, exactly as it is shown to the model. Every citation selects
 // a supplied excerpt ID; code attaches the original text before the strict finalizer
