@@ -134,7 +134,7 @@ Before November 17, 2026 nothing moved RFPs between tiers, so on the VM every RF
   - is never counted, picked, emailed or posted.
   The Tuesday document check handles its documents and due date, and anyone can ask ISA to rescore it.
 - **The Friday job uses the moved folder** for any other listing that maps to it by slug: its documents are saved into the RFP's existing folder, latest tier first, and only an RFP with no folder gets a new one in tier 1.
-- **Not done yet:** tier 1 still only grows. Clearing old tier-1 folders on a timer is safe only once moving is routine. The solution-landscape and capability-verification skills still cite CLAUDE.md Rule 10, because they are part of the scoring prompt and were left unchanged. Tests: `devtools/rfp-stage.test.mjs`, including a whole offline Friday run after a move. See the [stage folders spec](../../specs/2026-11-17__rfp-stage-folders/spec.md).
+- **Not done yet:** tier 1 still only grows. Clearing old tier-1 folders on a timer is safe only once moving is routine. The solution-landscape and capability-verification skills still cite CLAUDE.md Rule 10. Solution landscape is part of the scoring prompt (`policyNames` in `rfp-scoring-judgment.mjs`), so editing it changes scoring. Capability verification was taken out of the scoring prompt on November 17, 2026; it is a chat step that writes an engineer's checklist, so it can now be edited without changing scores. Tests: `devtools/rfp-stage.test.mjs`, including a whole offline Friday run after a move. See the [stage folders spec](../../specs/2026-11-17__rfp-stage-folders/spec.md).
 
 ## Tuesday document check
 
