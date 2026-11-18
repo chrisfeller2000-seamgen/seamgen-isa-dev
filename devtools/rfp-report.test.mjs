@@ -383,15 +383,36 @@ test("the Telegram draft checks reject changed facts, wrong links, and anything 
   // Code adds the close calls (70+, not picked) after ISA's checked message.
   const closeCalls = 'Close calls this week: **Utility management software** (75). Reply here if you want a closer look at one.';
   assert.deepEqual(facts.closeCalls, [{ name: 'Utility management software', score: 75 }]);
-  assert.deepEqual(await writeTelegramMessage(facts, async () => ({ text: casual })), { text: `${casual}\n\n${closeCalls}`, source: 'isa', reason: null });
+  // and the offer to move the Strong Pursue to Phase 2 before them.
+  const offer = "Want me to move **Permit portal strong** to Phase 2: Looking closer? Reply here and I'll move it.";
+  assert.deepEqual(await writeTelegramMessage(facts, async () => ({ text: casual })), { text: `${casual}\n\n${offer}\n\n${closeCalls}`, source: 'isa', reason: null });
   // Failed and quiet weeks never ask the model.
   const quietFacts = telegramFacts(results, pursue, { status: 'failed' });
   assert.deepEqual(await writeTelegramMessage(quietFacts, async () => { throw new Error('should not be called'); }),
-    { text: `${renderTelegramFallback(quietFacts)}\n\n${closeCalls}`, source: 'code', reason: null });
+    { text: `${renderTelegramFallback(quietFacts)}\n\n${offer}\n\n${closeCalls}`, source: 'code', reason: null });
   // A quiet week already names its closest RFP, so the close calls leave it out.
   const quiet = telegramFacts(results, { picks: [] }, { status: 'none' });
   assert.equal(quiet.closest.name, 'Utility management software');
   assert.deepEqual(quiet.closeCalls, []);
+});
+
+test('the Telegram message offers to move each Strong Pursue to Phase 2, and nothing on a quiet week', async () => {
+  const results = weekResults();
+  const pursue = pursueFacts(results);
+  const facts = telegramFacts(results, pursue, { status: 'sent', sentences: pursueSentencesFallback(pursue) });
+  const named = names => ({ ...facts, closeCalls: [], picks: names.map((name, index) => ({ ...facts.picks[0], number: index + 1, name })) });
+  const offerOf = async value => (await writeTelegramMessage(value, null)).text.split('\n\n').at(-1);
+  assert.equal(await offerOf(named(['Laguna Beach website'])), "Want me to move **Laguna Beach website** to Phase 2: Looking closer? Reply here and I'll move it.");
+  assert.equal(await offerOf(named(['Laguna Beach website', 'Yonkers app'])),
+    'Want me to move any of these to Phase 2: Looking closer: **Laguna Beach website** or **Yonkers app**? Reply here with the ones to move.');
+  assert.equal(await offerOf(named(['A portal', 'B app', 'C site'])),
+    'Want me to move any of these to Phase 2: Looking closer: **A portal**, **B app**, or **C site**? Reply here with the ones to move.');
+  // The offer uses the name ISA gave the pick in the email, so a reply matches the message.
+  const emailed = telegramFacts(results, pursue, { status: 'sent', sentences: { rfps: [{ name: 'Permit portal' }] } });
+  assert.match((await writeTelegramMessage(emailed, null)).text, /Want me to move \*\*Permit portal\*\* to Phase 2/);
+  // A week with nothing to pursue offers nothing.
+  const quiet = weekResults(weekEntries().slice(1));
+  assert.doesNotMatch((await writeTelegramMessage(telegramFacts(quiet, pursueFacts(quiet)), null)).text, /Phase 2/);
 });
 
 test('delivery: one email to the recipients, then Telegram; preview, re-runs and failures send what they should', async () => {
