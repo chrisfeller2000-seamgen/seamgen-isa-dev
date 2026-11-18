@@ -237,9 +237,9 @@ Apply this only if all six kill gates passed. Score each category on its own sca
 
 ### Category 2: Agency Type Fit (15 points)
 
-**Question:** Does the issuing agency match Adan's ICP anchors?
+**Question:** Does the issuing agency match one of Seamgen's ICP (Ideal Customer Profile) anchors?
 
-**Adan's ICP anchors** (from the playbook):
+**Seamgen's ICP anchors** (from Adan's RFP Playbook, April 2026; J Garibay confirmed on 2026-11-18 that these are still Seamgen's targets):
 - State & Local Government
 - Education (DOE-type, state universities, community colleges)
 - Utilities & Infrastructure
@@ -532,7 +532,7 @@ WEIGHTED SCORE
 --------------
 Case Study Match: 20/25 — Winward Academy (e-learning platform for students, 508/GDPR compliance), Contentstack website redesign, and Coaching.com LMS all directly relevant. Not a perfect clone but multiple strong analogs.
 
-Agency Type Fit: 15/15 — Higher education is one of Adan's four ICP anchors (DOE-type / education).
+Agency Type Fit: 15/15 — Higher education is one of Seamgen's four ICP anchors (DOE-type / education).
 
 Tech Stack Alignment: 14/15 — RFP is stack-agnostic. Seamgen would propose React + Figma + modern web architecture, dead-center in the demonstrated stack.
 
@@ -555,7 +555,7 @@ RECOMMENDATION
 Strong Pursue.
 
 Notes for email debrief:
-- Key strengths: AI discoverability is central to the RFP and central to Seamgen's positioning. Higher-ed vertical is an Adan ICP anchor. Multiple relevant case studies (Winward, Contentstack, Coaching.com).
+- Key strengths: AI discoverability is central to the RFP and central to Seamgen's positioning. Higher-ed vertical is a Seamgen ICP anchor. Multiple relevant case studies (Winward, Contentstack, Coaching.com).
 - Key concerns: 35-day timeline is workable but not comfortable — recommend fast-tracking tech + UX input. Deal size unstated; if scope inflates during Q&A, revisit.
 - Open questions for the agency (starter list):
   * Who created the existing website, and are they being considered for the redesign?
