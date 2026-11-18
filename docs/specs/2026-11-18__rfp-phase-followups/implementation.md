@@ -48,3 +48,7 @@ Local ISA (`openai/gpt-5.4-mini`; shell and file tools off) was given a test set
 | F. Calendar dates for an RFP in Phase 1 | Searched this week's results and never found the phase | Ran the list, found the folder in Phase 1, then started reading dates without asking to move it to Phase 2 |
 
 E and F remain open: the model didn't connect "the email that goes with the proposal" or "put the dates on the calendar" to their skills. Neither has been checked with the live model.
+
+### Release of the follow-up
+
+`AGENTS.md` alone was deployed to the VM on November 18, 2026 at 18:46 UTC, at `main` `570f072` (PR #66; backup `backups/dev-deploy-2026-11-18T18-46-40-895Z-570f072`). A pull afterwards showed the VM matching `main` for it, leaving only the four Slack tool files from PR #60. Between the 17:23 UTC upload and this one, the live file was 20,876 characters. Whether the VM's OpenClaw config raises `bootstrapMaxChars`, and so whether live ISA actually saw a cut file in that window, wasn't checked.
