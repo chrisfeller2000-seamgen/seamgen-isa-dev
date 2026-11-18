@@ -55,3 +55,20 @@ test('the scorer sends the scoring and solution-landscape skills, and not capabi
   for (const name of policyNames) await fs.access(path.join(skillsRoot, name));
   await fs.access(path.join(skillsRoot, 'rfp-capability-verification-skill.md'));
 });
+
+// ISA learns which skills go with each RFP phase only from the phase map in workspace/AGENTS.md
+// (the live OpenClaw config doesn't load these skill files on its own), so a renamed or retired
+// skill there would leave ISA offering something that isn't there.
+test("the phase map in ISA's AGENTS.md names skills that exist, and never offers document refresh or retired ones", async () => {
+  const agents = await fs.readFile(path.join(skillsRoot, '..', 'AGENTS.md'), 'utf8');
+  const start = agents.indexOf('- **Phases and their skills:**');
+  assert.notEqual(start, -1, 'AGENTS.md has no phase map');
+  const map = agents.slice(start, agents.indexOf('\n- **', start + 1));
+  const named = [...map.matchAll(/`skills\/([^`]+-skill\.md)`/g)].map(match => match[1]);
+  assert.equal(named.length, 9);
+  for (const name of named) await fs.access(path.join(skillsRoot, name));
+  for (const phase of ['Phase 1: Scored', 'Phase 2: Looking closer', 'Phase 3: Building', 'Phase 4: Submitted']) assert.match(map, new RegExp(phase));
+  // The Tuesday check covers new documents for Phases 2 and 3 on its own; the meeting brief is retired.
+  assert.doesNotMatch(map, /rfp-document-refresh-skill|rfp-meeting-brief-skill/);
+  assert.match(map, /Never run a skill just because an RFP moved/);
+});
