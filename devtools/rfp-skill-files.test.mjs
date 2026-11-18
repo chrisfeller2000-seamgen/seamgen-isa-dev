@@ -71,4 +71,19 @@ test("the phase map in ISA's AGENTS.md names skills that exist, and never offers
   // The Tuesday check covers new documents for Phases 2 and 3 on its own; the meeting brief is retired.
   assert.doesNotMatch(map, /rfp-document-refresh-skill|rfp-meeting-brief-skill/);
   assert.match(map, /Never run a skill just because an RFP moved/);
+  // A later request finds the phase from the folders, not from the chat it moved in, and a
+  // skill from a later phase asks about the move before it runs (November 18, 2026).
+  assert.match(map, /run `node scripts\/rfp-stage\.mjs list` to find its phase/);
+  assert.match(map, /ask whether to move the RFP there, before you run it/);
+  assert.match(map, /Never move an RFP without that yes/);
+});
+
+// OpenClaw injects AGENTS.md into ISA's context only up to bootstrapMaxChars (20,000 by default in
+// OpenClaw 2026.9.4). A longer file is cut to its first 9,000 and last 3,000 characters plus
+// headings and bullets clipped to 240 characters each, which drops most of the RFP rules. On
+// November 18, 2026 the phase map pushed it to 21,757 characters and local ISA listed only half
+// the Phase 2 skills. Keep it under the limit; put long procedures in skill files instead.
+test("ISA's AGENTS.md fits in OpenClaw's bootstrap limit, so none of it is cut", async () => {
+  const agents = await fs.readFile(path.join(skillsRoot, '..', 'AGENTS.md'), 'utf8');
+  assert.ok(agents.length < 20000, `AGENTS.md is ${agents.length} characters; OpenClaw cuts anything over 20,000`);
 });
