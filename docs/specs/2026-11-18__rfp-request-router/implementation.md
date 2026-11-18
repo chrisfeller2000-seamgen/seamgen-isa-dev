@@ -80,9 +80,39 @@ Before the router (the `exp/rfp-router` experiment), the same requests reached t
 
 ## Release
 
-Not deployed. When requested, the upload is:
-- `AGENTS.md`;
-- `scripts/rfp-route.mjs` and `scripts/rfp-stage.mjs`;
-- the new `skills/rfp/` folder.
+**Upload, November 18, 2026 at 22:09 UTC**, at `main` `b217586` (PR #70). Backup: `backups/dev-deploy-2026-11-18T22-09-34-399Z-b217586`.
+- **What went up:** 16 files.
+  - `AGENTS.md`;
+  - `scripts/rfp-route.mjs` and `scripts/rfp-stage.mjs`;
+  - `skills/rfp-meeting-brief-skill.md` (its paths were updated);
+  - `skills/rfp/INDEX.md`;
+  - the 11 `skills/rfp/<skill>/instructions.md` files.
+- **Before:** `live:pull` showed no VM changes since the accepted baseline. Nothing was restarted.
+- **After:** `live:pull` showed the VM matching `main` except for the 11 old skill files. The upload tool can't delete, so it excluded them.
+- **Read-only check on the VM:** both scripts pass `node --check`. The router loads 11 skills and 463 RFPs, none of them in Phases 2–4 yet. "Which RFPs are we working on?" gave `list`. An engineering-brief request naming a generic title gave `ask-which-rfp` with the two matching RFPs.
 
-Then, by hand on the VM with the user's approval, move the 11 old `skills/rfp-*-skill.md` and `skills/proposal-writing/*` files into a backup, so `main` and the VM match. The upload tool can't delete files.
+**Old skill files moved by hand, November 18, 2026 at 22:18 UTC**, approved by the user.
+
+*Read-only check first:*
+- No script, OpenClaw scheduled job or crontab line loads the 11 old paths.
+- The remaining mentions are text only:
+  - a comment in `rfp-scoring-judgment.mjs`;
+  - the three scoring-prompt skills;
+  - one note in `resources/proposal-sources/Proposal - Assets.txt`;
+  - the November 13 scoring records in this week's candidate files, which list the skills that were then in the prompt.
+- No RFP job was running.
+
+*The move:*
+- `mv -n` into `backups/skills-reorg-2026-11-18T22-18-32Z/`, keeping their paths:
+  - `skills/rfp-engineering-brief-skill.md`, `rfp-capability-verification-skill.md`, `rfp-email-agency-questions-skill.md`, `rfp-calendar-logging-skill.md`, `rfp-email-submission-skill.md`, `rfp-document-refresh-skill.md`, `rfp-document-fetch-skill.md`;
+  - the four files in `skills/proposal-writing/`.
+- Checksums were taken first (`SHA256SUMS` in the backup folder), and all 11 matched afterwards.
+- The empty `skills/proposal-writing/` folder was removed.
+
+*After:*
+- `live:pull` showed only those 11 removals on the VM, and no difference from `main`.
+- `live:accept` recorded the new VM state, with 62 live files.
+- A second `live:pull` showed no differences.
+- To undo: move the files back from the backup folder.
+
+**Not yet seen live:** a real chat request going through the router on the live model.
