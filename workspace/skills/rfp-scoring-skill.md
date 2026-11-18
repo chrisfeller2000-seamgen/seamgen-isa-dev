@@ -189,11 +189,11 @@ Gate 2 asks what the **agency** wants. It has never asked what **we are**. Those
 **Seamgen's known qualifications** (rely on one only when its company-facts entry is current):
 - GSA Multiple Award Schedule (MAS) contract 47QTCA19D00DQ, SINs 54151S, 54151HEAL and OLM. GSA folded the old Schedule 70 into MAS, so never cite Schedule 70.
 - **Not** a small business: GSA lists Seamgen as Other Than Small Business. This list wrongly said otherwise until November 2026. Seamgen holds no 8(a), WOSB, HUBZone or VetCert certification either.
-- SAM.gov registration under UEI YH6HUMDSGL97: unconfirmed. An expired registration under a different UEI, N7NGKMMQ4GJ9, is an old record and says nothing about the current one.
+- SAM.gov registration under UEI YH6HUMDSGL97: active (Tina, 2026-11-18). Frank Van Branderburgh is the only point of contact and the only person with access. The expired registration under UEI N7NGKMMQ4GJ9 was Seamgen LLC, the old entity. Ignore it and never cite it.
 - Microsoft Cloud Solution Provider
 - NAICS codes: 541511, 541512, 541513, 541519, 511210
 
-**⚠ Seamgen holds NO Esri certifications.** This list said "Esri certified" until 2026-07-28, and so did `tools/highergov-config.json`. It was wrong. Seth Lutske — one of the two engineers who make up the entire GIS bench — confirmed on 2026-07-27 that he holds none, and no other holder has ever been named. An Esri **technical certification** is an individual, exam-based credential; an Esri **partner** agreement is a company-level commercial relationship. They are different things, and only the second is even plausibly claimed (in `Proposal - Assets.txt`, still **unverified with Marianne**).
+**⚠ Seamgen holds NO Esri certifications.** This list said "Esri certified" until 2026-07-28, and so did `tools/highergov-config.json`. It was wrong. Seth Lutske — one of the two engineers who make up the entire GIS bench — confirmed on 2026-07-27 that he holds none, and no other holder has ever been named. An Esri **technical certification** is an individual, exam-based credential; an Esri **partner** agreement is a company-level commercial relationship. They are different things. Seamgen has the second: Tina confirmed an active Esri partner agreement on 2026-11-18. Score it only as a partnership, and only when an RFP asks for one.
 
 This mattered: the false claim contributed the point that took Suwannee River WMD from 82 to 83. **Never restore a certification claim without naming who holds it**, and never let an unverified partner relationship be scored as a certification.
 
