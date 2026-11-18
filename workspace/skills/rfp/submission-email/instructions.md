@@ -5,6 +5,11 @@ audience: This skill is written to be read by both Claude (who drafts the email)
 version: 1.4 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-submission-checklist skill (submission mechanics)
+label: Email that goes with the proposal
+command: submission-email
+phase: 4
+when: The email to the agency that goes with the proposal (submission, cover or transmittal email).
+asks: submission email | email that goes with | email with the proposal | email to send with the proposal | cover email | cover letter email | transmittal | transmittal email | email the proposal | sending the proposal | proposal email | email the agency the proposal | uploaded to the portal what should we email
 ---
 
 # Proposal Submission Email Skill

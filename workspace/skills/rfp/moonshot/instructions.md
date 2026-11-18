@@ -5,6 +5,11 @@ audience: Written for Claude (who does the integration) and the sales teammate r
 version: 1.3 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: the design team's moonshot deck (PNG/PDF, e.g. in `resources/moonshot/` or the RFP's moonshot location), the proposal content/deck (the `rfp-proposal-deck-rough-draft` output), the RFP itself + its discovery Q&A + submission checklist. Feeds `rfp-proposal-deck-rough-draft` (Mode C — content handoff).
+label: Moonshot deck folded into the proposal
+command: moonshot
+phase: 3
+when: Folding the design team's moonshot deck into the compliant proposal.
+asks: moonshot | moonshot deck | vision deck | design deck | hoda deck | fold the design deck | integrate the moonshot | use the design team deck | pitch deck from design
 ---
 
 # Moonshot Integration Skill

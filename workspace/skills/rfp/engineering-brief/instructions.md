@@ -5,6 +5,11 @@ audience: This skill is written to be read by both Claude (who drafts the brief)
 version: 1.7 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-scoring skill (the scoring output confirms this RFP is being pursued). Feeds into: rfp-email-agency-questions skill (via the "Ambiguities Requiring Clarification" section) and downstream engineer timeline estimates.
+label: Engineering brief for a timeline estimate
+command: brief
+phase: 2
+when: An engineering brief: the RFP scope, short enough for a lead engineer to give a timeline estimate.
+asks: engineering brief | eng brief | tech brief | technical brief | scope brief | scope summary | summarize the scope | scope for engineering | scope for the engineers | timeline estimate | estimate the timeline | how long would it take | level of effort | effort estimate | brief for the engineers | brief for nick
 ---
 
 # Engineering Scope Brief Skill

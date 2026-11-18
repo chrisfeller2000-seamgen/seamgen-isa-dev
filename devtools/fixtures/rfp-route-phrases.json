@@ -1,0 +1,129 @@
+{
+  "_about": "Requests and the decision rfp-route.mjs must reach, against devtools/fixtures/rfp-route-workspace.mjs. Phases there: Laguna Beach 2, Yonkers 3, Boulder 4; Carlsbad, Chandler, Laguna Hills 1; Pasco is this week's Strong Pursue with no folder. Several come from real chats on the VM (July-October 2026), with names changed.",
+  "cases": [
+    { "say": "Can you do the engineering brief for Laguna Beach?", "action": "run-skill", "skill": "engineering-brief", "rfp": "laguna-beach-website-redesign" },
+    { "say": "eng brief for laguna beach pls", "action": "run-skill", "skill": "engineering-brief", "rfp": "laguna-beach-website-redesign" },
+    { "say": "Nick needs a scope summary of the Laguna Beach RFP so he can estimate", "action": "run-skill", "skill": "engineering-brief", "rfp": "laguna-beach-website-redesign" },
+    { "say": "How long would it take us to build the Laguna Beach site? Put something together for engineering", "action": "run-skill", "skill": "engineering-brief", "rfp": "laguna-beach-website-redesign" },
+    { "say": "timeline estimate for the Yonkers app", "action": "run-skill", "skill": "engineering-brief", "rfp": "yonkers-senior-services-app" },
+    { "say": "Technical brief on Carlsbad parks booking please", "action": "ask-move", "skill": "engineering-brief", "rfp": "carlsbad-parks-recreation-booking-system", "toPhase": 2 },
+    { "say": "level of effort for Chandler permit portal?", "action": "ask-move", "skill": "engineering-brief", "rfp": "chandler-permit-portal", "toPhase": 2 },
+
+    { "say": "Have we actually built anything like what Laguna Beach is asking for?", "action": "run-skill", "skill": "capability-check", "rfp": "laguna-beach-website-redesign" },
+    { "say": "capability check on laguna beach for Nick", "action": "run-skill", "skill": "capability-check", "rfp": "laguna-beach-website-redesign" },
+    { "say": "Can we actually do the integrations the Yonkers app needs? verify our capabilities", "action": "run-skill", "skill": "capability-check", "rfp": "yonkers-senior-services-app" },
+    { "say": "make a capability checklist for the Carlsbad booking system", "action": "ask-move", "skill": "capability-check", "rfp": "carlsbad-parks-recreation-booking-system", "toPhase": 2 },
+
+    { "say": "What should we ask the agency about Laguna Beach?", "action": "run-skill", "skill": "agency-questions", "rfp": "laguna-beach-website-redesign" },
+    { "say": "Draft clarifying questions for the Laguna Beach Q&A", "action": "run-skill", "skill": "agency-questions", "rfp": "laguna-beach-website-redesign" },
+    { "say": "q&a questions for laguna beach, when are they due?", "action": "run-skill", "skill": "agency-questions", "rfp": "laguna-beach-website-redesign" },
+    { "say": "Can you write the questions for the agency on the Chandler permit portal", "action": "ask-move", "skill": "agency-questions", "rfp": "chandler-permit-portal", "toPhase": 2 },
+    { "say": "rfi questions for Yonkers", "action": "run-skill", "skill": "agency-questions", "rfp": "yonkers-senior-services-app" },
+
+    { "say": "Put the key dates for the Carlsbad parks booking RFP on the calendar.", "action": "ask-move", "skill": "calendar-dates", "rfp": "carlsbad-parks-recreation-booking-system", "toPhase": 2 },
+    { "say": "add the Laguna Beach deadlines to my calendar", "action": "run-skill", "skill": "calendar-dates", "rfp": "laguna-beach-website-redesign" },
+    { "say": "calendar invites for laguna beach", "action": "run-skill", "skill": "calendar-dates", "rfp": "laguna-beach-website-redesign" },
+    { "say": "When is Laguna Beach due? put it on the calendar", "action": "run-skill", "skill": "calendar-dates", "rfp": "laguna-beach-website-redesign" },
+    { "say": "Can you set reminders for the Yonkers due dates", "action": "run-skill", "skill": "calendar-dates", "rfp": "yonkers-senior-services-app" },
+    { "say": "Give me the calendar dates for the Carlsbad parks booking RFP", "action": "ask-move", "skill": "calendar-dates", "rfp": "carlsbad-parks-recreation-booking-system", "toPhase": 2 },
+
+    { "say": "Can you put together the submission checklist for Laguna Beach?", "action": "ask-move", "skill": "submission-checklist", "rfp": "laguna-beach-website-redesign", "toPhase": 3 },
+    { "say": "What do we need to submit for Yonkers?", "action": "run-skill", "skill": "submission-checklist", "rfp": "yonkers-senior-services-app" },
+    { "say": "packing list for the yonkers proposal", "action": "run-skill", "skill": "submission-checklist", "rfp": "yonkers-senior-services-app" },
+    { "say": "Which forms do we have to sign for Yonkers? required documents", "action": "run-skill", "skill": "submission-checklist", "rfp": "yonkers-senior-services-app" },
+    { "say": "submission checklist for laguna beach, keep it where it is", "action": "run-skill", "skill": "submission-checklist", "rfp": "laguna-beach-website-redesign" },
+
+    { "say": "Start the proposal deck for Yonkers", "action": "run-skill", "skill": "proposal-deck", "rfp": "yonkers-senior-services-app" },
+    { "say": "Can you draft the proposal for laguna beach", "action": "ask-move", "skill": "proposal-deck", "rfp": "laguna-beach-website-redesign", "toPhase": 3 },
+    { "say": "rough draft of the Yonkers proposal please", "action": "run-skill", "skill": "proposal-deck", "rfp": "yonkers-senior-services-app" },
+    { "say": "first draft for the Yonkers app proposal", "action": "run-skill", "skill": "proposal-deck", "rfp": "yonkers-senior-services-app" },
+
+    { "say": "What do we still need from the team for Yonkers? write the slack messages", "action": "run-skill", "skill": "materials-request", "rfp": "yonkers-senior-services-app" },
+    { "say": "materials request for yonkers", "action": "run-skill", "skill": "materials-request", "rfp": "yonkers-senior-services-app" },
+    { "say": "Chase the team for the missing materials on Laguna Beach", "action": "ask-move", "skill": "materials-request", "rfp": "laguna-beach-website-redesign", "toPhase": 3 },
+
+    { "say": "Hoda sent the moonshot deck for Yonkers, can you fold it in", "action": "run-skill", "skill": "moonshot", "rfp": "yonkers-senior-services-app" },
+    { "say": "integrate the moonshot into the Yonkers proposal", "action": "run-skill", "skill": "moonshot", "rfp": "yonkers-senior-services-app" },
+
+    { "say": "We are sending the Laguna Beach proposal tomorrow. Can you write the email that goes with it?", "action": "run-skill", "skill": "submission-email", "rfp": "laguna-beach-website-redesign" },
+    { "say": "Can you draft the cover email for the Yonkers submission?", "action": "run-skill", "skill": "submission-email", "rfp": "yonkers-senior-services-app" },
+    { "say": "Yonkers is uploaded to the portal. What should we email the agency?", "action": "run-skill", "skill": "submission-email", "rfp": "yonkers-senior-services-app" },
+    { "say": "transmittal email for yonkers", "action": "run-skill", "skill": "submission-email", "rfp": "yonkers-senior-services-app" },
+    { "say": "email to send with the proposal for Laguna Beach", "action": "run-skill", "skill": "submission-email", "rfp": "laguna-beach-website-redesign" },
+
+    { "say": "What changed in the Laguna Beach addendum?", "action": "run-skill", "skill": "document-refresh", "rfp": "laguna-beach-website-redesign" },
+    { "say": "Did the Yonkers deadline change?", "action": "run-skill", "skill": "document-refresh", "rfp": "yonkers-senior-services-app" },
+    { "say": "any new documents for Laguna Beach", "action": "run-skill", "skill": "document-refresh", "rfp": "laguna-beach-website-redesign" },
+    { "say": "Laguna Beach posted an amendment, what's new in the RFP", "action": "run-skill", "skill": "document-refresh", "rfp": "laguna-beach-website-redesign" },
+
+    { "say": "Can you download the documents for the Chandler permit portal", "action": "run-skill", "skill": "document-fetch", "rfp": "chandler-permit-portal" },
+    { "say": "For the Carlsbad rfp: can you find the Q&A in their portal?", "action": "run-skill", "skill": "document-fetch", "rfp": "carlsbad-parks-recreation-booking-system" },
+    { "say": "the documents are missing for Pasco County, can you get them", "action": "run-skill", "skill": "document-fetch", "rfp": "pasco-county-records-system" },
+
+    { "say": "Can you email me the q&a doc from the rfp for laguna beach?", "action": "share-documents", "rfp": "laguna-beach-website-redesign" },
+    { "say": "Share the RFP documents for Chandler permit portal", "action": "share-documents", "rfp": "chandler-permit-portal" },
+    { "say": "send me the Yonkers PDF", "action": "share-documents", "rfp": "yonkers-senior-services-app" },
+
+    { "say": "Yes, move Laguna Beach", "action": "ask-which-phase", "rfp": "laguna-beach-website-redesign" },
+    { "say": "Yes, move Pasco County", "action": "move", "rfp": "pasco-county-records-system", "toPhase": 2 },
+    { "say": "yes move the pasco county records one", "action": "move", "rfp": "pasco-county-records-system", "toPhase": 2 },
+    { "say": "Move Carlsbad to looking closer", "action": "move", "rfp": "carlsbad-parks-recreation-booking-system", "toPhase": 2 },
+    { "say": "move laguna beach to building", "action": "move", "rfp": "laguna-beach-website-redesign", "toPhase": 3 },
+    { "say": "Laguna Beach can go to phase 3", "action": "move", "rfp": "laguna-beach-website-redesign", "toPhase": 3 },
+    { "say": "We submitted Yonkers, move it to submitted", "action": "move", "rfp": "yonkers-senior-services-app", "toPhase": 4 },
+    { "say": "Move Yonkers back to scored, we're not bidding", "action": "move", "rfp": "yonkers-senior-services-app", "toPhase": 1 },
+    { "say": "move laguna beach to looking closer", "action": "already", "rfp": "laguna-beach-website-redesign" },
+    { "say": "move laguna to building", "action": "ask-which-rfp" },
+
+    { "say": "What can you do for the Laguna Beach website redesign RFP?", "action": "offer", "rfp": "laguna-beach-website-redesign" },
+    { "say": "what's next for Yonkers", "action": "offer", "rfp": "yonkers-senior-services-app" },
+    { "say": "What can you help with on Carlsbad?", "action": "offer", "rfp": "carlsbad-parks-recreation-booking-system" },
+
+    { "say": "which RFPs are we working on?", "action": "list" },
+    { "say": "List our RFPs in progress", "action": "list" },
+    { "say": "what's in building right now", "action": "list" },
+
+    { "say": "Which RFPs from the latest batch are worth pursuing this week?", "action": "answer" },
+    { "say": "ISA, has the weekly RFP job been run?", "action": "answer" },
+    { "say": "How did the Carlsbad parks booking RFP earn its score? List the points per category", "action": "answer", "rfp": "carlsbad-parks-recreation-booking-system" },
+    { "say": "Was the Chandler permit portal scored today and what score was it given?", "action": "answer", "rfp": "chandler-permit-portal" },
+    { "say": "Tell me about Laguna Beach", "action": "answer", "rfp": "laguna-beach-website-redesign" },
+
+    { "say": "Rescore Carlsbad parks booking", "action": "rescore", "rfp": "carlsbad-parks-recreation-booking-system" },
+    { "say": "Score this RFQ as if it is part of the weekly RFP job", "action": "rescore" },
+
+    { "say": "create a meeting brief for Laguna Beach", "action": "retired", "rfp": "laguna-beach-website-redesign" },
+    { "say": "Use the rfp-meeting-brief-skill on this RFQ.", "action": "retired" },
+
+    { "say": "Do the engineering brief for Laguna", "action": "ask-which-rfp", "skill": "engineering-brief" },
+    { "say": "engineering brief please", "action": "ask-which-rfp", "skill": "engineering-brief" },
+
+    { "say": "No, keep it where it is for now. Just do the checklist.", "action": "needs-context" },
+    { "say": "go ahead", "action": "needs-context" },
+    { "say": "the second one please", "action": "needs-context" },
+    { "say": "Leave it in Phase 1. Just give me the dates.", "action": "needs-context" },
+    { "say": "yes", "action": "needs-context" },
+    { "say": "2", "action": "needs-context" },
+    { "say": "No", "action": "needs-context" },
+
+    { "say": "rfp brief laguna-beach-website-redesign", "action": "run-skill", "skill": "engineering-brief", "rfp": "laguna-beach-website-redesign" },
+    { "say": "rfp brief Laguna Beach", "action": "run-skill", "skill": "engineering-brief", "rfp": "laguna-beach-website-redesign" },
+    { "say": "/rfp checklist laguna-beach-website-redesign", "action": "ask-move", "skill": "submission-checklist", "rfp": "laguna-beach-website-redesign", "toPhase": 3 },
+    { "say": "rfp checklist laguna-beach-website-redesign --stay", "action": "run-skill", "skill": "submission-checklist", "rfp": "laguna-beach-website-redesign" },
+    { "say": "rfp move laguna-beach-website-redesign building", "action": "move", "rfp": "laguna-beach-website-redesign", "toPhase": 3 },
+    { "say": "rfp move pasco-county-records-system", "action": "move", "rfp": "pasco-county-records-system", "toPhase": 2 },
+    { "say": "rfp move laguna-beach-website-redesign", "action": "ask-which-phase", "rfp": "laguna-beach-website-redesign" },
+    { "say": "rfp dates carlsbad-parks-recreation-booking-system --stay", "action": "run-skill", "skill": "calendar-dates", "rfp": "carlsbad-parks-recreation-booking-system" },
+    { "say": "rfp submission-email yonkers-senior-services-app", "action": "run-skill", "skill": "submission-email", "rfp": "yonkers-senior-services-app" },
+    { "say": "rfp skills laguna-beach-website-redesign", "action": "offer", "rfp": "laguna-beach-website-redesign" },
+    { "say": "rfp list", "action": "list" },
+    { "say": "rfp winners laguna", "action": "unknown-command" },
+
+    { "say": "callback_data: rfp:move:looking:pasco-county-records-system", "action": "move", "rfp": "pasco-county-records-system", "toPhase": 2 },
+    { "say": "callback_data: rfp:run:brief:laguna-beach-website-redesign", "action": "run-skill", "skill": "engineering-brief", "rfp": "laguna-beach-website-redesign" },
+    { "say": "callback_data: rfp:run:checklist:laguna-beach-website-redesign", "action": "ask-move", "skill": "submission-checklist", "rfp": "laguna-beach-website-redesign", "toPhase": 3 },
+
+    { "say": "Can you check the weather in San Diego", "action": "none" },
+    { "say": "Draft an outreach email to the Comic-Con team", "action": "none" }
+  ]
+}

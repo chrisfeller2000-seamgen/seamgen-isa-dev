@@ -5,6 +5,11 @@ audience: This skill is written to be read by both Claude (who drafts the checkl
 version: 1.8 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-scoring skill (confirms pursue), rfp-engineering-brief skill (informs technical content items), Adan's RFP Playbook (standard Seamgen inclusions). Also references: the RFP itself (primary source), any clarifying-questions responses from the agency, and any addenda.
+label: Submission checklist
+command: checklist
+phase: 3
+when: A submission checklist: every document, form, signature and file the proposal package needs.
+asks: submission checklist | checklist | packing list | what do we need to submit | what goes in the proposal | required documents | required forms | forms to sign | proposal requirements | submission requirements | compliance checklist | what is required for the submission
 ---
 
 # Submission Checklist Skill

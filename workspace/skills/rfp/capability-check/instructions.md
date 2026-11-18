@@ -5,6 +5,11 @@ audience: Written to be read by both Claude (who builds the checklist) and a hum
 version: 1.2 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: the full RFP (for verbatim extraction), rfp-scoring output (Category 1 case-study match), and `resources/proposal-sources/Proposal - Case Studies.txt` + `resources/proposal-sources/Proposal - People.txt` for what the record already claims. Feeds rfp-solution-landscape (our viable role) and eventually the proposal itself.
+label: Capability check for a named engineer
+command: capability
+phase: 2
+when: A capability check: a checklist for a named engineer to confirm what Seamgen has actually built for each technical ask.
+asks: capability check | capability verification | capability checklist | verify our capabilities | have we built this | have we done this before | can we actually do this | confirm what we have built | checklist for an engineer | ask nick if we have done | experience check | tech check
 ---
 
 # Capability Verification Skill
@@ -27,7 +32,7 @@ That distinction decides the bid. The RFP asks for *"managing parcel boundaries"
 
 ## Why it's a separate skill from the engineering brief
 
-`skills/rfp-engineering-brief-skill.md` exists to get a **timeline estimate**. This skill exists to get a **capability confirmation**. Same engineer, same RFP, different question — and mixing them produces a document that does neither well.
+`skills/rfp/engineering-brief/instructions.md` exists to get a **timeline estimate**. This skill exists to get a **capability confirmation**. Same engineer, same RFP, different question — and mixing them produces a document that does neither well.
 
 It **reuses** the engineering brief's core machinery deliberately:
 - The **guided extraction pattern** (short label + verbatim quote + §/page).

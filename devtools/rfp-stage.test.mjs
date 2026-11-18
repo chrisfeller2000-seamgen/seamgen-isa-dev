@@ -207,3 +207,27 @@ test('a whole Friday run after a move lists the returning listing once as being 
     await fs.rm(root, { recursive: true, force: true });
   }
 });
+
+// ISA offers a phase's skills only from this output, so it can't offer them for a move that
+// didn't happen: in local tests on November 18, 2026 ISA twice sent the router's pre-written
+// "Moved …" text without running the move.
+test('a move into a later phase prints that phase\'s skills, each with its command', async () => {
+  const { routeWorkspace } = await import('./fixtures/rfp-route-workspace.mjs');
+  const root = await routeWorkspace();
+  try {
+    const moved = await run('rfp-stage.mjs', root, ['carlsbad-parks-recreation-booking-system', 'looking', '--by', 'Peter']);
+    assert.equal(moved.code, 0, moved.stderr);
+    const lines = moved.stdout.trimEnd().split('\n');
+    assert.match(lines[0], / moved from Scored to Looking closer.$/);
+    assert.equal(lines[lines.indexOf('') + 1], "Send them the move and this list word for word; they can't see this output:");
+    const offer = lines.slice(lines.indexOf('') + 2);
+    assert.match(offer[0], /^For .+ in Phase 2: Looking closer I can do:$/);
+    assert.deepEqual(offer.slice(1, 5).map(line => line.match(/`(rfp \S+)/)[1]), ['rfp questions', 'rfp dates', 'rfp capability', 'rfp brief']);
+    assert.equal(offer.at(-1), 'Which one? Reply with the number or the command.');
+    // Moving back to Phase 1 offers nothing.
+    const back = await run('rfp-stage.mjs', root, ['carlsbad-parks-recreation-booking-system', 'scored', '--by', 'Peter']);
+    assert.doesNotMatch(back.stdout, /I can do/);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});

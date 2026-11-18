@@ -5,6 +5,11 @@ audience: Written for both Claude (who drafts the requests) and the sales teamma
 version: 1.9 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-submission-checklist skill (the per-item owner routing), the RFP itself (for verbatim requirement language), the rfp-proposal-deck-rough-draft output (its stub + inline-filler list = exactly what's still missing), the rfp-engineering-brief output (technical language + page refs for engineers), reference-team-and-signature.md (signature), `MEMORY.md` (who is current staff) and `resources/proposal-sources/Proposal - People.txt` (roles).
+label: Materials requests for teammates
+command: materials
+phase: 3
+when: Messages asking teammates for the proposal materials still missing, as text to paste into Slack.
+asks: materials request | request materials | ask the team for | what do we still need from the team | slack messages | messages to the team | who owes what | missing materials | ask teammates | requests for resumes | ask for case studies | chase the team
 ---
 
 # Materials Request (Slack) Skill

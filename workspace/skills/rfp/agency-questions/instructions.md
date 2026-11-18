@@ -5,6 +5,11 @@ audience: This skill is written to be read by both ISA (who writes the questions
 version: 1.6 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-scoring skill (the scored judgment for this RFP), the RFP's downloaded documents, and the Engineering Scope Brief when one exists
+label: Questions for the agency's Q&A
+command: questions
+phase: 2
+when: Questions to send in the agency's Q&A or clarification window, with the email to copy.
+asks: agency questions | questions for the agency | clarifying questions | clarification questions | q&a questions | questions for the q&a | write q&a questions | draft questions | rfi questions | questions to submit | what should we ask the agency | ask the agency | questions deadline | email the agency questions
 ---
 
 # Clarifying-Questions-to-Agency Skill

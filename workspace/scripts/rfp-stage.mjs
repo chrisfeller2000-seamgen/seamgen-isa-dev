@@ -24,6 +24,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { STAGES, findRfpFolders, findStage, rfpsDir, workspaceDir } from './rfp-folders.mjs';
 import { weeklyJobRunning } from './rfp-rescore.mjs';
+import { loadSkills, phaseOffer } from './rfp-route.mjs';
 import { cleanName, readPortalCandidate } from './weekly-rfp-pursue-decision.mjs';
 
 export const STAGE_FILE = '_stage.json';
@@ -180,7 +181,23 @@ async function main(args = process.argv.slice(2)) {
     `Recorded as asked by ${by}.`,
     ...(moved.to.dir === STAGES[0].dir ? [] : reminder(moved)),
     'Nothing was deleted, uploaded or sent.',
+    ...await nextSkills(moved, slug),
   ].join('\n') + '\n');
+}
+
+// After a move into Phase 2, 3 or 4, the new phase's skills, which ISA passes on as printed. They
+// come from this script rather than the router so ISA can only offer them once a move has really
+// happened: in local tests on November 18, 2026 ISA twice sent the router's after-move text
+// without running the move. The line before the list is for ISA: in later runs it sometimes sent
+// only "Which one?", as if the person could see this output. A workspace without skills/rfp/
+// prints nothing more.
+export const RELAY_LINE = "Send them the move and this list word for word; they can't see this output:";
+async function nextSkills(moved, slug) {
+  const phase = STAGES.indexOf(moved.to) + 1;
+  if (phase < 2) return [];
+  const skills = await loadSkills();
+  if (!skills.length) return [];
+  return ['', RELAY_LINE, phaseOffer(skills, { slug, title: moved.title }, phase, '')];
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
