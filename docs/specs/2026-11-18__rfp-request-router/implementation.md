@@ -116,3 +116,30 @@ Before the router (the `exp/rfp-router` experiment), the same requests reached t
 - To undo: move the files back from the backup folder.
 
 **Not yet seen live:** a real chat request going through the router on the live model.
+
+## Follow-up: reading an RFP's saved documents (November 18, 2026)
+
+**The gap.** In the router tests, ISA asked people to send the RFP's PDF. The test RFP folders were empty, but the runs exposed a real gap: the router named the RFP but not where its documents were. ISA then guessed at folders and file paths. On the VM, 252 of 302 RFP folders have saved documents (716 PDF, 227 Word, 146 Excel, a few XML and old `.doc`/`.xls`). `scripts/document-text.mjs` can read all but the old formats, including scanned PDFs, but nothing in the RFP rules pointed to it.
+
+**What changed:**
+- **The reader's RFP mode** (`scripts/document-text.mjs`): `--rfp <slug>` lists the RFP's saved documents, numbered. Files starting with `_` (the job's manifests) are skipped. `--file <n>` or `--file all` reads them, and `--notes` prints the scoring notes. ISA picks documents by number, so an agency's file name (spaces, quotes, `$(`) never goes into a shell command.
+- **Page markers.** PDF text read this way shows `--- page N ---` before each page; `pdftotext` page breaks are invisible to the model, and the engineering brief cites pages. The Friday job reads through `extractDocumentText()` and is unchanged.
+- **The router** adds `documents` to `run-skill`, `offer`, `answer`, `share-documents` and `rescore` decisions: how many are saved and readable, the numbered list, and the read commands. With none saved, it says to follow the fetch skill and ask the person only if that fails. Its `run-skill` note says never to ask for a document that is already saved.
+- **Instructions:** `INDEX.md` ("Reading an RFP's documents") and the document-text skill (v1.1) explain the `--rfp` form.
+
+**Tests:**
+- the router's `documents` for an RFP with files, an empty folder and no folder;
+- `--rfp` listing, reading by number and `all`, the scoring notes, a bad number and a bad slug;
+- a file named `Exhibit $(touch pwned) \`id\`.txt` read without running anything;
+- page markers.
+
+`npm test`: 275 pass. A generated two-page PDF read through `--rfp` showed both page markers.
+
+**Local ISA runs** (`gpt-5.4-mini`, the real router and reader against the fixture workspace):
+
+| Request | Result |
+| --- | --- |
+| "When are the Laguna Beach proposals due?" | 3 of 3 ran the router, read the documents by number, and answered January 21, using the addendum over the RFP's January 14 |
+| Engineering brief (free text and `rfp brief`) | 9 of 9 read the saved documents by number and never used a file name |
+
+In the first six brief runs, ISA reported that the three-line test files lacked scope and page numbers, which is accurate. With a PDF and page markers added, the briefs were built from the saved documents and flagged the addendum's date change.

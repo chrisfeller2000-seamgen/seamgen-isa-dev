@@ -30,6 +30,15 @@ export async function routeWorkspace() {
     await fs.writeFile(path.join(dir, 'candidate.md'), `---\ntitle: "${rfp.title}"\n---\n`);
     if (rfp.stage) await fs.writeFile(path.join(dir, '_stage.json'), JSON.stringify({ title: rfp.title, history: [{ to: rfp.dir, by: 'Fixture', at: '2026-11-20T20:00:00.000Z' }] }));
   }
+  // Laguna Beach has saved documents: an RFP, an addendum, the job's own manifest (not a document),
+  // a file type the reader can't open, and a file name a shell would run if it were pasted into a
+  // command. Every other RFP folder has an empty resources/.
+  const laguna = path.join(root, 'RFPs', '2-intermediate-stage', 'laguna-beach-website-redesign', 'resources');
+  await fs.writeFile(path.join(laguna, 'RFP 2026-31 Website Redesign.txt'), 'City of Laguna Beach RFP 2026-31\nQuestions due: December 11, 2026, 5:00 PM PT\nProposals due: January 14, 2027, 2:00 PM PT\n');
+  await fs.writeFile(path.join(laguna, 'Addendum 1.html'), '<html><body><p>Addendum 1: the proposal due date moves to January 21, 2027.</p></body></html>');
+  await fs.writeFile(path.join(laguna, '_document-manifest.json'), '{}');
+  await fs.writeFile(path.join(laguna, 'Old pricing form.doc'), 'binary');
+  await fs.writeFile(path.join(laguna, 'Exhibit $(touch pwned) `id`.txt'), 'Exhibit A: insurance requirements.\n');
   await fs.mkdir(path.join(root, 'reports', 'new-rfp-qualification'), { recursive: true });
   await fs.writeFile(path.join(root, 'reports', 'new-rfp-qualification', 'latest.json'), JSON.stringify({ week: '2026-W47', entries: [
     { slug: 'carlsbad-parks-recreation-booking-system', title: 'Carlsbad parks and recreation booking system', tier: 'worth' },

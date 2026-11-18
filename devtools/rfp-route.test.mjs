@@ -147,3 +147,29 @@ test('the router reads a message on standard input, as written', async () => {
     await fs.rm(workspace, { recursive: true, force: true });
   }
 });
+
+// Local tests on November 18, 2026: ISA asked people to send a PDF it already had, because nothing
+// told it where an RFP's documents were or how to read them.
+test('a decision about an RFP says what documents are saved and how to read them by number', async () => {
+  const workspace = await routeWorkspace();
+  try {
+    const brief = await routeRequest('rfp brief laguna-beach-website-redesign', { workspace });
+    assert.equal(brief.action, 'run-skill');
+    assert.equal(brief.documents.saved, 4);
+    assert.equal(brief.documents.readable, 3);
+    assert.deepEqual(brief.documents.files.map(file => file.n), [1, 2, 3, 4]);
+    assert.equal(brief.documents.readAll, 'node scripts/document-text.mjs --rfp laguna-beach-website-redesign --file all');
+    assert.equal(brief.documents.notes, 'node scripts/document-text.mjs --rfp laguna-beach-website-redesign --notes');
+    assert.match(brief.note, /never ask the person for a document that is already saved/);
+    // An RFP with an empty folder, and one with no folder at all, point to the fetch skill instead.
+    for (const message of ['rfp brief yonkers-senior-services-app', 'rfp fetch pasco-county-records-system']) {
+      const empty = await routeRequest(message, { workspace });
+      assert.equal(empty.documents.saved, 0, message);
+      assert.match(empty.documents.note, /document-fetch/);
+    }
+    // Questions and moves don't need the documents yet.
+    assert.equal((await routeRequest('rfp checklist laguna-beach-website-redesign', { workspace })).documents, undefined);
+  } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});

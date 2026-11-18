@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { extractDocumentText } from '../workspace/scripts/document-text.mjs';
 
 const TYPED_PAGE = 'Proposals are due no later than 2:00 P.M. on October 23, 2026.';
@@ -181,4 +182,53 @@ test('other XML is read as plain text, skipping images and refusing a DOCTYPE', 
   } finally {
     await fs.rm(dir, { recursive: true, force: true });
   }
+});
+
+// ISA reads an RFP's documents by number, so an agency's file name never reaches a shell.
+test('--rfp lists an RFP\'s saved documents by number and reads them, never running a file name', async () => {
+  const { routeWorkspace } = await import('./fixtures/rfp-route-workspace.mjs');
+  const { rfpDocuments } = await import('../workspace/scripts/document-text.mjs');
+  const { spawnSync } = await import('node:child_process');
+  const script = fileURLToPath(new URL('../workspace/scripts/document-text.mjs', import.meta.url));
+  const workspace = await routeWorkspace();
+  const cli = (...args) => spawnSync(process.execPath, [script, ...args], { cwd: workspace, env: { ...process.env, WORKSPACE_DIR: workspace }, encoding: 'utf8' });
+  try {
+    const docs = await rfpDocuments('laguna-beach-website-redesign', { workspace });
+    assert.deepEqual(docs.files.map(file => [file.n, file.name, file.readable]), [
+      [1, 'Addendum 1.html', true],
+      [2, 'Exhibit $(touch pwned) `id`.txt', true],
+      [3, 'Old pricing form.doc', false],
+      [4, 'RFP 2026-31 Website Redesign.txt', true],
+    ]);
+    assert.match(docs.notes, /candidate\.md$/);
+    const list = cli('--rfp', 'laguna-beach-website-redesign');
+    assert.equal(list.status, 0, list.stderr);
+    assert.match(list.stdout, /^4 saved documents for laguna-beach-website-redesign:\n1\. Addendum 1\.html \(html, 1 KB\)/);
+    assert.match(list.stdout, /3\. Old pricing form\.doc \(doc, 1 KB\) - this file type cannot be read/);
+    assert.match(cli('--rfp', 'laguna-beach-website-redesign', '--file', '4').stdout, /Proposals due: January 14, 2027/);
+    const all = cli('--rfp', 'laguna-beach-website-redesign', '--file', 'all');
+    assert.match(all.stdout, /===== 1\. Addendum 1\.html =====\nAddendum 1: the proposal due date moves to January 21, 2027\./);
+    assert.match(all.stdout, /Exhibit A: insurance requirements\./);
+    assert.doesNotMatch(all.stdout, /Old pricing form/);
+    // The odd file name was read as a file, not run.
+    for (const dir of [workspace, path.join(workspace, 'RFPs', '2-intermediate-stage', 'laguna-beach-website-redesign', 'resources')]) {
+      assert.equal(await fs.access(path.join(dir, 'pwned')).then(() => true, () => false), false);
+    }
+    assert.match(cli('--rfp', 'laguna-beach-website-redesign', '--notes').stdout, /title: "Website Redesign/);
+    const missing = cli('--rfp', 'laguna-beach-website-redesign', '--file', '9');
+    assert.equal(missing.status, 1);
+    assert.match(missing.stderr, /There is no document 9 for laguna-beach-website-redesign/);
+    const noFolder = cli('--rfp', 'pasco-county-records-system');
+    assert.match(noFolder.stderr, /never saved\. Follow skills\/rfp\/document-fetch\/instructions\.md/);
+    assert.match(cli('--rfp', '../etc').stderr, /That is not an RFP slug/);
+  } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});
+
+// pdftotext separates pages with form feeds, which ISA can't see; the engineering brief cites pages.
+test('PDF text read in chat shows a visible marker before each page', async () => {
+  const { withPageMarkers } = await import('../workspace/scripts/document-text.mjs');
+  assert.equal(withPageMarkers('Scope of work\n\fSchedule\nDue Jan 14\n\f'), '--- page 1 ---\nScope of work\n\n--- page 2 ---\nSchedule\nDue Jan 14\n');
+  assert.equal(withPageMarkers('One page only'), '--- page 1 ---\nOne page only');
 });
