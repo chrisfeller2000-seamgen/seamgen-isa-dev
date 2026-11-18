@@ -5,6 +5,11 @@ audience: This skill is written to be read by both ISA (who reads the dates and 
 version: 1.2 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: the per-RFP key-dates note (this skill authors it) and the RFP's documents in `resources/`.
+label: Key dates as calendar events
+command: dates
+phase: 2
+when: An RFP's key dates (Q&A, pre-proposal meeting, proposal due) as calendar events to add.
+asks: calendar | on the calendar | calendar dates | calendar events | calendar invites | key dates | important dates | deadlines on the calendar | add the dates | put the dates | due dates | reminders | schedule the deadlines | pre-proposal meeting | pre-bid meeting | when is it due
 ---
 
 # RFP Calendar-Logging Skill

@@ -5,6 +5,11 @@ audience: Written for both Claude (who plans and assembles the draft) and the sa
 version: 1.7 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-submission-checklist skill (defines the required contents + the "Forms to extract, complete & sign" list the deck's Appendix mirrors), the RFP itself, and resources/proposal-sources/ (Proposal - Case Studies.txt, Proposal - People.txt, Proposal - Assets.txt, Adan's RFP Playbook), and resources/proposal-templates/ (the example proposal decks that define house style). Reads technical content from the rfp-engineering-brief output when one exists.
+label: Proposal deck rough draft
+command: deck
+phase: 3
+when: A rough draft of the proposal deck or proposal content, for internal review.
+asks: proposal deck | deck | rough draft | draft the proposal | proposal draft | write the proposal | first draft | proposal content | slides for the proposal | proposal pdf | start the proposal | build the proposal
 ---
 
 # Proposal Deck Skill — Rough Draft (iteration 1)

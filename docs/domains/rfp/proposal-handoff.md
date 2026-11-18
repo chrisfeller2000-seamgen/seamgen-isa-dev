@@ -2,7 +2,7 @@
 
 ## Purpose and source
 
-After qualification, ISA's RFP skills describe engineering briefs, submission checklists, materials requests, agency questions, pursue/no-bid emails, and rough proposal decks. The entrypoints are the relevant Markdown files in `workspace/skills/`, especially `rfp-engineering-brief-skill.md`, `rfp-submission-checklist-skill.md`, and `proposal-writing/rfp-proposal-deck-rough-draft-skill.md`. These are instructions for ISA and teammates; this repository does not prove that a scheduled job executes each step.
+After qualification, ISA's RFP skills describe engineering briefs, submission checklists, materials requests, agency questions, pursue/no-bid emails, and rough proposal decks. The entrypoints are the relevant Markdown files in `workspace/skills/`, especially `skills/rfp/engineering-brief/instructions.md`, `skills/rfp/submission-checklist/instructions.md`, and `skills/rfp/proposal-deck/instructions.md`. These are instructions for ISA and teammates; this repository does not prove that a scheduled job executes each step.
 
 ## Rules to preserve
 

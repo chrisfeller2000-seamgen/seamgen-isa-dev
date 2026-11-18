@@ -4,6 +4,11 @@ purpose: Check the RFPs Seamgen is working on for new documents and deadline cha
 audience: This skill is written to be read by both ISA (who runs the check and reads what it finds) and a human teammate (who reads the change report, checks agency portals ISA can't sign in to, and acts on it).
 version: 2.0 — November 2026
 owner: Seamgen sales team (no single owner or approver)
+label: What changed in new documents
+command: changes
+phase: any
+when: What changed in an RFP's new documents or amendments, deadline changes first.
+asks: what changed | any changes | new documents | amendment | addendum | addenda | updated documents | did the deadline change | deadline change | new version | changes to the rfp | what is new in the rfp | refresh
 ---
 
 # RFP Document Refresh Skill
@@ -66,7 +71,7 @@ Quote the document and cite the section or page — the same discipline the engi
 
 ### Then update the RFP's records
 
-- **`key-dates_<rfp-slug>.md`** — if a date moved, update it and cite the new source (`Confirmed from [document], [page]`). Keep the superseded date visible with a "was:" note. **Then re-run `skills/rfp-calendar-logging-skill.md`**, so the person gets the changed event text for their calendar. ISA never writes to a calendar.
+- **`key-dates_<rfp-slug>.md`** — if a date moved, update it and cite the new source (`Confirmed from [document], [page]`). Keep the superseded date visible with a "was:" note. **Then re-run `skills/rfp/calendar-dates/instructions.md`**, so the person gets the changed event text for their calendar. ISA never writes to a calendar.
 - **Downstream deliverables** — if a new mandatory form appeared, say which existing deliverable is now stale (usually the submission checklist, sometimes the proposal deck). Don't silently regenerate them; tell the person who asked what needs rebuilding and let them decide.
 
 ---
@@ -77,7 +82,7 @@ Quote the document and cite the section or page — the same discipline the engi
 
 When an RFP's manifest names an agency portal (its `source_path` or `Agency portal:` line), end your reply with a short checklist for the person: which portal, which RFP, and what to look for — **new documents, the due date the portal shows, and whether a pre-bid conference exists.** **Trust the portal's list over the RFP's printed schedule:** the schedule is a plan, the portal is the record.
 
-When the person sends you a new document from a portal, save it in the RFP's `resources/` folder (as `skills/rfp-document-fetch-skill.md` says), run `node scripts/rfp-refresh.mjs <slug> --drive` so it reaches Drive, and read it as above.
+When the person sends you a new document from a portal, save it in the RFP's `resources/` folder (as `skills/rfp/document-fetch/instructions.md` says), run `node scripts/rfp-refresh.mjs <slug> --drive` so it reaches Drive, and read it as above.
 
 #### DemandStar, also called OpenBids (account held)
 
@@ -106,7 +111,7 @@ DemandStar is a small share of the pipeline (11 of 512 candidates in July 2026),
 - **No payment method was on file** in July 2026, so the first purchase needs one added — a person's action, regardless of authorisation.
 - **SW Wisconsin (2627-09) is a standing no.** Don't propose buying its package while the **$5M cyber-liability requirement** is unresolved. If that blocker clears, it's a fresh decision.
 
-If a portal blocks the way, apply the **escalation ladder in `skills/rfp-document-fetch-skill.md`** — sign-in needed, bot challenge, registration required, paywall. **Never work around a barrier.**
+If a portal blocks the way, apply the **escalation ladder in `skills/rfp/document-fetch/instructions.md`** — sign-in needed, bot challenge, registration required, paywall. **Never work around a barrier.**
 
 ---
 
@@ -176,16 +181,16 @@ The **purchase gate** is a five-step procedure — report the exact filename/typ
 
 **Three things the first live run taught, now written into the step.** The portal's document list beat the RFP's own schedule — 2627-09's addendum was published four days after the printed date, so **the portal is the record and the schedule is only a plan**. The portal's **due date can disagree with the solicitation** — DemandStar showed `08/10/2026 1:00 AM Central` against the RFP's *"1:00 p.m."*, and the step now requires reporting both rather than silently picking one, because a submission timed to the wrong value is late with no remedy. And **proposer-of-record status** is worth recording, since that is what makes future addenda arrive by email instead of needing this check at all.
 
-Also carried over: the browser bridge jams after roughly five downloads when the native file-picker sticks, so documents are pulled incrementally. `skills/rfp-document-fetch-skill.md` → v1.6 in the same session; the escalation ladder still lives there and is referenced, not duplicated.
+Also carried over: the browser bridge jams after roughly five downloads when the native file-picker sticks, so documents are pulled incrementally. `skills/rfp/document-fetch/instructions.md` → v1.6 in the same session; the escalation ladder still lives there and is referenced, not duplicated.
 
-**v1.4 — July 24, 2026, Jake + Claude.** Step 7's key-dates bullet now **hands off to `skills/rfp-calendar-logging-skill.md`** — after a moved date is written into `key-dates_<rfp-slug>.md`, re-run the calendar skill so the calendar event moves with it. That skill reconciles against a sync-block ledger kept in the same note, so it updates the existing event rather than duplicating. Added because the new calendar skill (CLAUDE.md v1.28, recipe #15) makes the RFP's deadlines live on Jake's "Seamgen RFPs" calendar — and a due date that moves on disk but not on the calendar is exactly the silent-staleness failure this refresh skill exists to prevent, one layer further out (the same reasoning that added the Drive push in v1.2).
+**v1.4 — July 24, 2026, Jake + Claude.** Step 7's key-dates bullet now **hands off to `skills/rfp/calendar-dates/instructions.md`** — after a moved date is written into `key-dates_<rfp-slug>.md`, re-run the calendar skill so the calendar event moves with it. That skill reconciles against a sync-block ledger kept in the same note, so it updates the existing event rather than duplicating. Added because the new calendar skill (CLAUDE.md v1.28, recipe #15) makes the RFP's deadlines live on Jake's "Seamgen RFPs" calendar — and a due date that moves on disk but not on the calendar is exactly the silent-staleness failure this refresh skill exists to prevent, one layer further out (the same reasoning that added the Drive push in v1.2).
 
 **v1.3 — July 22, 2026, Jake + Claude.** The Drive push in Step 7 now names the actual mechanism — **`tools/Sync-RfpToDrive.ps1`** (rclone) — instead of leaving "push it into the folder" as an instruction with no working method behind it. Because the script copies the whole `resources/` folder and skips files already present, re-running it after a refresh is safe and moves only the new addenda. Matches `rfp-document-fetch` v1.4.
 
 **v1.2 — July 22, 2026, Jake + Claude.** Step 7 now also **pushes newly downloaded documents into the RFP's Google Drive folder**, and Step 8 reports that it did. Added because `rfp-document-fetch` v1.3 started mirroring each intermediate-stage RFP's `resources/` to `My Drive > RFP Process Documents > Favorable RFP's`, and that mirror is what the pursue email links to (`rfp-email-pursue` v1.6) — so it's what Peter and Marianne actually read. Without this step an addendum that moves a due date would land on disk only, leaving leadership reading a superseded set from a link that looks current: the same silent-staleness failure this skill was built to prevent, one layer further out. Also covers the backfill case — an RFP promoted before fetch v1.3 has no `Drive folder:` manifest line, so the refresh creates the folder per fetch Step 12 rather than skipping.
 
-**v1.1 — July 21, 2026, Jake + Claude.** This skill now **owns agency-portal retrieval outright**. `skills/rfp-document-fetch-skill.md` v1.1 stopped chasing the originating site during scoring — it only records the portal's name and URL — after the first Yonkers run turned a locked BidNet listing into a same-day account request for an opportunity that hadn't finished scoring. Step 4 is rewritten to say plainly that the portal is worked *here*, in the building stage, where the opportunity has already been accepted as worth building and an account request (via **Tina**) is worth its lead time. The escalation ladder still lives in the fetch skill and is referenced, not duplicated.
+**v1.1 — July 21, 2026, Jake + Claude.** This skill now **owns agency-portal retrieval outright**. `skills/rfp/document-fetch/instructions.md` v1.1 stopped chasing the originating site during scoring — it only records the portal's name and URL — after the first Yonkers run turned a locked BidNet listing into a same-day account request for an opportunity that hadn't finished scoring. Step 4 is rewritten to say plainly that the portal is worked *here*, in the building stage, where the opportunity has already been accepted as worth building and an account request (via **Tina**) is worth its lead time. The escalation ladder still lives in the fetch skill and is referenced, not duplicated.
 
-**v1.0 — July 21, 2026, Jake + Claude.** First version, written alongside `skills/rfp-document-fetch-skill.md` on the day the Chrome browser bridge went live. Prompted by Jake's observation that **new documents on the listing page are the mechanism by which agencies push back dates, amend scope, and publish Q&A** — so a document set silently perishes and needs re-checking. Diffs against the `_document-manifest.md` the fetch skill writes. Scoped to `RFPs/3-building/` only by Jake's decision; tier 2 is knowingly unwatched (noted as a gap). Uses the fetch skill's escalation ladder for agency portals rather than duplicating it.
+**v1.0 — July 21, 2026, Jake + Claude.** First version, written alongside `skills/rfp/document-fetch/instructions.md` on the day the Chrome browser bridge went live. Prompted by Jake's observation that **new documents on the listing page are the mechanism by which agencies push back dates, amend scope, and publish Q&A** — so a document set silently perishes and needs re-checking. Diffs against the `_document-manifest.md` the fetch skill writes. Scoped to `RFPs/3-building/` only by Jake's decision; tier 2 is knowingly unwatched (noted as a gap). Uses the fetch skill's escalation ladder for agency portals rather than duplicating it.
 
 **How to edit this skill:** Change the text. It's Markdown. Save. Bump the version number and add a note describing what changed and why.
