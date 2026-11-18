@@ -87,3 +87,12 @@ test("ISA's AGENTS.md fits in OpenClaw's bootstrap limit, so none of it is cut",
   const agents = await fs.readFile(path.join(skillsRoot, '..', 'AGENTS.md'), 'utf8');
   assert.ok(agents.length < 20000, `AGENTS.md is ${agents.length} characters; OpenClaw cuts anything over 20,000`);
 });
+
+// Local ISA wrote the agency email for a submitted proposal freehand, without the skill's check
+// that the RFP allows email at all, until AGENTS.md named the request directly (November 18, 2026).
+test("ISA's AGENTS.md sends the email that goes with a proposal to its skill, with no move first", async () => {
+  const agents = await fs.readFile(path.join(skillsRoot, '..', 'AGENTS.md'), 'utf8');
+  const line = agents.split('\n').find(text => text.startsWith('- **The email that goes with a proposal**')) || '';
+  assert.match(line, /never write it freehand/);
+  assert.match(line, /`skills\/rfp-email-submission-skill\.md` in any phase, offering no move first/);
+});

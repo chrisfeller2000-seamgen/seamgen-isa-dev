@@ -52,3 +52,17 @@ E and F remain open: the model didn't connect "the email that goes with the prop
 ### Release of the follow-up
 
 `AGENTS.md` alone was deployed to the VM on November 18, 2026 at 18:46 UTC, at `main` `570f072` (PR #66; backup `backups/dev-deploy-2026-11-18T18-46-40-895Z-570f072`). A pull afterwards showed the VM matching `main` for it, leaving only the four Slack tool files from PR #60. Between the 17:23 UTC upload and this one, the live file was 20,876 characters. Whether the VM's OpenClaw config raises `bootstrapMaxChars`, and so whether live ISA actually saw a cut file in that window, wasn't checked.
+
+## Follow-up: the submission email trigger (November 18, 2026)
+
+Scenario E failed because nothing in `AGENTS.md` named the request; the skill appeared only in the phase map. A bullet beside the agency-questions one now says that the email that goes with a proposal is never written freehand and follows `rfp-email-submission-skill.md` in any phase, with no move offered first. The "exception" sentence moved there from the later-phase rule, after one run offered to move the RFP to Submitted before drafting.
+
+Local ISA, "write the email that goes with it" for an RFP in Building:
+
+| Wording in `AGENTS.md` | Opened the skill |
+| --- | --- |
+| None (phase map only) | 0 of 2 |
+| "follow the skill … First check whether the RFP allows email" | 2 of 3 (one offered to move to Submitted first), then 2 of 4 |
+| "to the agency, with the submission: never write it freehand … offering no move first" | 4 of 5 |
+
+With that wording, "draft the cover email for the Laguna Beach submission" and "it's uploaded to the portal, what should we email the agency?" each went to the skill or to finding the RFP first in 2 of 2 runs, and never to a freehand email.
