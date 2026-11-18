@@ -20,4 +20,8 @@ Stage folders (November 17, 2026) record who decided to work on an RFP, but noth
 
 ## Release
 
-Not deployed. The upload is `scripts/rfp-report.mjs` and `AGENTS.md`, after PR #62's `scripts/rfp-scoring-judgment.mjs`. The script needs no restart, since the Friday job loads it fresh on each run. Check at upload whether an open chat session picks up the new `AGENTS.md` or needs a new session.
+Deployed to the VM on November 18, 2026 at `main` `7bc549e` (backup `backups/dev-deploy-2026-11-18T17-23-10-608Z-7bc549e`), in one upload of six files with PRs #61 and #64: `AGENTS.md`, `scripts/rfp-report.mjs`, `scripts/rfp-scoring-judgment.mjs`, and the pursue-email, meeting-brief and deck-rough-draft skills. A pull afterwards showed the VM matching `main` for all six. Nothing was restarted; the Friday job loads its scripts fresh on each run.
+
+Not yet seen live: the offer line first appears in the Friday, November 20 group message, and nobody has yet replied to one or asked ISA for a phase's skills. Whether a chat session already open at upload time uses the new `AGENTS.md` wasn't checked.
+
+PR #60's Slack cleanup was left off the VM on purpose. The Slack tools there don't work and don't affect ISA, so `tools/Send-SlackMessage.ps1`, `tools/slack-app-manifest.yaml`, and #60's edits to `tools/README.md` and `tools/Sync-RfpToDrive.ps1` stay as they are; `live:pull` lists those four as the remaining differences. #60's two skill edits did go up in a second upload the same day (backup `backups/dev-deploy-2026-11-18T17-31-30-273Z-7bc549e`), because the phase map offers both: `rfp-capability-verification-skill.md` and `proposal-writing/rfp-materials-request-slack-skill.md`, which now give Slack messages as text to copy.

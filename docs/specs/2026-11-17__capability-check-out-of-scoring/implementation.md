@@ -32,4 +32,4 @@ Every RFP kept its tier and the same gates passed, failed or stayed open, with t
 
 ## Release
 
-Not deployed. The upload is one file, `scripts/rfp-scoring-judgment.mjs`. Nothing needs a restart, because the Friday job loads it fresh on each run.
+Deployed to the VM on November 18, 2026 at `main` `7bc549e` (backup `backups/dev-deploy-2026-11-18T17-23-10-608Z-7bc549e`), in one upload of six files with PRs #61 and #64: `AGENTS.md`, `scripts/rfp-report.mjs`, `scripts/rfp-scoring-judgment.mjs`, and the pursue-email, meeting-brief and deck-rough-draft skills. A pull afterwards showed the VM matching `main` for all six. Nothing was restarted; the Friday job loads its scripts fresh on each run.
