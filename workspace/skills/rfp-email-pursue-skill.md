@@ -2,7 +2,7 @@
 name: rfp-email-pursue
 purpose: Generate the brief "pursue" email sent to Marianne and Sales when Seamgen is pursuing an RFP. The email names the opportunity (title + source + link to the RFP's Google Drive folder), says what the agency runs today and what they hope to get, why it fits Seamgen, and what could stop us winning. One code-built Key dates line carries the questions and proposal deadlines; clarifying questions do NOT go in this email (they come from the rfp-email-agency-questions skill on request).
 audience: This skill is written to be read by both Claude (who drafts the email) and a human teammate (who reads, sanity-checks, and edits the template over time).
-version: 1.10 — November 2026
+version: 1.11 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-scoring skill (this template reads from that skill's output)
 ---
@@ -71,7 +71,7 @@ This changed in v1.6 because Peter and Marianne said plainly they don't want to 
 2. A Drive search under the `Favorable RFP's` parent folder (ID `1FgeVVURDnS-JyQTyapa7pCl3BN4_PmaW`, on the **Sales shared drive**) for the RFP's slug. Note there is an abandoned empty folder of the same name in a former employee's My Drive — resolve by ID, not by name.
 3. Ask the requester.
 
-**Fallback when there is no Drive folder.** A folder only exists once the RFP reaches `2-intermediate-stage/`. If the pursue email is going out earlier — an RFP still in `1-pre-submission/` on a metadata-only score — use the agency's **own original posting URL**, and the HigherGov listing only if that's unknown too.
+**Fallback when there is no Drive folder.** Each RFP has one Drive folder, whatever stage tier it is in. The Friday job makes one for each Strong Pursue, and `node scripts/rfp-refresh.mjs <rfp-slug> --drive` makes or fills one for an RFP in any tier and prints its link (see "Putting documents in Drive" in `AGENTS.md`). If the RFP still has no folder, because no documents were saved (a portal login, say), use the agency's **own original posting URL**, and the HigherGov listing only if that's unknown too.
 
 **Never invent a URL, and never drop the link.** `not identified` is the honest fallback if all three are unknown, the same rule the meeting brief follows.
 
@@ -183,6 +183,8 @@ Note what the Blockers section does here: it surfaces, in three lines, the exact
 - **The full Blockers analysis** — severity labels, the requirement quoted, what would clear it, and who owns clearing it. This email carries the headline; the brief carries the argument.
 
 ## Notes and edit history
+
+**v1.11 — November 2026.** The no-folder fallback no longer says a Drive folder exists only once an RFP reaches `2-intermediate-stage/`. Each RFP has one Drive folder in any tier: the Friday job makes one for each Strong Pursue, and `scripts/rfp-refresh.mjs --drive` makes one on request. The posting-URL fallback is for an RFP with no saved documents.
 
 **v1.10 — November 2026.** For now the pursue email goes to **Marianne and Sales only**, as the Friday job's email already does. Peter is off the recipients, the template's "To:" line and the `Intended recipients:` line, and the sensitive-industry note is addressed to Marianne.
 

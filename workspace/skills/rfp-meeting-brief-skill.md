@@ -2,7 +2,7 @@
 name: rfp-meeting-brief
 purpose: Generate a short (one-page) pre-meeting document for a specific RFP, designed to be read in 60 seconds before a weekly sales meeting or a hallway conversation with Peter, Marianne, or a lead engineer.
 audience: This skill is written to be read by both Claude (who drafts the brief) and a human teammate (who reads, sanity-checks, and edits the template over time).
-version: 2.5 — November 2026
+version: 2.6 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-scoring skill (this brief reads from that skill's output), plus optional inputs from the pursue-to-Peter email thread, engineer timeline estimates, and agency Q&A responses. The Blockers section reads the RFP directly, for verbatim requirement quotes with §/page.
 ---
@@ -57,7 +57,7 @@ RFPs/[stage]/[rfp-slug]/meeting-brief_YYYY-MM-DD_[rfp-slug].pdf
 
 For example: `RFPs/[stage]/maryland-website-redesign/meeting-brief_2026-07-06_maryland-website-redesign.pdf`
 
-Naming convention rationale: the date prefix makes multiple briefs over time sort chronologically within the RFP's folder, and the slug in the filename keeps each file self-describing even if moved. Every deliverable for a given RFP lives together in the RFP's own folder — `RFPs/[stage]/[rfp-slug]/`, where `[stage]` is its current lifecycle tier (`1-pre-submission` / `2-intermediate-stage` / `3-building` / `4-submitted`). Save into that `[rfp-slug]/` folder wherever it already exists; don't assume the tier or create a duplicate (see CLAUDE.md Rule 10). **The PDF is rendered from a temporary HTML built in the scratchpad (headless Edge/Chrome print-to-pdf); that HTML is NOT kept in the RFP folder — a brief adds only its `.md` working copy and its `.pdf` deliverable.** The RFP's `resources/` folder and the original documents in it are not part of this cleanup: remove only the working files this brief created, and never trash or delete an original.
+Naming convention rationale: the date prefix makes multiple briefs over time sort chronologically within the RFP's folder, and the slug in the filename keeps each file self-describing even if moved. Every deliverable for a given RFP lives together in the RFP's own folder — `RFPs/[stage]/[rfp-slug]/`, where `[stage]` is its current lifecycle tier (`1-pre-submission` / `2-intermediate-stage` / `3-building` / `4-submitted`). Save into that `[rfp-slug]/` folder wherever it already exists; don't assume the tier or create a duplicate (see "RFP stage folders" in `AGENTS.md`). **The PDF is rendered from a temporary HTML built in the scratchpad (headless Edge/Chrome print-to-pdf); that HTML is NOT kept in the RFP folder — a brief adds only its `.md` working copy and its `.pdf` deliverable.** The RFP's `resources/` folder and the original documents in it are not part of this cleanup: remove only the working files this brief created, and never trash or delete an original.
 
 ## The brief format
 
@@ -489,6 +489,8 @@ control.
 That reads in 60 seconds at the top and answers every question Peter or Marianne is likely to ask on the way to the meeting room.
 
 ## Notes and edit history
+
+**v2.6 — November 2026.** The folder rule now points at "RFP stage folders" in `AGENTS.md` instead of CLAUDE.md Rule 10.
 
 **v2.5 — November 2026.** Marked **retired** (since October 12, 2026), with pointers to the pursue email and the agency-questions skill. Owner set to the sales team after Jake left Seamgen. The body is unchanged and kept as history.
 
