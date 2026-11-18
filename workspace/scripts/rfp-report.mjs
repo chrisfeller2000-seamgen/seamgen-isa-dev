@@ -777,6 +777,20 @@ function closeCallsLine(facts) {
   return `Close calls this week: ${facts.closeCalls.map(call => `**${call.name}** (${call.score})`).join(', ')}. Reply here if you want a closer look at one.`;
 }
 
+// The offer to move the week's Strong Pursue RFPs to Phase 2 (Looking closer), added by code
+// right after the message so ISA's checked wording never has to carry it. Nothing moves until
+// someone in the group replies; ISA's chat then runs rfp-stage.mjs and explains which skills go
+// with that phase (the phase map in workspace/AGENTS.md). It never runs one unasked. People see
+// phase names; the folders keep their tier names (2-intermediate-stage).
+export const LOOKING_CLOSER = 'Phase 2: Looking closer';
+function moveOfferLine(facts) {
+  const names = facts.picks.map(pick => `**${pick.name}**`);
+  if (!names.length) return '';
+  if (names.length === 1) return `Want me to move ${names[0]} to ${LOOKING_CLOSER}? Reply here and I'll move it.`;
+  const list = `${names.slice(0, -1).join(', ')}${names.length > 2 ? ',' : ''} or ${names.at(-1)}`;
+  return `Want me to move any of these to ${LOOKING_CLOSER}: ${list}? Reply here with the ones to move.`;
+}
+
 // RFPs scoring 50+ whose documents wait on someone signing in to the agency's portal: the
 // highest three by name, and how many in all. Also added by code after the message.
 function portalLogins(results) {
@@ -889,9 +903,9 @@ function telegramWriterPrompt(vibe) {
  * quiet weeks always use the code-built text. Returns { text, source, reason }.
  */
 export async function writeTelegramMessage(facts, complete, { vibe = DEFAULT_VIBE, timeoutMs = 120000 } = {}) {
-  const withCloseCalls = text => [text, closeCallsLine(facts), portalLine(facts)].filter(Boolean).join('\n\n');
+  const withCloseCalls = text => [text, moveOfferLine(facts), closeCallsLine(facts), portalLine(facts)].filter(Boolean).join('\n\n');
   if (!['sent', 'preview'].includes(facts.email)) return { text: withCloseCalls(renderTelegramFallback(facts)), source: 'code', reason: null };
-  // ISA writes and is checked on the facts without the close calls and portal logins; code adds those lines.
+  // ISA writes and is checked on the facts without the move offer, close calls and portal logins; code adds those lines.
   const { closeCalls: _, portalLogins: __, ...writerFacts } = facts;
   const read = draft => ({ ...checkTelegramDraft(draft, writerFacts), value: draft });
   const written = await writeChecked({ complete, systemPrompt: telegramWriterPrompt(vibe), facts: writerFacts, read,
