@@ -159,7 +159,7 @@ Embed every image asset the requester provides (as a data URI, so the HTML stays
 ## Guardrails
 
 - **Real facts only.** Never invent case studies, capabilities, quotes, metrics, team members, or firm credentials. Ground everything in `resources/`. Spinning is rewording, not fabricating.
-- **Firm credentials** (GSA MAS contract, NAICS 541511/512/513/519/511210, Microsoft CSP; **never** claim small-business or SBA status, which Seamgen does not hold, and don't claim Esri certification or partnership until it is verified) come from the scoring skill's known-qualifications + `resources/` — verify they're current before relying on them.
+- **Firm credentials** (GSA MAS contract, NAICS 541511/512/513/519/511210, Microsoft CSP; **never** claim small-business or SBA status, which Seamgen does not hold, and never claim Esri certification; an Esri partner agreement may be cited while its company-facts entry is current) come from the scoring skill's known-qualifications + `resources/` — verify they're current before relying on them.
 - **Cost stays a placeholder** unless the requester supplies real numbers (pricing comes from Marianne + engineers + Peter).
 - The deck is a **draft for Marianne and Peter review before submission** — state this on the handoff, not on a client-facing slide.
 - Personnel: use current staff only (see the roster reconciliation — People.txt is a template with placeholder/former entries).

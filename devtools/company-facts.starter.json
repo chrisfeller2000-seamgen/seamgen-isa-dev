@@ -9,7 +9,7 @@
       "holder": "Seamgen",
       "status": "unconfirmed",
       "confirmWith": "Tina",
-      "notes": "Seamgen's GSA MAS contract lists UEI YH6HUMDSGL97. An active MAS contract normally requires an active SAM.gov registration, but this has not been checked on SAM.gov itself. Check the registration's status, expiry date and points of contact for UEI YH6HUMDSGL97, then record held with the expiry date. A separate SBA profile under UEI N7NGKMMQ4GJ9 (CAGE 6V9K1) showed an expired registration last updated 2025-06-03; it appears to be an older or duplicate entity record and should not be used in bids."
+      "notes": "Seamgen's GSA MAS contract lists UEI YH6HUMDSGL97. Tina confirmed it active on 2026-11-18; Frank Van Branderburgh is the only point of contact and the only person with access. Record the expiry date from SAM.gov. The expired registration under UEI N7NGKMMQ4GJ9 (CAGE 6V9K1) was Seamgen LLC, the old entity; never use it in bids."
     },
     {
       "id": "gsa-mas-it",
@@ -60,8 +60,8 @@
       "name": "Esri partner agreement",
       "holder": "Seamgen",
       "status": "unconfirmed",
-      "confirmWith": "Marianne",
-      "notes": "Claimed in Proposal - Assets.txt and never verified. A partner agreement is a company relationship, not an Esri technical certification."
+      "confirmWith": "Tina",
+      "notes": "Claimed in Proposal - Assets.txt; Tina confirmed it on 2026-11-18. A partner agreement is a company relationship, not an Esri technical certification."
     },
     {
       "id": "esri-technical-certification",
@@ -81,7 +81,7 @@
       "name": "Commercial general liability insurance",
       "holder": "Seamgen",
       "status": "unconfirmed",
-      "confirmWith": "Marianne"
+      "confirmWith": "Tina"
     },
     {
       "id": "insurance-professional-liability",
@@ -89,7 +89,7 @@
       "name": "Professional liability (errors and omissions) insurance",
       "holder": "Seamgen",
       "status": "unconfirmed",
-      "confirmWith": "Marianne"
+      "confirmWith": "Tina"
     },
     {
       "id": "insurance-cyber-liability",
@@ -97,7 +97,7 @@
       "name": "Cyber liability insurance",
       "holder": "Seamgen",
       "status": "unconfirmed",
-      "confirmWith": "Marianne",
+      "confirmWith": "Tina",
       "notes": "SW Wisconsin (2627-09) required $5M cyber liability and is a standing no until the limit is known."
     },
     {
@@ -106,7 +106,7 @@
       "name": "Workers' compensation insurance",
       "holder": "Seamgen",
       "status": "unconfirmed",
-      "confirmWith": "Marianne"
+      "confirmWith": "Tina"
     },
     {
       "id": "ref-florida-dep",

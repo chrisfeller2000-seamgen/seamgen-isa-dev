@@ -13,7 +13,7 @@ The RFP scorer needs to answer two questions it couldn't before. Does Seamgen ho
 - The same page lists Seamgen as Other Than Small Business, so small-business status is not held.
 - No SBA certification is held.
 
-The contract lists UEI YH6HUMDSGL97. A November 5 SBA profile showed an expired SAM.gov registration, but under a different UEI, N7NGKMMQ4GJ9. That record looks old or duplicate. The SAM.gov registration for YH6HUMDSGL97 stays unconfirmed until someone checks it on SAM.gov. Copy it outside Git, fill it in there, and never commit the filled-in copy.
+The contract lists UEI YH6HUMDSGL97. On November 18, 2026 Tina confirmed that registration is active, with Frank Van Branderburgh as its only point of contact. The expired registration under UEI N7NGKMMQ4GJ9 was Seamgen LLC, the old entity. Tina also confirmed the Esri partner agreement and the general liability, professional liability and workers' compensation limits; cyber liability is waiting on the broker, Cavignac. Those answers go in the VM record, not the starter. Copy the starter outside Git, fill it in there, and never commit the filled-in copy.
 
 ## Updating it
 
