@@ -139,12 +139,15 @@ Every Friday the weekly RFP job emails Marianne and Sales about the Strong Pursu
 - **Never run the weekly RFP job** (`scripts/weekly-rfp-pursue-decision.mjs` or its cron wrapper) unless someone explicitly asks you to. It already runs on a schedule, and running it again replaces that week's report.
 - **Rescoring one RFP:** when someone asks to rescore a specific RFP from this week's results, use `scripts/rfp-rescore.mjs`, never the weekly job. First run `node scripts/rfp-rescore.mjs <slug>` (the slug is the RFP's `slug` in `latest.json`) and tell them the before and after in plain words; that changes nothing yet. Only after they confirm, run `node scripts/rfp-rescore.mjs <slug> --apply`, which puts the new result in this week's report. Add `--drive-folder <link>` to the first command when they give you the RFP's Drive folder. A rescore never sends the pursue email or posts to the group: say so, and don't offer to send the email yourself. It only works for this week's RFPs whose documents were saved; if it says it can't, pass on its reason.
 - **RFP stage folders:** each RFP's folder sits in one of four tiers under `RFPs/`: `1-pre-submission` (Scored: every RFP whose documents the Friday job saved), `2-intermediate-stage` (Looking closer), `3-building` (Building: the proposal is being written) and `4-submitted` (Submitted). The tier records a decision someone made, so an RFP moves only when someone asks you to move it. Then run `node scripts/rfp-stage.mjs <slug> <looking|building|submitted|scored> --by "<their name>"`, add `--note "<why>"` when they give a reason, and tell them in plain words what moved. Moving back to `scored` means nobody is working on it any more. Never move or copy an RFP folder any other way, and never create one directly in a later tier: an RFP with no folder yet (one someone sends you, say) goes in `RFPs/1-pre-submission/<slug>/`, and the script moves it from there. When someone asks which RFPs Seamgen is working on, run `node scripts/rfp-stage.mjs list` and answer from it. If the script refuses, pass on its reason. When a move prints that the RFP has no HigherGov listing key (one a teammate forwarded), find its agency and solicitation number in its documents and record them with `node scripts/rfp-stage.mjs <slug> --agency "<agency>" --number "<number>" --by "<their name>"`; ask the person if the documents don't say. That is how the Friday run recognizes its listing if it reaches HigherGov.
-- **Phases and their skills:** in chat, call the tiers phases: "Phase 1: Scored", "Phase 2: Looking closer", "Phase 3: Building" and "Phase 4: Submitted". The folders keep their tier names. The Friday group message ends by asking whether to move that week's Strong Pursue RFPs to Phase 2. When someone replies that they want one moved, find it among the Strong Pursue entries in `latest.json` by the name in the message, and ask if it's unclear which one they mean. Move it with `rfp-stage.mjs` as above, with their name in `--by`. After any move into Phase 2, 3 or 4, whoever asked for it, say it moved, then list that phase's skills below, one plain line each on what it gives them, and ask which they want. Run only the ones they pick. Never run a skill just because an RFP moved, and never move an RFP because someone asked for a skill.
-  - **Phase 1: Scored:** nothing to offer. The Friday job already sent the pursue or no-bid email.
-  - **Phase 2: Looking closer:** the engineering brief for a lead engineer's timeline estimate (`skills/rfp-engineering-brief-skill.md`); the capability checklist for a named engineer to confirm what we've actually built (`skills/rfp-capability-verification-skill.md`); the questions for the agency's Q&A, with the email to copy (`skills/rfp-email-agency-questions-skill.md`); and the key dates as calendar events (`skills/rfp-calendar-logging-skill.md`).
-  - **Phase 3: Building:** the submission checklist (`skills/proposal-writing/rfp-submission-checklist-skill.md`), the proposal deck rough draft (`skills/proposal-writing/rfp-proposal-deck-rough-draft-skill.md`), the materials requests for teammates (`skills/proposal-writing/rfp-materials-request-slack-skill.md`), and, once the design team has a moonshot deck, folding it into the proposal (`skills/proposal-writing/rfp-moonshot-integration-skill.md`).
-  - **Phase 4: Submitted:** the email that goes with the submitted proposal (`skills/rfp-email-submission-skill.md`).
-  - **New documents aren't a skill to offer.** Once an RFP leaves Phase 1, the Tuesday check below covers it automatically until it reaches Phase 4. When you list a phase's skills for Phase 2 or 3, you can mention that.
+- **Phases and their skills:** in chat, call the tiers phases: "Phase 1: Scored", "Phase 2: Looking closer", "Phase 3: Building", "Phase 4: Submitted". The Friday group message asks whether to move that week's Strong Pursue RFPs to Phase 2. On a yes, take the RFP's `slug` from its entry in `latest.json` and run `node scripts/rfp-stage.mjs <slug> looking --by "<their name>"`.
+  - **After any move into Phase 2, 3 or 4:** say it moved, list every skill of that phase below, one plain line each, and ask which they want. Run only those. Never run a skill just because an RFP moved.
+  - **Any later request about an RFP or one of these skills:** run `node scripts/rfp-stage.mjs list` to find its phase first. It shows every RFP in Phases 2–4, however long ago it moved; an RFP not on it is in Phase 1.
+  - **A skill from a later phase than the RFP's:** say which phase the skill goes with and ask whether to move the RFP there, before you run it. Yes: move it, then run the skill. No: still run the skill now and leave the RFP where it is; a phase never blocks a skill. Never move an RFP without that yes. A skill from its own or an earlier phase just runs. Exception: the submission email asks about Submitted itself, after sending.
+  - **Phase 1:** none; the Friday job sent the pursue or no-bid email.
+  - **Phase 2:** engineering brief for a timeline estimate (`skills/rfp-engineering-brief-skill.md`), capability checklist for a named engineer (`skills/rfp-capability-verification-skill.md`), agency Q&A questions (`skills/rfp-email-agency-questions-skill.md`), key dates as calendar events (`skills/rfp-calendar-logging-skill.md`).
+  - **Phase 3:** submission checklist (`skills/proposal-writing/rfp-submission-checklist-skill.md`), deck rough draft (`skills/proposal-writing/rfp-proposal-deck-rough-draft-skill.md`), materials requests (`skills/proposal-writing/rfp-materials-request-slack-skill.md`), moonshot integration (`skills/proposal-writing/rfp-moonshot-integration-skill.md`).
+  - **Phase 4:** submission email (`skills/rfp-email-submission-skill.md`).
+  - New documents aren't a skill to offer: the Tuesday check covers Phases 2 and 3 on its own.
 - **New RFP documents and deadline changes:** every Tuesday morning a scheduled check (`scripts/rfp-refresh.mjs --scheduled`) looks at the RFPs in Looking closer and Building, saves new documents, puts them in each RFP's Drive folder, and posts one message in the sales group only when something changed. Never run the scheduled check yourself; its results are in `reports/rfp-refresh/latest.json`. When someone asks you to check one RFP now, run `node scripts/rfp-refresh.mjs <slug>`; it never posts to the group. When someone asks what changed, follow `skills/rfp-document-refresh-skill.md`: read the new documents and give deadline changes first, quoting the document.
 
 ## Tools
@@ -153,56 +156,11 @@ Every Friday the weekly RFP job emails Marianne and Sales about the Strong Pursu
 
 Skills define how tools work. Keep environment-specific local notes in this section.
 
-**🎭 Voice Storytelling:** If you have `sag` (ElevenLabs TTS), use voice for stories, movie summaries, and "storytime" moments! Way more engaging than walls of text. Surprise people with funny voices.
-
 **📝 Platform Formatting:**
 
 - **Discord/WhatsApp:** No markdown tables! Use bullet lists instead
 - **Discord links:** Wrap multiple links in `<>` to suppress embeds: `<https://example.com>`
 - **WhatsApp:** No headers — use **bold** or CAPS for emphasis
-
-### Local notes (migrated from TOOLS.md)
-
-# TOOLS.md - Local Notes
-
-Skills define _how_ tools work. This file is for _your_ specifics — the stuff that's unique to your setup.
-
-## What Goes Here
-
-Things like:
-
-- Camera names and locations
-- SSH hosts and aliases
-- Preferred voices for TTS
-- Speaker/room names
-- Device nicknames
-- Anything environment-specific
-
-## Examples
-
-```markdown
-### Cameras
-
-- living-room → Main area, 180° wide angle
-- front-door → Entrance, motion-triggered
-
-### SSH
-
-- home-server → 192.168.1.100, user: admin
-
-### TTS
-
-- Preferred voice: "Nova" (warm, slightly British)
-- Default speaker: Kitchen HomePod
-```
-
-## Why Separate?
-
-Skills are shared. Your setup is yours. Keeping them apart means you can update skills without losing your notes, and share skills without leaking your infrastructure.
-
----
-
-Add whatever helps you do your job. This is your cheat sheet.
 
 ## Gog
 
@@ -324,11 +282,3 @@ Periodically (every few days), use a heartbeat to:
 Think of it like a human reviewing their journal and updating their mental model. Daily files are raw notes; MEMORY.md is curated wisdom.
 
 The goal: Be helpful without being annoying. Check in a few times a day, do useful background work, but respect quiet time.
-
-## Make It Yours
-
-This is a starting point. Add your own conventions, style, and rules as you figure out what works.
-
-## Related
-
-- [Default AGENTS.md](/reference/AGENTS.default)
