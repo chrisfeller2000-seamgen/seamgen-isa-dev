@@ -2,7 +2,7 @@
 name: document-text
 purpose: Read the text of a document file, including scanned PDFs, before answering questions about it or scoring it.
 audience: This skill is written to be read by ISA, and by a human teammate who wants to know what ISA can and cannot read.
-version: 1.0 — October 2026
+version: 1.1 — November 2026
 ---
 
 # Document Text Skill
@@ -18,6 +18,19 @@ node scripts/document-text.mjs "<path to the file>"
 The text is printed. A final status line says how it was read, for example `extracted | ocr | 14 pages by OCR`.
 
 It reads PDF, Word (`.docx`), Excel (`.xlsx`, and macro-enabled `.xlsm`, whose macros are never run), XML, HTML, and plain text files. SF City Partner publishes an event's main RFP as an `.xml` spreadsheet. Its text comes out one tab at a time, each under a `[Tab name]` line, with a row's cells separated by `|`. Treat that file as the event summary. The full scope, forms, and contract terms are usually in the event's other attachments. A scanned PDF is read by OCR (Optical Character Recognition), which recognises the letters in the page images.
+
+## An RFP's saved documents
+
+For an RFP, read its documents by number instead of by path:
+
+```
+node scripts/document-text.mjs --rfp <slug>              # list them, numbered
+node scripts/document-text.mjs --rfp <slug> --file 2     # read one
+node scripts/document-text.mjs --rfp <slug> --file all   # read every readable one
+node scripts/document-text.mjs --rfp <slug> --notes      # its scoring notes
+```
+
+Agency file names can contain spaces, quotes or `$(`, which a shell would run if the name were pasted into a command. The numbers avoid that. The RFP router (`scripts/rfp-route.mjs`) gives these commands for the RFP it found.
 
 ## When to use it
 

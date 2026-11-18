@@ -27,6 +27,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { rfpDocuments } from './document-text.mjs';
 import { STAGES, findStage, rfpsDir, workspaceDir } from './rfp-folders.mjs';
 
 const PHASE_NAMES = ['Phase 1: Scored', 'Phase 2: Looking closer', 'Phase 3: Building', 'Phase 4: Submitted'];
@@ -252,11 +253,34 @@ function askWhichRfp(ambiguous, nextCommand) {
  */
 export async function routeRequest(message, options = {}) {
   const decision = await decide(message, options);
+  if (decision.rfp && DOCUMENT_ACTIONS.has(decision.action)) decision.documents = await documentsOut(decision.rfp.slug, options.workspace);
   const routeOf = command => `node scripts/rfp-route.mjs "${command}"`;
   if (decision.choices) {
     decision.choices = decision.choices.map(choice => ({ ...choice, route: routeOf(choice.command), ...(choice.then ? { thenRoute: routeOf(choice.then) } : {}) }));
   }
   return decision;
+}
+
+// Decisions that work from the RFP's documents carry `documents`: what is saved and the exact
+// commands to read it by number. In local tests ISA asked people to send a PDF it already had,
+// because nothing told it where an RFP's documents are or how to read them.
+const DOCUMENT_ACTIONS = new Set(['run-skill', 'offer', 'answer', 'share-documents', 'rescore']);
+async function documentsOut(slug, workspace = workspaceDir()) {
+  const docs = await rfpDocuments(slug, { workspace });
+  const read = `node scripts/document-text.mjs --rfp ${slug}`;
+  if (!docs.folder || !docs.files.length) {
+    return { saved: 0, notes: docs.notes ? `${read} --notes` : null,
+      note: 'No saved documents. Follow skills/rfp/document-fetch/instructions.md to get them; ask the person only if that fails.' };
+  }
+  return {
+    saved: docs.files.length,
+    readable: docs.files.filter(file => file.readable).length,
+    files: docs.files.slice(0, 20).map(file => ({ n: file.n, name: file.name, type: file.type, readable: file.readable })),
+    list: read,
+    readOne: `${read} --file <n>`,
+    readAll: `${read} --file all`,
+    notes: docs.notes ? `${read} --notes` : null,
+  };
 }
 
 async function decide(message, { workspace = workspaceDir() } = {}) {
@@ -342,7 +366,7 @@ async function decide(message, { workspace = workspaceDir() } = {}) {
           `2. Do it and leave it in ${phaseName(rfp.phase)}: \`${commandFor(skill, rfp, ' --stay')}\``].join('\n') };
     }
     return { ...base, action: 'run-skill', skill: skillOut(skill), rfp: rfpOut(rfp),
-      note: `Open ${skill.file} and follow it for this RFP. Don't do it from memory.${rfp.folder ? '' : ' The RFP has no folder yet; the skill says where its documents go.'}`,
+      note: `Open ${skill.file} and follow it for this RFP. Don't do it from memory. Read the RFP's saved documents with the commands in "documents" (by number, never by file name), and never ask the person for a document that is already saved.${rfp.folder ? '' : ' The RFP has no folder yet; the skill says where its documents go.'}`,
       alternatives: ranked.slice(1, 3).filter(item => item.score >= ranked[0].score - 2).map(item => skillOut(item.skill)) };
   }
 

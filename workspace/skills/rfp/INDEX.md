@@ -16,11 +16,11 @@ Never put a person's message inside quotes on the command line: quotes, `$(` or 
 
 | `action` | What you do |
 | --- | --- |
-| `run-skill` | Open `skill.file` and follow it for `rfp`. |
+| `run-skill` | Open `skill.file` and follow it for `rfp`, reading the RFP's saved documents first with the commands in `documents`. |
 | `ask-move`, `ask-which-rfp`, `ask-which-phase`, `offer`, `already`, `retired`, `unknown-command` | Send `say` word for word, and nothing else. |
 | `move` | Run `command` with the person's name in `--by`, then pass on what it prints: that it moved, and the list of the new phase's skills word for word. If it refuses, pass on its reason. |
 | `list` | Run `command` and answer from it, using phase names. |
-| `answer`, `share-documents`, `rescore` | Follow `note`, using the sections below. |
+| `answer`, `share-documents`, `rescore` | Follow `note`, using the sections below and the RFP's `documents`. |
 | `needs-context` | They answered your last question ("yes", "no", "keep it where it is", a number). Find the choice they picked in that question and run its `route` command. "Yes" is choice 1; "no" or "keep it" is the choice that leaves the RFP where it is. |
 | `none` | It isn't an RFP request. Answer normally. |
 
@@ -82,6 +82,7 @@ The pursue and no-bid emails are sent by the Friday job; there is nothing to run
 ## Documents
 
 - **Original RFP documents:** when you download an RFP document or someone sends you one, save it in that RFP's `RFPs/<folder>/<slug>/resources/` folder before you read it, following `skills/rfp/document-fetch/instructions.md`. When you clean up after a task, remove only working files you made in that task, and never trash or delete anything in a `resources/` folder. The only time an RFP's documents are removed is the no-bid purge in that skill.
+- **Reading an RFP's documents:** the router's `documents` lists what is saved for the RFP, numbered. Read them with `node scripts/document-text.mjs --rfp <slug> --file <number>` (or `--file all`), and its scoring notes with `--notes`. Pick documents by number: never put a file name or path in a command, because agency file names can contain characters a shell would run. Never ask the person for a document that is already saved. When `documents.saved` is 0, follow `skills/rfp/document-fetch/instructions.md` first, and ask only if that fails.
 - **Sharing a document:** when someone asks for an RFP document, attach the file in the chat. Say it is in Drive only when a Drive link for that RFP says so, and never give a path on your own disk as a link.
 - **Putting documents in Drive:** each RFP has one Drive folder under Sales › Favorable RFP's, whatever phase it is in. To upload an RFP's documents there, run `node scripts/rfp-refresh.mjs <slug> --drive` and share the folder link it prints. It uploads only the agency's documents the folder doesn't have, and never replaces or deletes anything in Drive. Never upload to Drive any other way.
 
