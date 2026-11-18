@@ -36,7 +36,7 @@
     Requires rclone with a remote named 'seamgen-sales' pointing at the Sales
     shared drive. Setup is in tools/README.md. The rclone config holds an OAuth
     refresh token and lives in %APPDATA%\rclone\rclone.conf - never inside this
-    folder, same rule as HIGHERGOV_API_KEY.
+    folder, same rule as SLACK_BOT_TOKEN and HIGHERGOV_API_KEY.
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true)]

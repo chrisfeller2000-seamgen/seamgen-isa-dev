@@ -1,6 +1,147 @@
+# Seamgen Slack Bridge
+
+Lets Claude Code send Slack messages — direct messages to teammates, or posts to a
+channel — from the RFP workflow. Built for the materials-request step, where the
+proposal needs specific things from Chris, Frank, Tina, Nick, and others.
+
+**No installs required.** It uses PowerShell, which is already on your machine.
+Slack's messaging API is just a web request, so nothing else is needed.
+
+---
+
+## What's in here
+
+| File | What it is |
+|---|---|
+| `Send-SlackMessage.ps1` | The script that actually sends a message. |
+| `Test-SlackConnection.ps1` | Safe check — confirms the token works and everyone is findable. Sends nothing. |
+| `team.json` | Maps teammate names to their Slack email addresses. **You need to fill this in.** |
+| `slack-app-manifest.yaml` | Paste-able Slack app definition. Saves your admin from clicking through 6 permission checkboxes. |
+
+---
+
+## Setup — five steps, once
+
+### Step 1 — Find out who your Slack admin is
+
+Work Slack workspaces almost always block people from installing apps themselves.
+You need someone with admin rights. At Seamgen that is most likely **Tina or Nick**
+(they own portal and account setup), but confirm it.
+
+In Slack: click the workspace name (top left) → **Tools & settings** → **Manage members**,
+and look for people labeled *Workspace Owner* or *Workspace Admin*.
+
+### Step 2 — Have the admin create the app
+
+Send them this (copy-paste ready):
+
+> Hi — I need a small Slack app created so I can automate the RFP materials requests
+> I currently send by hand. It only sends messages; it reads nothing, joins nothing,
+> and stores no data.
+>
+> 1. Go to https://api.slack.com/apps and click **Create New App**.
+> 2. Choose **From an app manifest**, pick our workspace.
+> 3. Paste in the YAML I've attached (`slack-app-manifest.yaml`), then create it.
+> 4. Click **Install to Workspace** and approve it.
+> 5. Go to **OAuth & Permissions** and send me the **Bot User OAuth Token**
+>    (it starts with `xoxb-`). Please send it privately — it's a password.
+>
+> The permissions it asks for are: post messages, open a DM, and look up a user by
+> email so it knows who to DM. That's the whole list.
+
+If your admin wants to see exactly what it can do, the permission list is in
+`slack-app-manifest.yaml` with a comment on each line.
+
+### Step 3 — Fill in `team.json`
+
+Open `team.json` and put each person's **work Slack email** next to their name.
+That's the email they use to sign in to Slack — it's how the script finds them.
+
+You can leave anyone blank; the script just won't be able to DM them until you fill it in.
+
+### Step 4 — Store the token
+
+The token is a password. It goes in a Windows environment variable, **not** in a file.
+
+Open PowerShell and run this once, pasting your real token in place of `xoxb-your-token-here`:
+
+```powershell
+[Environment]::SetEnvironmentVariable('SLACK_BOT_TOKEN', 'xoxb-your-token-here', 'User')
+```
+
+Then **close and reopen VS Code** (and any PowerShell windows) so it picks up the change.
+
+### Step 5 — Test it
+
+```powershell
+cd C:\Users\jolik\OneDrive\Projects\Seamgen-RFPs\tools
+.\Test-SlackConnection.ps1
+```
+
+This sends nothing. It just confirms the token works and that everyone in `team.json`
+can be found in Slack. Fix anything it flags before moving on.
+
+---
+
+## Using it
+
+**Nothing sends unless you pass `-Confirm`.** Without that flag it shows you a preview
+and stops. This is deliberate — a message to a coworker can't be unsent.
+
+Preview a DM:
+
+```powershell
+.\Send-SlackMessage.ps1 -To Chris -Message "Do you have a timeline estimate for the RPV RFP?"
+```
+
+Actually send it:
+
+```powershell
+.\Send-SlackMessage.ps1 -To Chris -Message "Do you have a timeline estimate for the RPV RFP?" -Confirm
+```
+
+Post to a channel:
+
+```powershell
+.\Send-SlackMessage.ps1 -To "#rfp-status" -Message "Rancho Palos Verdes scored 72 — Worth a Look." -Confirm
+```
+
+Multi-line message (use `` `n `` for a line break):
+
+```powershell
+.\Send-SlackMessage.ps1 -To Tina -Message "Two things for the RPV proposal:`n`n1. Current W-9`n2. Business license number" -Confirm
+```
+
+Formatting: Slack supports `*bold*`, `_italic_`, `` `code` ``, and `<https://url|link text>`.
+
+---
+
+## Things worth knowing
+
+**Messages come from a bot, not from you.** Teammates will see them from
+*Seamgen RFP Assistant*, not from a person. That's normal and it's what makes the app
+easy for an admin to approve. If you'd rather messages appear to come from *you*
+personally, that needs a different kind of token (a "user token") — tell Claude and
+it can switch the setup, but be aware admins approve those far less often.
+
+**Private channels need an invite.** To post in a private channel, someone must invite
+the app to it first: type `/invite @Seamgen RFP Assistant` in that channel.
+
+**The token is a password.** Anyone holding it can post to your workspace as the bot.
+It lives only in the environment variable — never commit it to a file, never paste it
+into a chat. If it leaks, the admin can regenerate it on the app's OAuth page.
+
+**If a permission is missing,** the script will tell you which one. The admin adds it on
+the app's **OAuth & Permissions** page and then must click **Reinstall** — new permissions
+don't take effect until the app is reinstalled.
+
+---
+---
+
 # HigherGov intake (inbound — pulls RFPs to score)
 
-This pulls new RFP opportunities *in* from HigherGov, prefilters them, and writes candidate files for Claude to score.
+The second bridge. Where Slack sends messages *out*, this pulls new RFP opportunities
+*in* from HigherGov, prefilters them, and writes candidate files for Claude to score.
 It reads from HigherGov only — it never writes to HigherGov, and it can't spend money,
 only your monthly record quota.
 
@@ -173,7 +314,7 @@ destination and compares. Mismatches are printed and the script exits non-zero.
 
 **Your rclone login is a credential, and it does not live in this folder.** `rclone config`
 writes an OAuth refresh token to `%APPDATA%\rclone\rclone.conf` — outside this folder, same
-rule that keeps `HIGHERGOV_API_KEY` in an environment variable and portal
+rule that keeps `SLACK_BOT_TOKEN` and `HIGHERGOV_API_KEY` in environment variables and portal
 logins in Secret Server. Never run `rclone config show` into a file, a chat, or a deliverable.
 
 **⚠ Known expiry — rclone's shared Google client ID is being retired "during 2026."** Every
