@@ -130,7 +130,7 @@ Before the router (the `exp/rfp-router` experiment), the same requests reached t
 **Tests:**
 - the router's `documents` for an RFP with files, an empty folder and no folder;
 - `--rfp` listing, reading by number and `all`, the scoring notes, a bad number and a bad slug;
-- a file named `Exhibit $(touch pwned) \`id\`.txt` read without running anything;
+- a file named ``Exhibit $(touch pwned) `id`.txt`` read without running anything;
 - page markers.
 
 `npm test`: 275 pass. A generated two-page PDF read through `--rfp` showed both page markers.
