@@ -53,7 +53,7 @@ The router applies the phase rules: a skill from a later phase than the RFP's as
 | --- | --- | --- | --- | --- |
 | Capability check for a named engineer | A capability check: a checklist for a named engineer to confirm what Seamgen has actually built for each technical ask. | 2 | `rfp capability <rfp>` | `skills/rfp/capability-check/instructions.md` |
 | Engineering brief for a timeline estimate | An engineering brief: the RFP scope, short enough for a lead engineer to give a timeline estimate. | 2 | `rfp brief <rfp>` | `skills/rfp/engineering-brief/instructions.md` |
-| Key dates as calendar events | An RFP's key dates (Q&A, pre-proposal meeting, proposal due) as calendar events to add. | 2 | `rfp dates <rfp>` | `skills/rfp/calendar-dates/instructions.md` |
+| Key dates as calendar events | An RFP's key dates (questions due, pre-proposal meeting, proposal due) as a calendar file to add to your calendar. | 2 | `rfp dates <rfp>` | `skills/rfp/calendar-dates/instructions.md` |
 | Questions for the agency's Q&A | Questions to send in the agency's Q&A or clarification window, with the email to copy. | 2 | `rfp questions <rfp>` | `skills/rfp/agency-questions/instructions.md` |
 | Materials requests for teammates | Messages asking teammates for the proposal materials still missing, as text to paste into Slack. | 3 | `rfp materials <rfp>` | `skills/rfp/materials-request/instructions.md` |
 | Moonshot deck folded into the proposal | Folding the design team's moonshot deck into the compliant proposal. | 3 | `rfp moonshot <rfp>` | `skills/rfp/moonshot/instructions.md` |
@@ -78,6 +78,7 @@ The pursue and no-bid emails are sent by the Friday job; there is nothing to run
 - **The Friday job** (`scripts/weekly-rfp-pursue-decision.mjs`) scores the week's RFPs at noon Pacific, emails Marianne and Sales about the Strong Pursue ones, and posts a summary in the sales group that offers to move them to Phase 2. Never run it unless someone explicitly asks: running it again replaces that week's report.
 - **The Tuesday check** (`scripts/rfp-refresh.mjs --scheduled`) runs every Tuesday morning for the RFPs in Phases 2 and 3: it saves new documents, puts them in each RFP's Drive folder, and posts one message in the sales group only when something changed. Never run it yourself; its results are in `reports/rfp-refresh/latest.json`. New documents aren't a skill to offer: this covers Phases 2 and 3 on its own.
 - **Checking one RFP now:** when someone asks, run `node scripts/rfp-refresh.mjs <slug>`; it never posts to the group.
+- **An RFP's dates:** the router's `answer` carries `dates` when the RFP has a key-dates note: the dates read from its documents, with weekdays and time zones worked out and `passed` marked. Answer from those, with their source. With no `dates`, read the documents and give each date as printed, with the file and page; never a date from the HigherGov listing or the scoring. Never work out a weekday or a "days left" count yourself when `dates` has it. To put dates on someone's calendar, use the calendar skill (`rfp dates <rfp>`): `scripts/rfp-dates.mjs` writes a calendar file to attach. ISA never writes to a calendar itself.
 
 ## Documents
 

@@ -2,7 +2,7 @@
 name: rfp-document-fetch
 purpose: Pull an opportunity's complete set of agency source documents into its RFP folder using the Chrome browser bridge, then re-score the RFP on the full text instead of the metadata summary.
 audience: This skill is written to be read by both Claude (who drives the browser and files the documents) and a human teammate (who reads it to understand what was fetched and why something was skipped).
-version: 1.13 — November 2026
+version: 1.14 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 label: Download and save the documents
 command: fetch
@@ -290,7 +290,7 @@ If the transfer can't run at all, **still create the folder and record its link*
 
 ### Step 13 — Log the deadlines to the calendar
 
-Once the RFP has been moved to `2-intermediate-stage/` and its dates are confirmed on the full text, run **`skills/rfp/calendar-dates/instructions.md`** to give its action-item deadlines — Q&A due, pre-proposal conference (+ a register-by alert), proposal due — as calendar-event text for the person who asked. That skill authors the `key-dates_<rfp-slug>.md` note as it goes. This is the moment the dates become trustworthy enough to schedule; before the full text was read the score was metadata-only and its dates weren't.
+Once the documents are saved, the RFP's dates can come from the full text, which is the moment they become trustworthy enough to schedule (HigherGov's metadata dates aren't). Offer them: `rfp dates <slug>` runs **`skills/rfp/calendar-dates/instructions.md`**, which gives the deadlines (questions due, pre-proposal conference with a register-by alert, proposal due) as a calendar file to open and writes the `key-dates_<rfp-slug>.md` note. Don't run it unless the person asks.
 
 ---
 
@@ -402,6 +402,8 @@ What's missing is the PowerShell — `Get-HGDocuments` and `ConvertTo-HGAttachme
 ---
 
 ## Notes and edit history
+
+**v1.14 — November 2026.** Step 13 offers the calendar dates instead of running them: no skill runs unless someone asks for it, and the dates are trustworthy once the documents are saved, whatever the RFP's phase.
 
 **v1.13 — November 2026.** ISA can now do Step 12 itself: `scripts/rfp-refresh.mjs <slug> --drive` uploads the RFP's agency documents to its one Drive folder. "ISA cannot do this step" is gone. The Windows `Sync-RfpToDrive.ps1` path stays as a record.
 
