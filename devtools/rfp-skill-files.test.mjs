@@ -80,6 +80,21 @@ test('the Phase 2 skills cite no rule ISA cannot look up', async () => {
   assert.match(await fs.readFile(INDEX_PATH, 'utf8'), /^## Phases$/m);
 });
 
+// The same missing section was cited by six more RFP skills until November 20, 2026. Every RFP
+// skill's instructions point at "Phases" in skills/rfp/INDEX.md instead.
+test('no RFP skill points at the "RFP stage folders" section AGENTS.md no longer has', async () => {
+  const agents = await fs.readFile(agentsPath, 'utf8');
+  assert.doesNotMatch(agents, /RFP stage folders/, 'if AGENTS.md has the section again, this test is out of date');
+  const ids = (await fs.readdir(path.join(skillsRoot, 'rfp'), { withFileTypes: true })).filter(entry => entry.isDirectory()).map(entry => entry.name);
+  assert.ok(ids.length >= 11, `found only ${ids.length} RFP skills`);
+  for (const id of ids) {
+    const text = await fs.readFile(path.join(skillsRoot, 'rfp', id, 'instructions.md'), 'utf8');
+    const historyAt = text.indexOf('## Notes and edit history');
+    const body = historyAt > 0 ? text.slice(0, historyAt) : text;
+    assert.doesNotMatch(body, /RFP stage folders/, `${id} points at a section AGENTS.md no longer has`);
+  }
+});
+
 // OpenClaw loads any file named SKILL.md under skills/ as one of its own skills, next to the
 // Skill Workshop's skills. ISA's RFP skills are kept out of that system on purpose: they are
 // reached through the router and skills/rfp/INDEX.md instead.

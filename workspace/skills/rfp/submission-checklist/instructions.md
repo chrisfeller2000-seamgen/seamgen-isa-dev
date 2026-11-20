@@ -2,7 +2,7 @@
 name: rfp-submission-checklist
 purpose: Generate a "packing list" for the actual proposal submission — every document, form, signature, cost item, and file that must be included in the proposal package before it can be submitted to the agency. Used during Phase 8 (Proposal development) as a living checklist that prevents responsiveness rejections.
 audience: This skill is written to be read by both Claude (who drafts the checklist) and the proposal lead (the sales teammate who asked, who uses the checklist to run the submission through to completion). The CHECKLIST ITSELF is written for the proposal lead, Marianne, Peter, and anyone else who touches the proposal package.
-version: 1.9 — November 2026
+version: 1.10 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-scoring skill (confirms pursue), rfp-engineering-brief skill (informs technical content items), and Marianne for the standard Seamgen inclusions. Also references: the RFP itself (primary source), any clarifying-questions responses from the agency, and any addenda.
 label: Submission checklist
@@ -79,7 +79,7 @@ RFPs/[stage]/[rfp-slug]/submission-checklist_YYYY-MM-DD_[rfp-slug].pdf
 
 Example: `RFPs/[stage]/maryland-mdsg-website-redesign/submission-checklist_2026-07-08_maryland-mdsg-website-redesign.pdf`
 
-Every deliverable for a given RFP lives together in the RFP's own folder — `RFPs/[stage]/[rfp-slug]/`, where `[stage]` is its current lifecycle tier (`1-pre-submission` / `2-intermediate-stage` / `3-building` / `4-submitted`; a checklist usually means the RFP is in `3-building/`). Save into that `[rfp-slug]/` folder wherever it already exists; don't assume the tier or create a duplicate (see "RFP stage folders" in `AGENTS.md`).
+Every deliverable for a given RFP lives together in the RFP's own folder — `RFPs/[stage]/[rfp-slug]/`, where `[stage]` is its current lifecycle tier (`1-pre-submission` / `2-intermediate-stage` / `3-building` / `4-submitted`; a checklist usually means the RFP is in `3-building/`). Save into that `[rfp-slug]/` folder wherever it already exists; don't assume the tier or create a duplicate (see "Phases" in `skills/rfp/INDEX.md`).
 
 **Length target:** 2–4 pages depending on RFP complexity. A simple website redesign RFP produces ~2 pages; a large federal RFP with heavy compliance can hit 4.
 
@@ -460,6 +460,8 @@ SECTION 6: PRE-SUBMISSION VERIFICATION
 ---
 
 ## Notes and edit history
+
+**v1.10 — November 2026.** The folder rule now points at "Phases" in `skills/rfp/INDEX.md`. `AGENTS.md` lost its "RFP stage folders" section when it was trimmed under OpenClaw's size limit.
 
 **v1.9 — November 2026.** Section 3 no longer cites Adan's RFP Playbook. J Garibay checked the playbook on 2026-11-18 and it has no list of standard inclusions, so the section's items are defaults to confirm with Marianne, and checklist items cite "Seamgen standard" instead of the playbook.
 
