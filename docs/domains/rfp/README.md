@@ -27,7 +27,7 @@ From that file:
 - **Already in HubSpot.** A Strong Pursue that matches a deal in HubSpot's RFP pipeline (`workspace/scripts/rfp-hubspot-match.mjs`) stays a pick. Its email card says "Already in HubSpot as …", so sales sees it and a wrong match costs nothing. A match needs the same agency and project: two distinctive words in common, or the agency's acronym. Generic words like *website* or *development* don't count. Until October 16 a match hid the pick; that day a commercial "… Website Design and Development" deal hid the week's only Strong Pursue.
 - **At most one pursue email per week.** A re-run in the same week sends nothing new; a failed send can be retried.
 - **The Telegram message** is a short summary of what happened: the email was sent (with each RFP's score and biggest blocker), it failed, or nothing was worth pursuing (with the closest one and why). ISA writes the "sent" version, checked like the email; the other two are code-built.
-- **The move offer.** Right after the message, code adds one line asking whether to move the week's Strong Pursue RFPs to "Phase 2: Looking closer", by the names the message used ("Want me to move **…** to Phase 2: Looking closer? Reply here and I'll move it."). Nothing moves until someone in the group replies; ISA's chat then moves it (see [Stage folders](#stage-folders)). Failed-email weeks carry it too; quiet weeks have no picks, so no offer.
+- **The move offer.** Right after the message, code adds one line asking whether to move the week's Strong Pursue RFPs to "Phase 2: Shortlisted", by the names the message used ("Want me to move **…** to Phase 2: Shortlisted? Reply here and I'll move it."). Nothing moves until someone in the group replies; ISA's chat then moves it (see [Stage folders](#stage-folders)). Failed-email weeks carry it too; quiet weeks have no picks, so no offer.
 - **Close calls.** Code then adds up to three "close calls": RFPs scoring 70 or more that weren't picked, so someone can ask for a closer look. Scores move about 5 points between runs. "Ask the agency first" RFPs, RFPs waiting on a portal login, and the quiet week's closest one are left out.
 - **Portal logins.** Last, code adds one line for the RFPs whose documents need a portal login: how many, and the top three by name with their portal ("4 RFPs need a portal login before their documents can be read: …. They're in the report."). ISA's checked text never carries it.
 - **The results file** records the email and the message, who wrote them, and why a code-built version was used. ISA's chat reads it to answer questions about the week's RFPs.
@@ -110,7 +110,7 @@ Each RFP's folder sits in one of four tiers under `RFPs/`. The folder names are 
 | Folder | Label | Means |
 | --- | --- | --- |
 | `1-pre-submission` | Scored | The Friday job saved its documents. Every RFP starts here. |
-| `2-intermediate-stage` | Looking closer | Someone decided to look closer or collect more information. |
+| `2-intermediate-stage` | Shortlisted | Someone confirmed it fits and wants to look closer or collect more information. |
 | `3-building` | Building | The proposal is being written, up to submission-ready. |
 | `4-submitted` | Submitted | The proposal went in. |
 
@@ -154,7 +154,7 @@ Before November 17, 2026 nothing moved RFPs between tiers, so on the VM every RF
 
 Agencies amend an RFP by adding documents to the listing or by moving the deadline. `workspace/scripts/rfp-refresh.mjs` catches both for the RFPs someone is working on.
 
-- **When:** the system crontab runs `scripts/run-rfp-refresh-cron.sh` every Tuesday at 7:00 a.m. Pacific (`0 7 * * 2`, installed November 17, 2026). It checks every RFP in `2-intermediate-stage` (Looking closer) and `3-building` (Building). On request, ISA's chat runs `node scripts/rfp-refresh.mjs <slug>` for one RFP in any tier.
+- **When:** the system crontab runs `scripts/run-rfp-refresh-cron.sh` every Tuesday at 7:00 a.m. Pacific (`0 7 * * 2`, installed November 17, 2026). It checks every RFP in `2-intermediate-stage` (Shortlisted) and `3-building` (Building). On request, ISA's chat runs `node scripts/rfp-refresh.mjs <slug>` for one RFP in any tier.
 - **HigherGov's model:** an amendment is a new version of the opportunity, with the same `opp_key`. The script reads every version newest first (`listOpportunityVersions()`). A read-only check of 15 saved RFPs on November 17, 2026 found:
   - one whose November 3 version moved the due date from November 2 to November 30 with no new file;
   - that both versions shared one `document_path`, so the document list belongs to the opportunity.

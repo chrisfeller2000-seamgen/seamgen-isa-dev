@@ -47,7 +47,7 @@ async function scoredWorkspace(slug = 'city-portal') {
 }
 
 test('each tier can be named by number, label, alias or folder', () => {
-  for (const [value, dir] of [['2', '2-intermediate-stage'], ['looking closer', '2-intermediate-stage'], ['Building', '3-building'],
+  for (const [value, dir] of [['2', '2-intermediate-stage'], ['looking closer', '2-intermediate-stage'], ['shortlisted', '2-intermediate-stage'], ['shortlist', '2-intermediate-stage'], ['Shortlisted', '2-intermediate-stage'], ['Building', '3-building'],
     ['3-building', '3-building'], ['writing', '3-building'], ['submitted', '4-submitted'], ['1', '1-pre-submission'], ['scored', '1-pre-submission']]) {
     assert.equal(findStage(value)?.dir, dir, value);
   }
@@ -142,22 +142,22 @@ test('from the command line: --by is required, list shows the tiers, and nothing
       assert.equal(bad.code, 1);
       assert.match(bad.stderr, /^Usage:/);
     }
-    const moved = await run('rfp-stage.mjs', root, ['city-portal', 'looking', '--by', 'Marianne Faro']);
+    const moved = await run('rfp-stage.mjs', root, ['city-portal', 'shortlisted', '--by', 'Marianne Faro']);
     assert.equal(moved.code, 0, moved.stderr);
     // This RFP has no HigherGov key, so the move asks for what lets Friday recognize its listing.
-    assert.equal(moved.stdout, ['City Permit Portal moved from Scored to Looking closer.', 'Recorded as asked by Marianne Faro.',
+    assert.equal(moved.stdout, ['City Permit Portal moved from Scored to Shortlisted.', 'Recorded as asked by Marianne Faro.',
       'It has no HigherGov listing key, so the Friday run can only recognize its listing by agency and solicitation number. Add them from its documents: node scripts/rfp-stage.mjs city-portal --agency "<agency>" --number "<solicitation number>" --by "<name>"',
       'Nothing was deleted, uploaded or sent.', ''].join('\n'));
     const noByDetails = await run('rfp-stage.mjs', root, ['city-portal', '--number', 'RFP 2026-14']);
     assert.match(noByDetails.stderr, /Say who asked for the change with --by/);
     const details = await run('rfp-stage.mjs', root, ['city-portal', '--number', 'RFP 2026-14', '--by', 'Marianne Faro']);
     assert.equal(details.code, 0, details.stderr);
-    assert.equal(details.stdout, 'City Permit Portal (Looking closer): agency "City of Example", solicitation number "RFP 2026-14".\nRecorded as asked by Marianne Faro.\n');
+    assert.equal(details.stdout, 'City Permit Portal (Shortlisted): agency "City of Example", solicitation number "RFP 2026-14".\nRecorded as asked by Marianne Faro.\n');
     const record = await readJson(path.join(root, 'RFPs', '2-intermediate-stage', 'city-portal', STAGE_FILE));
     assert.deepEqual([record.number, record.agency, record.history.length, record.details.map(item => item.by)], ['RFP 2026-14', 'City of Example', 1, ['Marianne Faro']]);
     const listed = await run('rfp-stage.mjs', root, ['list']);
     assert.equal(listed.code, 0, listed.stderr);
-    assert.match(listed.stdout, /^Submitted \(4-submitted\): none\nBuilding \(3-building\): none\nLooking closer \(2-intermediate-stage\): 1\n- City Permit Portal \[city-portal\]: moved \d{4}-\d{2}-\d{2} by Marianne Faro; 1 document\nScored \(1-pre-submission\): 0 RFP folders\.\n$/);
+    assert.match(listed.stdout, /^Submitted \(4-submitted\): none\nBuilding \(3-building\): none\nShortlisted \(2-intermediate-stage\): 1\n- City Permit Portal \[city-portal\]: moved \d{4}-\d{2}-\d{2} by Marianne Faro; 1 document\nScored \(1-pre-submission\): 0 RFP folders\.\n$/);
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }
@@ -218,10 +218,10 @@ test('a move into a later phase prints that phase\'s skills, each with its comma
     const moved = await run('rfp-stage.mjs', root, ['carlsbad-parks-recreation-booking-system', 'looking', '--by', 'Peter']);
     assert.equal(moved.code, 0, moved.stderr);
     const lines = moved.stdout.trimEnd().split('\n');
-    assert.match(lines[0], / moved from Scored to Looking closer.$/);
+    assert.match(lines[0], / moved from Scored to Shortlisted.$/);
     assert.equal(lines[lines.indexOf('') + 1], "Send them the move and this list word for word; they can't see this output:");
     const offer = lines.slice(lines.indexOf('') + 2);
-    assert.match(offer[0], /^For .+ in Phase 2: Looking closer I can do:$/);
+    assert.match(offer[0], /^For .+ in Phase 2: Shortlisted I can do:$/);
     assert.deepEqual(offer.slice(1, 5).map(line => line.match(/`(rfp \S+)/)[1]), ['rfp questions', 'rfp dates', 'rfp capability', 'rfp brief']);
     assert.equal(offer.at(-1), 'Which one? Reply with the number or the command.');
     // Moving back to Phase 1 offers nothing.

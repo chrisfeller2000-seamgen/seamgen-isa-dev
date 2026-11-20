@@ -31,7 +31,7 @@ Each choice in a decision carries `route`, the exact router call for it. When ch
 Your questions and offers show these next to each choice, so people learn them by replying:
 
 - `rfp <command> <rfp>`: run a skill for an RFP, for example `rfp brief laguna-beach-website-redesign`. Add `--stay` to run a later-phase skill without moving the RFP.
-- `rfp move <rfp> <scored|looking|building|submitted>`: move an RFP.
+- `rfp move <rfp> <scored|shortlisted|building|submitted>`: move an RFP.
 - `rfp skills <rfp>`: what can be done for it in its phase.
 - `rfp list`: which RFPs we're working on.
 
@@ -40,7 +40,7 @@ Your questions and offers show these next to each choice, so people learn them b
 | Phase | Folder | Means |
 | --- | --- | --- |
 | Phase 1: Scored | `1-pre-submission` | Every RFP whose documents the Friday job saved |
-| Phase 2: Looking closer | `2-intermediate-stage` | Someone decided to look closer |
+| Phase 2: Shortlisted | `2-intermediate-stage` | Someone confirmed it fits and wants to look closer |
 | Phase 3: Building | `3-building` | The proposal is being written |
 | Phase 4: Submitted | `4-submitted` | The proposal went in |
 
@@ -68,7 +68,7 @@ The pursue and no-bid emails are sent by the Friday job; there is nothing to run
 
 ## Scoring and filtering
 
-- **Where the results are:** this week's results are in `reports/new-rfp-qualification/latest.json`, with one entry per RFP: tier, score, what they want, why we fit, blockers, open questions, deadline, budget and links. Its `email` record holds what was sent: subject, recipients and text. Its `inProgress` list names RFPs already in Looking closer, Building or Submitted whose HigherGov listing changed that week; they aren't scored or picked again, because the Tuesday check covers them. The same report is in `latest.md`. Each RFP's scoring detail is in `RFP-pipeline/candidates/<slug>/candidate.md`, which the Friday job clears each week; an RFP someone moved to a later phase keeps a copy as `candidate.md` in its `RFPs/<folder>/<slug>/` folder.
+- **Where the results are:** this week's results are in `reports/new-rfp-qualification/latest.json`, with one entry per RFP: tier, score, what they want, why we fit, blockers, open questions, deadline, budget and links. Its `email` record holds what was sent: subject, recipients and text. Its `inProgress` list names RFPs already in Shortlisted, Building or Submitted whose HigherGov listing changed that week; they aren't scored or picked again, because the Tuesday check covers them. The same report is in `latest.md`. Each RFP's scoring detail is in `RFP-pipeline/candidates/<slug>/candidate.md`, which the Friday job clears each week; an RFP someone moved to a later phase keeps a copy as `candidate.md` in its `RFPs/<folder>/<slug>/` folder.
 - **Answering questions:** when someone asks about an RFP, answer from those files in the same voice as the Friday update. Keep it short and use plain words, the Drive folder or HigherGov link, and "estimate" for HigherGov budgets. Never paste file paths, internal codes, or rubric terms like "gate".
 - **Questions about the pursue email:** answer from its `email` record. Never resend it, and don't change any files, HubSpot, or other records.
 - **Rescoring one RFP:** when someone asks to rescore a specific RFP from this week's results, use `scripts/rfp-rescore.mjs`, never the weekly job. First run `node scripts/rfp-rescore.mjs <slug>` (the slug is the RFP's `slug` in `latest.json`) and tell them the before and after in plain words; that changes nothing yet. Only after they confirm, run `node scripts/rfp-rescore.mjs <slug> --apply`, which puts the new result in this week's report. Add `--drive-folder <link>` to the first command when they give you the RFP's Drive folder. A rescore never sends the pursue email or posts to the group: say so, and don't offer to send the email yourself. It only works for this week's RFPs whose documents were saved; if it says it can't, pass on its reason.

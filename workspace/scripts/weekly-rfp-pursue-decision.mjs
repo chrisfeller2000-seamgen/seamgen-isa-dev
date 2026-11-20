@@ -1669,7 +1669,7 @@ async function main() {
   };
   // The first title scored for each RFP, so a duplicate's audit line can name it.
   const seenRfpKeys = new Map();
-  // RFPs someone moved to Looking closer, Building or Submitted, by opp_key. A new version
+  // RFPs someone moved to Shortlisted, Building or Submitted, by opp_key. A new version
   // of one is listed once in the report's inProgress list, not scored, downloaded or picked.
   const inProgress = await scanRfpsInProgress({ workspace: WORKSPACE }).catch((error) => {
     process.stderr.write(`[weekly-rfp] could not read the RFPs in progress: ${error.message}\n`);

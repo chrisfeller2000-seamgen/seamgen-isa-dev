@@ -5,7 +5,7 @@
 //   node scripts/rfp-refresh.mjs <slug>        one RFP, on request in chat; no Telegram
 //   node scripts/rfp-refresh.mjs <slug> --drive  also uploads saved documents Drive lacks,
 //                                              such as a file someone sent ISA from a portal
-//   node scripts/rfp-refresh.mjs --scheduled   every RFP in Looking closer and Building;
+//   node scripts/rfp-refresh.mjs --scheduled   every RFP in Shortlisted and Building;
 //                                              Tuesday cron (run-rfp-refresh-cron.sh)
 //
 // The scheduled run posts one Telegram message to the sales group only when something
@@ -288,7 +288,7 @@ function defaultSend(text) {
 }
 
 /**
- * The Tuesday run: every RFP in Looking closer and Building. Writes
+ * The Tuesday run: every RFP in Shortlisted and Building. Writes
  * reports/rfp-refresh/<date>.json and latest.json, and sends the message only when
  * something changed. One RFP failing to check doesn't stop the others.
  */

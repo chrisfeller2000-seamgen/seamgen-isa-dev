@@ -41,7 +41,7 @@ test('a later-phase skill asks first, with one command per choice, and "--stay" 
       'rfp checklist laguna-beach-website-redesign --stay',
     ]);
     assert.equal(ask.choices[0].then, 'rfp checklist laguna-beach-website-redesign');
-    assert.match(ask.say, /^"Submission checklist" is a Phase 3: Building skill, and .* is in Phase 2: Looking closer\. Want me to move it first\?\n1\. /);
+    assert.match(ask.say, /^"Submission checklist" is a Phase 3: Building skill, and .* is in Phase 2: Shortlisted\. Want me to move it first\?\n1\. /);
     const stay = await routeRequest(ask.choices[1].command, { workspace });
     assert.equal(stay.action, 'run-skill');
     assert.equal(stay.skill.file, 'skills/rfp/submission-checklist/instructions.md');
@@ -57,7 +57,7 @@ test('a move names the exact rfp-stage.mjs command, and gives no after-move text
   const workspace = await routeWorkspace();
   try {
     const move = await routeRequest('Yes, move Pasco County', { workspace });
-    assert.equal(move.command, 'node scripts/rfp-stage.mjs pasco-county-records-system looking --by "<their name>"');
+    assert.equal(move.command, 'node scripts/rfp-stage.mjs pasco-county-records-system shortlisted --by "<their name>"');
     assert.match(move.note, /Never say it moved otherwise/);
     // In local runs ISA twice sent a pre-written "Moved …" text without running the move, so the
     // skill list after a move comes only from rfp-stage.mjs (see rfp-stage.test.mjs).
