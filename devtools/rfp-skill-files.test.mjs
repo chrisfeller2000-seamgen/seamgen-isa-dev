@@ -61,6 +61,25 @@ test('the scorer sends the scoring and solution-landscape skills, and not capabi
   await fs.access(path.join(skillsRoot, 'rfp', 'capability-check', 'instructions.md'));
 });
 
+// ISA has no CLAUDE.md, and AGENTS.md lost its "RFP stage folders" section when it was trimmed
+// under OpenClaw's size limit, so pointers to either send ISA looking for rules it can't find.
+// "Too early" refused Phase 1 RFPs, though a phase never blocks a skill. Edit history may still
+// name them; only the instructions above it are checked.
+test('the Phase 2 skills cite no rule ISA cannot look up', async () => {
+  for (const id of ['engineering-brief', 'capability-check', 'agency-questions']) {
+    const text = await fs.readFile(path.join(skillsRoot, 'rfp', id, 'instructions.md'), 'utf8');
+    const historyAt = text.indexOf('## Notes and edit history');
+    assert.ok(historyAt > 0, `${id} has no edit history heading`);
+    const body = text.slice(0, historyAt);
+    assert.doesNotMatch(body, /CLAUDE\.md/, `${id} cites CLAUDE.md`);
+    assert.doesNotMatch(body, /RFP stage folders/, `${id} points at a section AGENTS.md no longer has`);
+    assert.doesNotMatch(body, /\(Rule \d+\)/, `${id} cites a numbered rule from CLAUDE.md`);
+    assert.doesNotMatch(body, /too early/i, `${id} refuses an RFP by phase`);
+    assert.doesNotMatch(body, /Slacking/, `${id} assumes ISA sends through Slack`);
+  }
+  assert.match(await fs.readFile(INDEX_PATH, 'utf8'), /^## Phases$/m);
+});
+
 // OpenClaw loads any file named SKILL.md under skills/ as one of its own skills, next to the
 // Skill Workshop's skills. ISA's RFP skills are kept out of that system on purpose: they are
 // reached through the router and skills/rfp/INDEX.md instead.
