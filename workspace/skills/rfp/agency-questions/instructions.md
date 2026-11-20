@@ -2,14 +2,14 @@
 name: rfp-email-agency-questions
 purpose: When someone asks in chat, generate the clarifying questions Seamgen would submit during an RFP's Q&A, state the Q&A deadline, and give the formal email to the agency's point of contact as text to copy. ISA never creates a draft or sends anything.
 audience: This skill is written to be read by both ISA (who writes the questions and the email text) and a human teammate (who reads, sanity-checks, and edits the template over time).
-version: 1.6 — November 2026
+version: 1.7 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-scoring skill (the scored judgment for this RFP), the RFP's downloaded documents, and the Engineering Scope Brief when one exists
 label: Questions for the agency's Q&A
 command: questions
 phase: 2
 when: Questions to send in the agency's Q&A or clarification window, with the email to copy.
-asks: agency questions | questions for the agency | clarifying questions | clarification questions | q&a questions | questions for the q&a | write q&a questions | draft questions | rfi questions | questions to submit | what should we ask the agency | ask the agency | questions deadline | email the agency questions
+asks: agency questions | questions for the agency | clarifying questions | clarification questions | q&a questions | questions for the q&a | write q&a questions | draft questions | rfi questions | questions to submit | what should we ask the agency | ask the agency | email the agency questions
 ---
 
 # Clarifying-Questions-to-Agency Skill
@@ -42,7 +42,7 @@ If the person asks anyway after the window closed, say the window has closed, an
 
 Read these for the RFP, in this order. Don't ask the person for anything ISA can read itself.
 
-1. **The RFP documents:** `RFPs/<stage>/<slug>/resources/` and its `_document-manifest.json`. These are the source of truth; every question points back to them. They persist between weekly runs, and a copy is in the RFP's Drive folder.
+1. **The RFP documents:** read them with the commands in the router's `documents`, by number (`node scripts/document-text.mjs --rfp <slug> --file all`). These are the source of truth; every question points back to a file and page. They persist between weekly runs, and a copy is in the RFP's Drive folder.
 2. **The scored judgment.** Where it is depends on when the RFP was scored, because each weekly run deletes the previous week's candidate files:
    - **Scored in this week's run:** `scoring_judgments` in the `RFP-pipeline/candidates/<slug>/candidate.md` front matter.
    - **Scored in an earlier week:** that week's `reports/new-rfp-qualification/audit/<run date>.jsonl`, where the RFP's line holds the full-text judgment with quotes cut to 300 characters. Go back to the documents for the full wording.
@@ -61,9 +61,26 @@ Read these for the RFP, in this order. Don't ask the person for anything ISA can
 
 ## Stating the Q&A deadline
 
-Lead the reply with one line, taken from the documents, never from memory:
+Lead the reply with one line, taken from the documents, never from memory. The calendar skill
+gives the same deadline, so both read and write the RFP's one key-dates note:
 
-- **Posted:** `Questions due: <day, date, time and time zone as written> (<n> days left)`, with the § and page it comes from.
+1. Run `node scripts/rfp-dates.mjs --rfp <slug> --show`. If it lists "Questions due", use that
+   (it has the weekday and time zone worked out, and says whether it has passed). Still check any
+   addendum newer than its `recorded` date.
+2. If it doesn't, find the deadline in the documents, then record it so the calendar skill gives
+   the same one. Pass it as printed, with `--merge` so the note's other dates are kept:
+
+   ```
+   node scripts/rfp-dates.mjs --rfp <slug> --merge <<'RFP_DATES_END'
+   { "name": "<short RFP name>", "zone": "<agency zone>",
+     "milestones": [ { "kind": "questions", "date": "<as printed>", "time": "<as printed>", "source": "file <n>, page <p>" } ] }
+   RFP_DATES_END
+   ```
+
+   Take the date line from its output. Don't send its calendar text or links unless the person asked
+   for calendar dates.
+
+- **Posted:** `Questions due: <the date from rfp-dates.mjs> (<n> days left)`, with the file and page it comes from.
 - **Passed:** `Questions were due <date>; the window has closed.` Then stop, per "When to use it".
 - **None posted:** `The documents give no questions deadline.` Add the proposal due date, so the person can judge how early to send.
 - **Not readable:** `Couldn't confirm a questions deadline: <reason, e.g. documents not downloaded>.`
@@ -262,6 +279,8 @@ Kind Regards,
 - Question 12 asks for the public Q&A file — this is a pro move because it lets Seamgen see what competitors are asking about, revealing where the agency is receiving pushback.
 
 ## Notes and edit history
+
+**v1.7 — November 2026.** The questions deadline now comes from the RFP's key-dates note through `scripts/rfp-dates.mjs`, the same place the calendar skill reads and writes, so the two skills can't give different deadlines. When the note has none, ISA records the one it found with `--merge`. Documents are read by number through the router's `documents`. "Questions deadline" left this skill's `asks`: a question about the deadline is answered by the router, not by writing the questions.
 
 **v1.6 — November 2026.** Reworked for the team after Jake left Seamgen. **(1) Chat only, text to copy.** ISA no longer creates a Gmail draft. It gives the email as text in chat for the sender to paste into their own mail and address themselves. The agency contact goes above the text, never in it. **(2) No single owner or approver**, and no named signer: the signature is a placeholder the sender fills in. Steps that waited on Peter's additions to the pursue email are gone. **(3) The question sources are what ISA actually has.** These are the RFP documents, the scored judgment (`scoring_judgments` and the results-file entry), and the Engineering Scope Brief. The old sources no longer carry questions: the pursue email dropped them in its v1.3, and the meeting brief was retired on October 12, 2026. **(4) The meeting brief's question guidance moved here:** 5–7 questions, four categories, one AI question on AI-forward RFPs, and a cited source for each. Open gates, blockers and "silent" incumbent lines now become questions too. **(5) The reply leads with the Q&A deadline** (or says none is posted, or that it has passed) and the submission method, then the sources, then the email. This also covers portal-only Q&A, a v1.0 known limitation. Rules 1–11 and Katie's worked example are unchanged.
 

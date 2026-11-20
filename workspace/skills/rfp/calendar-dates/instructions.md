@@ -1,240 +1,198 @@
 ---
 name: rfp-calendar-logging
-purpose: Give an RFP's action-item deadlines — Q&A due, pre-proposal conference (with its sign-up link and a few-days-prior registration alert), and proposal due — as calendar-event text in chat, with clear opportunity-identifying `[RFP]` titles and reminder offsets, so the person who asked can add them to their own calendar.
-audience: This skill is written to be read by both ISA (who reads the dates and writes the event text) and a human teammate (who adds the events and lives off the resulting alerts).
-version: 1.2 — November 2026
+purpose: Give an RFP's action-item deadlines (questions due, pre-proposal conference with a register-by alert, proposal due) as a short list in chat with an "Add to Google Calendar" link for each, read from the RFP's own documents, so the person who asked can add them to their own calendar.
+audience: ISA, who reads the dates and runs scripts/rfp-dates.mjs, and a teammate who edits this file.
+version: 2.1 — November 2026
 owner: Seamgen sales team (no single owner or approver)
-depends_on: the per-RFP key-dates note (this skill authors it) and the RFP's documents in `resources/`.
+depends_on: the RFP's saved documents (read through the router's `documents`), scripts/rfp-dates.mjs, and the RFP's key-dates note, which that script writes.
 label: Key dates as calendar events
 command: dates
 phase: 2
-when: An RFP's key dates (Q&A, pre-proposal meeting, proposal due) as calendar events to add.
-asks: calendar | on the calendar | calendar dates | calendar events | calendar invites | key dates | important dates | deadlines on the calendar | add the dates | put the dates | due dates | reminders | schedule the deadlines | pre-proposal meeting | pre-bid meeting | when is it due
+when: An RFP's key dates (questions due, pre-proposal meeting, proposal due) with links to add them to your calendar.
+asks: calendar | on the calendar | on my calendar | calendar dates | calendar events | calendar invites | calendar invite | calendar file | ics | ics file | invites | add the dates | put the dates | add to my calendar | add them to my calendar | reminders | set reminders | remind me of the deadlines | remind me about the dates | schedule the deadlines | deadlines on the calendar | dates on the calendar
 ---
 
-# RFP Calendar-Logging Skill
+# RFP calendar dates
 
 ## What this skill does
 
-An RFP's deadlines don't do any good sitting in a Markdown file nobody re-opens. A mandatory
-conference you had to register for four days earlier, a proposal due at 10:00 a.m. Pacific, a
-Q&A window that closes on a Friday — these need to be **on someone's calendar**, with a title
-they can read at a glance and an alert that fires early enough to act.
+ISA reads one RFP's dates from its documents and passes them, exactly as printed, to
+`scripts/rfp-dates.mjs`. The script does the arithmetic: weekdays, the agency's real time zone,
+the register-by date, the suggested reminders, what has already passed and what moved since last
+time. It writes the RFP's key-dates note and prints a short list with an "Add to Google Calendar"
+link on each date. ISA sends that list; the person taps a link and saves the event in their own
+calendar.
 
-This skill reads the confirmed dates for one RFP and gives them in chat as a small set of
-**action-item events** (each titled `[RFP] …`) with tiered advance reminders, ready for the
-person who asked to add to their own calendar. **ISA does not write to any calendar.** When a
-date moves, re-run it: the output marks what changed so the person can edit their event.
+**ISA never creates, changes or deletes calendar events.** The person adds them from the links.
+So "put the dates on my calendar" is never a reason to say you can't: the links are how it gets
+done. Always finish with the script's text, never with your own list of the dates.
 
-It also **owns authoring the `key-dates_<rfp-slug>.md` note** (see Step 2). Until now that note
-existed for only some RFPs and no skill's procedure created it — only `rfp-document-refresh`
-updated one if it already existed. This skill closes that gap: it builds the note as its
-structured intermediate, then gives the events from it. The note doubles as the human-readable
-date list and the record of what was last given, so a re-run can say what moved.
+The question "when is it due?" is not this skill. The router answers it from the key-dates note
+or the documents. This skill is for "put the dates on my calendar" or `rfp dates <rfp>`.
 
-## When to use it
+## Which RFPs
 
-Run it for a single RFP that has reached **`RFPs/2-intermediate-stage/`, `3-building/`, or
-`4-submitted/`** — i.e. an opportunity whose *real documents have been fetched and whose dates
-are confirmed on the full text*. Common triggers:
+Any RFP whose own documents are saved, in any phase. The router has already asked about moving
+an RFP in Phase 1 to Phase 2; if the person said to leave it where it is, do the skill anyway.
 
-- **When an RFP is moved to Looking closer (`2-intermediate-stage/`)** — get the dates onto someone's calendar the moment an RFP is worth pursuing.
-- **When `rfp-document-refresh` reports a moved date** — re-run so the person can move their event.
-- **On demand** — "give me the calendar dates for [RFP]."
+What matters is where a date comes from, not the RFP's folder. **Use only dates printed in the
+agency's documents.** Never use a date from the HigherGov listing, the Friday email or the
+scoring metadata: those are often wrong (no times, wrong due dates, no Q&A dates). If the router's
+`documents` says `saved: 0`, follow `skills/rfp/document-fetch/instructions.md` first.
 
-**Not eligible:** anything still in `RFPs/1-pre-submission/`. Those carry **metadata-only**
-scores, and HigherGov metadata dates are unreliable — wrong due dates, no times, no Q&A dates,
-mis-typed opportunity types (see the `highergov-metadata-scores-overpredict` memory). Giving a
-metadata date is giving a date that is probably wrong. Full-text/confirmed dates only.
+## Steps
 
-## Before you run
+### 1. Read the dates
 
-- The RFP's real documents should already be in `resources/` (via `rfp-document-fetch`). If the
-  solicitation isn't there, there's nothing trustworthy to read dates from — fetch first.
+Read the documents with the commands in the router's `documents`, by number:
+`node scripts/document-text.mjs --rfp <slug> --file all` (or `--file <n>` for one). Look at the
+schedule or "Instructions to Proposers" section, and at every addendum: an addendum's date
+replaces the original's. If a key-dates note is already there, `node scripts/rfp-dates.mjs --rfp
+<slug> --show` prints what was given last time.
 
----
+For each date, note:
+- the date and time **exactly as printed**, with the weekday if the document gives one (the
+  script checks that the weekday matches the date);
+- the time zone as printed ("PT", "EST", "Central Time"). If the documents give a time with no
+  zone, use the agency's location: Eastern `America/New_York`, Central `America/Chicago`,
+  Mountain `America/Denver`, Arizona `America/Phoenix`, Pacific `America/Los_Angeles`;
+- where it is: `file <n>, page <p>` (pages come from the `--- page N ---` lines);
+- for a pre-proposal conference: whether it's mandatory, the sign-up link and the sign-up deadline,
+  if the documents give them. Never guess a link.
 
-## The procedure
+Also note the RFP number, the agency, the contact for questions, how the proposal is submitted,
+and where the RFP was found (HigherGov, PlanetBids…). Leave out any of these the documents don't
+give; never write "not stated" or "unknown" in a field.
 
-Run for **one** RFP at a time.
+### 2. Run the script
 
-### Step 1 — Locate the RFP and confirm the tier
+Pass everything on standard input, through a quoted heredoc. Never put agency text on the command
+line: it can contain characters the shell would run.
 
-Find the existing `<rfp-slug>/` folder under `RFPs/2-intermediate-stage/`, `3-building/`, or
-`4-submitted/`. Don't assume a tier and don't create a duplicate — locate the folder wherever it
-currently sits (see "RFP stage folders" in `AGENTS.md`). If the only match is in `1-pre-submission/`, **stop**: it isn't
-eligible yet (see "When to use it").
+```
+node scripts/rfp-dates.mjs --rfp <slug> <<'RFP_DATES_END'
+{
+  "name": "Laguna Beach Website Redesign",
+  "agency": "City of Laguna Beach",
+  "number": "RFP 2026-31",
+  "contact": "Jane Doe, jdoe@lagunabeachcity.net",
+  "submission": "Upload to PlanetBids",
+  "foundVia": "PlanetBids",
+  "zone": "PT",
+  "milestones": [
+    { "kind": "questions", "date": "December 11, 2026", "time": "5:00 PM", "source": "file 2, page 3" },
+    { "kind": "conference", "date": "Thursday, December 3, 2026", "time": "10:00 a.m.", "mandatory": true,
+      "registration": "https://…", "registerBy": "December 1, 2026", "source": "file 2, page 3" },
+    { "kind": "proposal", "date": "January 21, 2027", "time": "2:00 PM", "source": "file 1, page 1 (Addendum 1)" }
+  ],
+  "notScheduled": [
+    { "milestone": "Interviews", "why": "only \"week of February 8, 2027\"", "source": "file 2, page 4" }
+  ]
+}
+RFP_DATES_END
+```
 
-### Step 2 — Build or refresh the `key-dates_<rfp-slug>.md` note
+- `kind` is `questions`, `conference`, `proposal`, or `other` with a `label` for another date
+  someone must act on (an intent-to-bid deadline, a mandatory site visit). Leave out what the RFP
+  doesn't have. The script adds the register-by event itself when a conference has a sign-up link
+  or deadline.
+- `zone` at the top is the agency's zone; a milestone's own `zone` overrides it.
+- A date with no time is fine: it becomes an all-day event.
+- **A date that isn't a real date goes in `notScheduled`, not `milestones`**: "TBD", "week of
+  …", "within 5 days of award", "September 2026". The person sees it without a fake event.
+- `note` on a milestone adds a few words to its event title, for example
+  `"note": "email LADBS.Contracts@lacity.org"`.
 
-This is the structured source the calendar is written from. Author it if missing; refresh it if present.
+### 3. Send what it prints
 
-**Source order (most trustworthy first):**
-1. An existing `key-dates_<rfp-slug>.md` at the RFP-folder root.
-2. The RFP's meeting brief, if one exists from before it was retired (October 2026) — the `## Key Facts` block and the `Submission mechanics` bullets.
-3. The full-text RFP in `resources/` (the schedule/"Instructions to Proposers" section).
+The script prints the text to send between two `-----` lines. Send it word for word, including
+each `[Add to Google Calendar](…)` link exactly as printed: the link holds the event's title,
+time and details, and a changed character can break it. Don't retype the dates or work out
+weekdays yourself: the script's are checked. Never mention the key-dates note's path in the chat.
 
-**Capture, per milestone:** the **date**, the **time**, and the **true IANA timezone**; the
-**agency contact** (who to reach out to); the **submission method**; and — for the conference —
-the **registration link** and any **registration deadline**, dug out of the RFP text.
+There is no calendar file to attach. OpenClaw won't attach a `.ics` file to a reply, so don't
+make one or offer one.
 
-**Resolve the timezone honestly.** RFPs routinely print "EST"/"CST" year-round; in summer those
-are really EDT/CDT. Record the real zone (`America/New_York`, `America/Chicago`,
-`America/Los_Angeles`) so the alert fires at the correct absolute moment, and keep the
-printed-vs-actual note the existing key-dates files carry ("RFP prints 'EST'; in July/August it
-is technically EDT — quoted as written").
+If the script lists something under "Needs your action" or "Not scheduled" (a weekday that
+doesn't match its date, a missing sign-up link, an unreadable time), it is already in the text.
+Don't add a date to fix it; say what you'd need to confirm it.
 
-**Never invent** (this is a hard line, per Rule 2 and the metadata memory):
-- `unknown`, relative ("within 5 working days of downloading the RFP"), and fuzzy ("Week of Aug
-  24", "September 2026") values are **not** turned into calendar events. They go in the chat
-  output's `NOT SCHEDULED` section so the person sees them without a fake event on their calendar.
-- If the registration link isn't in the documents, say so — write "register via [portal]" and
-  flag the missing link; never guess a URL.
+If the script fails (for example, the RFP has no folder), pass on its reason and stop.
 
-**Format** the note like the three existing ones (Yonkers / South Dakota / SW Wisconsin): H1
-title `# Key dates — <Agency / RFP name> (<RFP number>)`, a `Source (found via):` provenance
-line, a `| Milestone | Date/time |` table with the **Proposal due** row bolded, and a trailing
-`**Note:**`. Filename is `key-dates_<rfp-slug>.md` — **no date in the filename** (one canonical
-note per RFP). On a refresh, keep any superseded date visible with a "was:" note rather than
-silently overwriting, matching `rfp-document-refresh` Step 7.
+## What the events are
 
-### Step 3 — Compose the events (core action items only)
+The script makes at most these, each titled `[RFP] <name> — …` so one notification names the RFP:
 
-Build only the dates someone has to **act on**. Per RFP, at most four:
-
-| # | Event | Timing |
+| Event | When | Suggested reminders |
 |---|---|---|
-| 1 | **Q&A / questions due** | Timed event at the deadline. |
-| 2 | **Pre-proposal conference** | Timed event at the conference date/time. Skip entirely if the RFP has no conference. |
-| 3 | **"REGISTER by" action item** | A distinct **all-day** event ~4 days before the registration deadline (or the conference date if no separate deadline). This is the "know a few days prior" alert. Only when attendance requires signing up. |
-| 4 | **Proposal due** | Timed event at the deadline. |
+| Questions due | the deadline | 3 days, 1 day before |
+| Pre-proposal conference (or MANDATORY conference) | the conference | 4 days, 1 day before |
+| REGISTER for conference by m/d | all day on the sign-up deadline (or the day before the conference) | 4 days, 1 day before |
+| Proposal DUE | the deadline | 2 weeks, 1 week, 2 days before |
 
-**Title convention** — clear and opportunity-identifying, because the notification has to stand
-on its own: `[RFP] <short name> — <MILESTONE>`. Examples:
-- `[RFP] LADBS AI Pre-Plan Check — Proposal DUE (email LADBS.Contracts@lacity.org)`
-- `[RFP] LADBS AI Pre-Plan Check — MANDATORY conference (register via RAMP)`
-- `[RFP] LADBS AI Pre-Plan Check — REGISTER for conference by 7/28`
-- `[RFP] Yonkers Connect Seniors — Questions due`
+Each event's details have the RFP number, agency, contact, submission method, sign-up link, and
+the document and page. Timed events are set at the right moment in the agency's own time zone,
+with daylight time worked out, wherever the person is. A link can't set reminders, so the event
+gets the person's default Google Calendar notification; the text lists the suggested ones. A date
+that has passed is listed without a link.
 
-**Description** carries the working detail: RFP number, agency, **who to contact**, **submission
-method**, **registration link**, the `Source (found via)` (internal tracking), and a pointer to
-the local RFP folder / Drive folder.
+## When a date moves
 
-**Tiered reminders** (for the person to set as calendar notifications, by stakes):
-- **Proposal due** → 2 weeks + 1 week + 2 days before.
-- **Conference / REGISTER-by** → 4 days + 1 day before.
-- **Q&A due** → 3 days + 1 day before.
+When new documents move a date, `skills/rfp/document-refresh/instructions.md` says to run this
+skill again. The script compares with the dates it gave last time and
+lists what changed, old → new. The moved date gets a new link, and the text tells the person to
+delete the event they added for the old date. A date that was given
+before and is no longer in the documents is listed as one to remove.
 
-**Timezone:** give each event in the **agency's real timezone** (Step 2), not the reader's, so the
-absolute time — and therefore every reminder — is correct regardless of where they are.
+## The key-dates note
 
-### Step 4 — Give the events in chat
-
-Print the full event list — title, date, time, timezone, description, and reminder offsets for
-each — in the output format below, so the person can add each one to their own calendar and
-catch a wrong date before relying on it. **ISA never creates, updates or deletes calendar
-events.**
-
-### Step 5 — Record what was given
-
-At the bottom of `key-dates_<rfp-slug>.md`, keep a short block so a re-run can say what moved:
-
-```
-<!-- calendar-given
-last given: 2026-07-24
-questions-due:   2026-09-04 10:00 America/Los_Angeles
-conference:      2026-07-29 10:00 America/Los_Angeles
-register-by:     2026-07-28 all-day
-proposal-due:    2026-09-17 10:00 America/Los_Angeles
--->
-```
-
-On a re-run, compare against that block per milestone:
-- **New** (not in the block) → list it under EVENTS.
-- **Date/time changed** → list it under CHANGED, old → new, with the document and §/page.
-- **Milestone now gone or closed** → list it under CHANGED as "remove from your calendar".
-
-Then rewrite the block with the current values and today's `last given` date.
-
-### Step 6 — Lead with the most urgent
-
-Lead with what's most time-critical (the nearest deadline or a just-moved date).
-
----
-
-## Output format
-
-```
-CALENDAR LOG — [RFP short name] — [date]
-========================================
-
-Source: key-dates_[slug].md (built from [meeting brief / full-text RFP], [date])
-
-EVENTS  (add these to your calendar)
-------
-+ [Q&A due]        [Fri Sep 4, 10:00 AM PT]  reminders: 3d, 1d
-+ [Conference]     [Wed Jul 29, 10:00 AM PT] reminders: 4d, 1d   link: [reg URL]
-+ [REGISTER by]    [Tue Jul 28, all-day]     reminders: 4d, 1d
-+ [Proposal DUE]   [Wed Sep 17, 10:00 AM PT] reminders: 2w, 1w, 2d
-  (each event: full `[RFP] …` title, then its description lines — RFP number, agency,
-  contact, submission method, registration link)
-
-CHANGED  (re-run — edit or remove these on your calendar)
--------
-~ [Proposal DUE]   [Sep 17 → Sep 24] per [document], [§/page]
-  (or "None — nothing moved")
-
-NOT SCHEDULED  (no confirmed date — needs your attention, not a fake event)
--------------
-- [Milestone]: [why — unknown / relative / fuzzy], per [source]
-  (or "None")
-
-NEEDS YOUR ACTION
------------------
-- [Missing registration link, unclear timezone — or "none"]
-```
-
-**State the no-change case explicitly** on a re-run ("Nothing moved") — an "all clear" is a real
-result and it's what makes the dates trustworthy.
-
----
+`key-dates_<slug>.md` in the RFP's folder is the RFP's one list of dates. The script writes the
+part between its `key-dates` markers: a table with the source of each date, earlier dates kept as
+"was:", and its record of what it gave. Anything else in the note (an older hand-written table)
+is left alone. Don't edit the marked part by hand; run the script again with the corrected dates.
+The agency questions skill reads its questions deadline from this note too. The note stays on
+ISA's disk; it doesn't go to Drive.
 
 ## Guardrails
 
-- **Never invent a date, time, or link.** `unknown` is the honest answer; a wrong calendar alert
-  is worse than no alert. Fuzzy and relative dates are reported, never scheduled.
-- **Never write to a calendar.** ISA gives event text; the person adds it to their own calendar.
-- **Always include the `[RFP] ` title prefix,** so events stay findable on a busy calendar.
-- **Agency-true timezone**, DST resolved, so reminders fire at the right absolute time.
-- **Full-text/confirmed dates only.** A metadata-only-scored RFP (still in `1-pre-submission/`)
-  is not eligible.
-- The key-dates note is a **local** deliverable — it is **never** mirrored to Drive (only the
-  agency's `resources/` documents are). No PDF is produced.
-
----
+- Only dates printed in the agency's documents. Never invent a date, time or link.
+- Never write to a calendar, or say an event was added. The person adds it from the links.
+- Never answer a calendar request with the dates alone. Run the script and send its text.
+- Never work out a weekday, time-zone change or reminder date yourself; the script does.
 
 ## Notes and edit history
 
-**v1.2 — November 2026.** RFPs reach `2-intermediate-stage/` only when someone asks for the move (`scripts/rfp-stage.mjs`; see "RFP stage folders" in `AGENTS.md`), so that move is the trigger here. The folder rule no longer cites Rule 10.
+**v2.1 — November 2026.** Google Calendar links replace the calendar file. OpenClaw (2026.9.4,
+and 2026.9.9 on the VM) checks the type of a file attached to a reply and refuses
+`text/calendar`, so the `.ics` file would never have reached Telegram; the reply would have gone
+out with a "couldn't attach" note. The script no longer writes the file. Each upcoming date now
+has an "Add to Google Calendar" link that opens the event filled in. A link can't set reminders,
+so the text lists the suggested ones and the person's default notification applies. In one local
+run ISA opened this skill, read the dates, then said it couldn't add calendar events and sent a
+plain list; the skill now says a calendar request always ends with the script's text.
 
-**v1.1 — November 2026.** Jake has left Seamgen, so the skill has no single owner or approver, and there is no longer one calendar to write to. **ISA no longer writes calendar events.** It gives each event — title, date/time with time zone, description, reminder offsets and sign-up link — as text in chat for the person who asked to add to their own calendar. Removed the `joliker@seamgen.com` calendar target, the calendar-ID and event-ID ledger, the connector checks, and the "preview, then create on Jake's OK" step. The key-dates note now records the dates last given, so a re-run lists what moved. Date selection, the four action items, title convention, tiered reminders, timezone handling and the never-invent rules are unchanged.
+**v2.0 — November 2026.** Rewritten so ISA can run it reliably. **(1) Any phase with saved
+documents.** v1.2 refused every RFP in Phase 1, which contradicted the router's "leave it where it
+is" choice; the real risk was HigherGov metadata dates, and the rule now says that directly.
+**(2) The date arithmetic moved into `scripts/rfp-dates.mjs`**: weekdays, printed "EST" in summer,
+the register-by date, reminders, passed dates and changes since last time. Local tests had the
+model work these out. **(3) A calendar file.** The script writes an `.ics` file ISA attaches, so
+adding the events is one tap instead of typing four events. ISA still never writes to a calendar.
+**(4) Documents are read by number** through the router's `documents`. The retired meeting brief
+is no longer a source. **(5) Questions about dates are answered by the router**, not this skill.
+The register-by event now sits on the sign-up deadline itself, with 4-day and 1-day reminders,
+instead of 4 days before it with more reminders on top. Titles, the four events, reminder
+offsets, agency time zones and the never-invent rule are unchanged.
 
-**v1.0 — July 2026, Jake + Claude.** First version. Built because Jake wanted RFP deadlines —
-especially conference sign-ups that must happen a few days ahead — to live on his work calendar
-with titles clear enough that a single notification names the opportunity. Delivers the
-"Calendar workback schedule" item that had sat in `future-edits.md`, in a focused core-action-
-items form (Q&A due, conference, a distinct REGISTER-by alert, proposal due) rather than the
-full internal-review workback (which stays open as a possible extension). Two design decisions
-worth recording: (1) the skill **took ownership of authoring the `key-dates_<rfp-slug>.md`
-note**, which no skill's procedure previously created — it's now the structured intermediate the
-calendar is written from and the ledger that stores event IDs for idempotent re-runs; and (2)
-events are created in the **agency's real timezone** with the printed-vs-actual (EST/EDT)
-resolution the key-dates notes already flagged, so an alert fires at the correct absolute moment.
-Written against the standard Google Calendar connector verbs; the exact tool names get pinned on
-the first live run (the way `create_draft` was pinned for the Gmail skills), because the
-connector loads only at session start and was not live when this was authored. **Calendar target:
-Jake's primary work calendar** — the plan called for a dedicated "Seamgen RFPs" calendar, but
-creating a new calendar wasn't available on his account (decided July 24, 2026), so events land on
-the primary calendar and stay findable via the `[RFP] ` title prefix.
+**v1.2 — November 2026.** The move to Looking closer became the trigger (moves happen only when
+someone asks).
 
-**How to edit this skill:** Change the text. It's Markdown. Save. Bump the version number and add a note describing what changed and why.
+**v1.1 — November 2026.** Jake left Seamgen. ISA stopped writing calendar events and gave them as
+text in chat; the key-dates note recorded the dates last given.
+
+**v1.0 — July 2026, Jake + Claude.** First version: the four action-item events, `[RFP]` titles,
+tiered reminders, agency time zones, and the key-dates note as the skill's own record.
+
+**How to edit this skill:** Change the text. It's Markdown. Bump the version and add a note
+saying what changed and why. The header's `asks` list is what the router matches requests
+against; run `npm run rfp:index` after changing the header.

@@ -2,7 +2,7 @@
 name: rfp-document-refresh
 purpose: Check the RFPs Seamgen is working on for new documents and deadline changes, save new documents beside the originals, put them in the RFP's Google Drive folder, and tell the team what actually changed — especially if a deadline moved.
 audience: This skill is written to be read by both ISA (who runs the check and reads what it finds) and a human teammate (who reads the change report, checks agency portals ISA can't sign in to, and acts on it).
-version: 2.0 — November 2026
+version: 2.1 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 label: What changed in new documents
 command: changes
@@ -71,7 +71,7 @@ Quote the document and cite the section or page — the same discipline the engi
 
 ### Then update the RFP's records
 
-- **`key-dates_<rfp-slug>.md`** — if a date moved, update it and cite the new source (`Confirmed from [document], [page]`). Keep the superseded date visible with a "was:" note. **Then re-run `skills/rfp/calendar-dates/instructions.md`**, so the person gets the changed event text for their calendar. ISA never writes to a calendar.
+- **`key-dates_<rfp-slug>.md`** — if a date moved, tell the person and offer `rfp dates <slug>`. That runs `skills/rfp/calendar-dates/instructions.md`, whose script updates the note (keeping the old date as "was:") and gives a new calendar file with the change listed. Don't edit the note's marked part by hand. ISA never writes to a calendar.
 - **Downstream deliverables** — if a new mandatory form appeared, say which existing deliverable is now stale (usually the submission checklist, sometimes the proposal deck). Don't silently regenerate them; tell the person who asked what needs rebuilding and let them decide.
 
 ---
@@ -156,6 +156,8 @@ NEEDS SOMEONE
 ---
 
 ## Notes and edit history
+
+**v2.1 — November 2026.** A moved date in the key-dates note is now updated by the calendar skill's script (`rfp dates <slug>`), which keeps the old date as "was:" and lists the change. ISA offers it rather than editing the note by hand.
 
 **v2.0 — November 2026.** Rewritten for ISA on the VM. The check is now `scripts/rfp-refresh.mjs`: every Tuesday for the RFPs in Looking closer and Building (one Telegram message only when something changed), or on request for one RFP. It reads the newest HigherGov version, compares the due date as well as the documents (matched by name and size, since HigherGov's records have no ID), saves re-issued files beside the originals, and uploads new agency documents straight to the RFP's one Drive folder, whose ID it keeps. Gone: the Windows browser bridge, the file-picker workaround, `Sync-RfpToDrive.ps1`, `reference-team-and-signature.md`, and the calendar "sync-block ledger" (removed from the calendar skill in v1.1). DemandStar and other portals are now a person's check, with the same purchase gate; ISA reads what the person sends.
 

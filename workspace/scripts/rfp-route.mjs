@@ -28,6 +28,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { rfpDocuments } from './document-text.mjs';
+import { recordedDates } from './rfp-dates.mjs';
 import { STAGES, findStage, rfpsDir, workspaceDir } from './rfp-folders.mjs';
 
 const PHASE_NAMES = ['Phase 1: Scored', 'Phase 2: Looking closer', 'Phase 3: Building', 'Phase 4: Submitted'];
@@ -170,6 +171,11 @@ const RESCORE = /\b(rescore|re score|score (this|it|that) (again|rfp|rfq)|score 
 const RESULTS = /\bthis week\b|\blatest batch\b|\bworth pursuing\b|\bfriday (email|results|run|message)\b|\bweekly (rfp )?job\b|\bbeen run\b|\bpursue email\b|\bhow did .* score\b|\bscored today\b|\bwhat score\b|\bits score\b|\bscore breakdown\b|\bpoints per\b/;
 const OFFER = /\bwhat can you (do|help)\b|\bwhats next\b|\bwhat is next\b|\bnext steps?\b|\bwhat (skills|options)\b|\bwhat else can\b|\bhelp with\b/;
 const MOVE = /\b(move|moving|moved|promote|push|bump|advance|put|go(es)? to|send it to)\b/;
+// A question about an RFP's dates ("when is Chandler due?", "is there a pre-bid meeting?") is
+// answered, not turned into the calendar skill: in local tests on November 18, 2026 "is there a
+// pre-bid meeting for Chandler?" got a "move it to Phase 2 first?" question back. Only a request
+// for calendar events (the calendar skill's `asks`) runs the skill.
+const DATE_QUESTION = /\bwhen (is|are|s|was|were|do|does|did)\b|\bwhens\b|\b(key|important) dates?\b|\bdue dates?\b|\bdeadlines?\b|\bpre (bid|proposal|submittal)\b|\b(bidders|vendors?) (conference|meeting)\b|\bsite visit\b|\bconference\b|\bwhat (date|day|time)\b/;
 const REPLY = /^(yes|yeah|yep|ok|okay|sure|no|nope|nah|go ahead|do it|please do|lets do|the (first|second|third|1st|2nd|3rd)|option \d|number \d|\d\b)/;
 
 // A target phase named in the message: "phase 3", "building", "looking closer", "submitted", "back to scored".
@@ -254,6 +260,10 @@ function askWhichRfp(ambiguous, nextCommand) {
 export async function routeRequest(message, options = {}) {
   const decision = await decide(message, options);
   if (decision.rfp && DOCUMENT_ACTIONS.has(decision.action)) decision.documents = await documentsOut(decision.rfp.slug, options.workspace);
+  // An answer carries the key dates already recorded, so ISA doesn't work weekdays out itself.
+  if (decision.rfp && decision.action === 'answer') {
+    decision.dates = await recordedDates(decision.rfp.slug, { workspace: options.workspace, now: options.now }) || null;
+  }
   const routeOf = command => `node scripts/rfp-route.mjs "${command}"`;
   if (decision.choices) {
     decision.choices = decision.choices.map(choice => ({ ...choice, route: routeOf(choice.command), ...(choice.then ? { thenRoute: routeOf(choice.then) } : {}) }));
@@ -313,7 +323,8 @@ async function decide(message, { workspace = workspaceDir() } = {}) {
       return { ...base, action: 'retired', rfp: rfpOut(rfp),
         say: 'The meeting brief was retired in October. The Friday pursue email has the summary, fit, blockers and key dates; I can also do an engineering brief or the agency questions. Which would help?' };
     }
-    if (SHARE.test(text)) {
+    // "Send me a calendar file" is the calendar skill, not an agency document.
+    if (SHARE.test(text) && !/\b(calendar|ics|invites?)\b/.test(text)) {
       return { ...base, action: 'share-documents', rfp: rfpOut(rfp),
         note: 'Attach the saved file from the RFP\'s resources/ folder, as skills/rfp/INDEX.md says under "Documents". If it isn\'t saved yet, follow skills/rfp/document-fetch/instructions.md first.' };
     }
@@ -373,6 +384,10 @@ async function decide(message, { workspace = workspaceDir() } = {}) {
   if (structured?.kind === 'offer' || OFFER.test(text)) {
     if (!rfp) return { ...base, ...askWhichRfp(pick.ambiguous, item => `rfp skills ${item.slug}`) };
     return { ...base, action: 'offer', rfp: rfpOut(rfp), say: phaseOffer(skills, rfp, rfp.phase, '') };
+  }
+  if (rfp && !structured && DATE_QUESTION.test(text)) {
+    return { ...base, action: 'answer', rfp: rfpOut(rfp), about: 'dates',
+      note: `A question about dates. Answer from "dates" when it is there: those were read from the documents, with weekdays and time zones already worked out. Otherwise read the documents with the commands in "documents" and answer with the file and page. Never give a date from the HigherGov listing or the scoring metadata. If they want the dates on their calendar, offer \`rfp dates ${rfp.slug}\`.` };
   }
   if (rfp) {
     return { ...base, action: 'answer', rfp: rfpOut(rfp),

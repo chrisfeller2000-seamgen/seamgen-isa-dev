@@ -26,6 +26,16 @@
     { "say": "When is Laguna Beach due? put it on the calendar", "action": "run-skill", "skill": "calendar-dates", "rfp": "laguna-beach-website-redesign" },
     { "say": "Can you set reminders for the Yonkers due dates", "action": "run-skill", "skill": "calendar-dates", "rfp": "yonkers-senior-services-app" },
     { "say": "Give me the calendar dates for the Carlsbad parks booking RFP", "action": "ask-move", "skill": "calendar-dates", "rfp": "carlsbad-parks-recreation-booking-system", "toPhase": 2 },
+    { "say": "remind me about the chandler deadlines", "action": "ask-move", "skill": "calendar-dates", "rfp": "chandler-permit-portal", "toPhase": 2 },
+    { "say": "send me a calendar file for laguna beach", "action": "run-skill", "skill": "calendar-dates", "rfp": "laguna-beach-website-redesign" },
+    { "say": "Can I get an ics for the Yonkers dates?", "action": "run-skill", "skill": "calendar-dates", "rfp": "yonkers-senior-services-app" },
+
+    { "say": "Is there a pre-bid meeting for Chandler?", "action": "answer", "rfp": "chandler-permit-portal" },
+    { "say": "what are the key dates for yonkers", "action": "answer", "rfp": "yonkers-senior-services-app" },
+    { "say": "When is the Laguna Hills website due?", "action": "answer", "rfp": "laguna-hills-city-website" },
+    { "say": "when are questions due for laguna beach", "action": "answer", "rfp": "laguna-beach-website-redesign" },
+    { "say": "What's the deadline on the Boulder records portal?", "action": "answer", "rfp": "boulder-records-portal" },
+    { "say": "is the carlsbad conference mandatory", "action": "answer", "rfp": "carlsbad-parks-recreation-booking-system" },
 
     { "say": "Can you put together the submission checklist for Laguna Beach?", "action": "ask-move", "skill": "submission-checklist", "rfp": "laguna-beach-website-redesign", "toPhase": 3 },
     { "say": "What do we need to submit for Yonkers?", "action": "run-skill", "skill": "submission-checklist", "rfp": "yonkers-senior-services-app" },
