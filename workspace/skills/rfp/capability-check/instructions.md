@@ -2,7 +2,7 @@
 name: rfp-capability-verification
 purpose: Turn an RFP's technical asks into a per-operation checklist for a named engineer, so the answer comes back specific the first time. Confirms what Seamgen has actually done — as distinct from how long something would take, which is the engineering brief's job.
 audience: Written to be read by both Claude (who builds the checklist) and a human teammate (who edits the recipe over time). The OUTPUT is written for a named lead engineer.
-version: 1.2 — November 2026
+version: 1.3 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: the full RFP (for verbatim extraction), rfp-scoring output (Category 1 case-study match), and `resources/proposal-sources/Proposal - Case Studies.txt` + `resources/proposal-sources/Proposal - People.txt` for what the record already claims. Feeds rfp-solution-landscape (our viable role) and eventually the proposal itself.
 label: Capability check for a named engineer
@@ -51,10 +51,10 @@ Do **not** use it for generic capability (*"can we build a React front end?"*). 
 
 ## How to use it
 
-Say "run capability verification for [RFP name]."
+Ask for it in chat, or with `rfp capability <rfp>`. The router names the RFP and lists its saved documents by number. Don't ask the person for a document that is already saved.
 
 Claude will:
-1. Read the RFP and extract every operation the requirements actually name.
+1. Read the RFP, using the read commands in the router's `documents`, and extract every operation the requirements actually name.
 2. Identify **who built the closest real thing** — not who is easiest to reach.
 3. Produce the checklist, plus a copy-paste message for that person.
 4. Record the answers verbatim when they come back.
@@ -65,7 +65,7 @@ Output: a PDF in the RFP's own folder — **`RFPs/[stage]/[rfp-slug]/`** — plu
 RFPs/[stage]/[rfp-slug]/capability-check_YYYY-MM-DD_[rfp-slug].pdf
 ```
 
-`[stage]` is the RFP's current lifecycle tier; save into the existing `[rfp-slug]/` folder wherever it lives (CLAUDE.md Rule 10). Carries a **Source (found via)** line (Rule 9).
+`[stage]` is the RFP's current lifecycle tier; save into the existing `[rfp-slug]/` folder wherever it lives (see "Phases" in `skills/rfp/INDEX.md`). The checklist carries a **Source (found via)** line naming where the RFP was found, for internal tracking.
 
 ---
 
@@ -132,7 +132,7 @@ If the engineer would not sign that sentence, the answer is not "done exactly th
 
 Capture the answer **in the engineer's own words**, attributed and dated, exactly as the engineering brief treats timeline quotes. Paraphrase is how a hedge becomes a claim.
 
-Then: **update the record.** If the answer reveals experience the case studies or bios do not carry, that is a gap in a source of truth, not just an RFP fact. Neither Seth's nor Pete's bio records the FDEP GIS work; `Proposal - Assets.txt` had the write-back scope wrong. Flag it for correction — never edit a source of truth on a verbal answer alone (Rule 2).
+Then: **update the record.** If the answer reveals experience the case studies or bios do not carry, that is a gap in a source of truth, not just an RFP fact. Neither Seth's nor Pete's bio records the FDEP GIS work; `Proposal - Assets.txt` had the write-back scope wrong. Flag it for correction — never edit a source of truth on a verbal answer alone.
 
 ---
 
@@ -165,7 +165,7 @@ RECORD GAPS FOUND
 
 ### The copy-paste message
 
-Engineer register per CLAUDE.md: technical, precise, verbatim quotes with page references, no fluff. State the decision it feeds and the deadline — engineers deprioritise asks with no visible stakes.
+Write it for an engineer: technical, precise, verbatim quotes with page references, no fluff. State the decision it feeds and the deadline — engineers deprioritise asks with no visible stakes.
 
 ```
 Hey [name] — quick capability check for the [RFP short name] bid. Six specific
@@ -197,11 +197,13 @@ That last line is deliberate. It gives the engineer explicit permission to decli
 - **A hedge is not a yes.** The single rule this skill exists to enforce.
 - **No project name, no claim.** "We've done that" without a named client is an unanswered row.
 - **Never upgrade an answer in a downstream document.** If the checklist says "adjacent," the brief says adjacent and the proposal says adjacent.
-- **Never edit a source of truth on a verbal answer** (Rule 2). Flag the gap; let a human confirm it.
+- **Never edit a source of truth on a verbal answer.** Flag the gap; let a human confirm it.
 - **Overclaiming is the failure mode that survives scoring and loses at evaluation** — or wins dishonestly. Same standard `rfp-scoring` Gate 6a sets for references.
 - **Cap the list.** Ten rows is the ceiling; past that you get skim-answers.
 
 ## Notes and edit history
+
+**v1.3 — November 2026, Seamgen.** Removed the last `CLAUDE.md` rule numbers (Rules 2, 9 and 10, and the engineer register), which ISA can't look up; each rule is now stated where it applies. The folder rule points at "Phases" in `skills/rfp/INDEX.md`. ISA reads the saved documents through the router instead of asking for the RFP.
 
 **v1.2 — November 2026, Seamgen.** Messages are copy-paste only: the Slack sending route this pointed to was never set up for ISA and has been removed. The person who asked still approves each message before it reaches a teammate. The sending rule no longer cites `CLAUDE.md`, which ISA doesn't have, and the retired meeting brief is gone from what this skill feeds.
 

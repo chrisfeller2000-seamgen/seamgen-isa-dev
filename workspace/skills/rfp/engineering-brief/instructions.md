@@ -2,7 +2,7 @@
 name: rfp-engineering-brief
 purpose: Extract the engineering-relevant scope from an RFP into a short, structured document that a lead engineer can read in 5–10 minutes and use to give a reliable timeline estimate — without having to read the full 20–100 page RFP themselves.
 audience: This skill is written to be read by both Claude (who drafts the brief) and a human teammate (who reads, sanity-checks, and edits the template over time). The BRIEF ITSELF is written for lead engineers who have not read the RFP.
-version: 1.7 — November 2026
+version: 1.8 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-scoring skill (the scoring output confirms this RFP is being pursued). Feeds into: rfp-email-agency-questions skill (via the "Ambiguities Requiring Clarification" section) and downstream engineer timeline estimates.
 label: Engineering brief for a timeline estimate
@@ -29,19 +29,20 @@ The design principle is: **shift interpretation from Claude to the engineer.** C
 Use this skill:
 
 1. After the RFP Scoring Skill has returned a Strong Pursue or Worth a Look recommendation.
-2. Before Slacking a lead engineer for a timeline estimate.
+2. Before asking a lead engineer for a timeline estimate.
+
+It is a Phase 2 skill. For an RFP still in Phase 1, the router asks about moving it first; if the person says to leave it where it is, write the brief anyway. A phase never blocks a skill.
 
 Do **not** use this skill:
-- For RFPs that are still in the pursue/no-bid decision phase (too early).
 - For no-bid RFPs (waste of time).
 - As a substitute for the engineer actually reading the RFP if they *ask* to see the full document — the brief is a starting point, not a replacement.
 
 ## How to use it
 
-Provide the full RFP (PDF or text). Say "generate an engineering scope brief for [RFP name]."
+Ask for it in chat, or with `rfp brief <rfp>`. The router names the RFP and lists its saved documents by number. Don't ask the person for a document that is already saved.
 
 Claude will:
-1. Read the full RFP end-to-end.
+1. Read the full RFP end-to-end, using the read commands in the router's `documents`.
 2. Extract engineering-relevant content using **guided extraction** (short label + verbatim quote + page reference).
 3. Flag ambiguities inline and collect them at the bottom as candidate agency questions.
 4. Return a PDF file that fits in 1–3 pages.
@@ -50,7 +51,7 @@ Claude will:
 ```
 RFPs/[stage]/[rfp-slug]/engineering-brief_YYYY-MM-DD_[rfp-slug].pdf
 ```
-Every deliverable for a given RFP lives together in the RFP's own folder — `RFPs/[stage]/[rfp-slug]/`, where `[stage]` is its current lifecycle tier (`1-pre-submission` / `2-intermediate-stage` / `3-building` / `4-submitted`). Save into that `[rfp-slug]/` folder wherever it already exists; don't assume the tier or create a duplicate (see "RFP stage folders" in `AGENTS.md`).
+Every deliverable for a given RFP lives together in the RFP's own folder — `RFPs/[stage]/[rfp-slug]/`, where `[stage]` is its current lifecycle tier (`1-pre-submission` / `2-intermediate-stage` / `3-building` / `4-submitted`). Save into that `[rfp-slug]/` folder wherever it already exists; don't assume the tier or create a duplicate (see "Phases" in `skills/rfp/INDEX.md`).
 
 **Why PDF for the deliverable:** The engineering brief gets forwarded to engineers (Chris and others) who may open it in Slack, email, or on their phone. PDF renders identically everywhere and preserves the section headers, bolded labels, and blockquoted verbatim quotes that make the guided-extraction format scannable.
 
@@ -183,7 +184,7 @@ clarifying-questions email to the agency contact.*
 ## For the sales team (not for the engineer)
 
 [A short block only the person who asked sees, flagging anything they
-should know before Slacking the engineer — e.g., "This RFP has an unusually
+should know before sending this to the engineer — e.g., "This RFP has an unusually
 short response window; consider whether Chris has bandwidth this
 week before asking."]
 ```
@@ -225,9 +226,9 @@ When Claude encounters a passage in the RFP that is unclear, incomplete, or cont
 1. **Include the passage anyway** in the relevant section with the label prefixed by `⚠`.
 2. **Also add an entry to "Ambiguities Requiring Clarification"** at the bottom.
 3. **Phrase the ambiguity as a candidate question** to the agency contact — same format the Clarifying-Questions-to-Agency Email Skill would use.
-4. **Add a one-sentence "Why it matters for engineering" note** so the sales team (and later Peter) understands why the ambiguity is worth clarifying.
+4. **Add a one-sentence "Why it matters for engineering" note** so the sales team understands why the ambiguity is worth clarifying.
 
-**Convergence:** these ambiguities are the *canonical, sourced version* of the RFP's open questions. At the agency-questions email stage they get merged (and deduplicated) with the pursue email's starter questions into the single list the agency receives — and where they overlap, these sourced versions win. Keep each one tightly phrased and agency-ready; the "Why it matters for engineering" note is internal and gets stripped before anything reaches the agency.
+**Convergence:** these ambiguities are the *canonical, sourced version* of the RFP's open questions. The agency questions skill merges them (and deduplicates) with the questions it draws from the RFP documents and the scored judgment into the single list the agency receives — and where they overlap, these sourced versions win. Keep each one tightly phrased and agency-ready; the "Why it matters for engineering" note is internal and gets stripped before anything reaches the agency.
 
 Common ambiguities to watch for:
 - "Must be accessible" without a WCAG level.
@@ -480,6 +481,8 @@ deliverables inside each required track.
 That's the full worked example. Real quotes, real page numbers, honest ambiguity flags.
 
 ## Notes and edit history
+
+**v1.8 — November 2026.** Removed references that no longer match how ISA works. A Phase 1 RFP is no longer "too early": the router asks about a move, and the brief is written either way. ISA reads the saved documents through the router instead of asking for the RFP. The folder rule points at "Phases" in `skills/rfp/INDEX.md`, since `AGENTS.md` no longer has an "RFP stage folders" section. Messages to engineers aren't sent through Slack, the ambiguities no longer wait for Peter, and they merge with the agency questions skill's sources, not the pursue email's starter questions, which that email dropped.
 
 **v1.7 — November 2026.** The folder rule now points at "RFP stage folders" in `AGENTS.md` instead of CLAUDE.md Rule 10.
 
