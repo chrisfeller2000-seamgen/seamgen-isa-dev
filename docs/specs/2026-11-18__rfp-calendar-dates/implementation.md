@@ -75,7 +75,43 @@ The user asked for 1–5 of the proposed changes, with an `.ics` attachment.
 | "Can you write the agency questions for Laguna Beach?" | 2/2 ran `--show` and gave the same deadline as the calendar, with "23 days left". |
 | "add the Carlsbad parks booking dates to my calendar" | 0/4 reached the router (3 before the `AGENTS.md` line, 1 after): "parks booking" reads as a booking, not an RFP. In the group, the Friday message gives the context; `rfp dates <rfp>` always works. |
 
+## Follow-up: Google Calendar links instead of the `.ics` file (November 19, 2026)
+
+The `.ics` attachment above would not have reached Telegram. Before release, OpenClaw's code was checked for what happens to a `MEDIA:` file that isn't an image:
+
+- **Telegram would take it.** OpenClaw's Telegram sender sends any non-image, non-audio, non-video file as a document.
+- **OpenClaw refuses it first.** A reply's local file passes a type check (`assertHostReadMediaAllowed`). Its list, `HOST_READ_ALLOWED_DOCUMENT_MIMES`, allows PDF, Office files, archives, CSV, Markdown, plain text, JSON and YAML, plus images, audio and video. An `.ics` file is detected as `text/calendar` from its contents, so renaming it doesn't help.
+- **Shown on OpenClaw's own loader.** Run against a sample file with the options a reply uses, `loadWebMedia` refused the `.ics` ("Host-local media sends only allow … (got text/calendar)") and accepted a `.md` file. Without the reply's host reader it accepted both, which is why the local CLI test above showed an attachment.
+- **The VM's version has the same check.** The `openclaw@2026.9.9` package from npm has the same list. A refused file is dropped, and the reply goes out with a note that it couldn't be attached.
+
+The user chose Google Calendar links over a zipped file or sending to Telegram outside OpenClaw. What changed:
+
+- **`rfp-dates.mjs`.** It no longer writes the `.ics` file or prints a `MEDIA:` line. `googleCalendarLink()` builds a `calendar.google.com/calendar/render?action=TEMPLATE` link for each upcoming event, carrying:
+  - the title, as before;
+  - the times in UTC, with `ctz` set to the agency's zone; an all-day event ends the next day;
+  - the details: RFP number, agency, contact, submission method, sign-up link and source.
+
+  Each date in the text ends with `[Add to Google Calendar](…)`. Parentheses and asterisks in the link are percent-encoded, so a title like "(Phase 2)" can't end the Markdown link early. OpenClaw's Telegram renderer turns the link into a tappable "Add to Google Calendar" (checked with its `renderTelegramHtmlText`).
+- **Reminders.** A link can't set reminders, so the event gets the person's default Google notification, and the text lists the suggested ones.
+- **Skills and docs.**
+  - calendar-dates v2.1 says to send the links exactly as printed, and that there is no file to attach.
+  - The agency questions line, the domain README and `commands.md` now describe links instead of a file.
+- **Tests.** `devtools/rfp-dates.test.mjs` checks:
+  - one link per upcoming event, with the right times, zone and details;
+  - all-day dates;
+  - a title with parentheses and asterisks;
+  - no `MEDIA:` line, and no file other than the note.
+
+**Local ISA (same model, router fixture's RFPs, commands relayed by hand because local ISA has no shell, November 19):**
+
+| Request | Result |
+| --- | --- |
+| "Can you put the Laguna Beach dates on my calendar?" | 0 of 4 reached the script. Every run went through the router, which said to open the calendar skill. ISA read the documents and gave the right dates as text, including the addendum's January 21, but didn't open the skill. Two runs stalled on the relay itself. |
+| `rfp dates laguna-beach-website-redesign` | 1 of 2 followed the skill end to end. Its reply was identical to the script's text, both links included. The other gave the dates as text. |
+
+Skipping the skill happens before anything this follow-up changed. The November 18 rounds saw it in 1 of 5 runs; this round saw it more often. When ISA reached the script, it sent the links unchanged.
+
 ## Not verified
 
-- **Telegram delivery of the `.ics` file.** Live ISA has only attached images so far (all through `MEDIA:` lines, per a read-only search of its transcripts). If Telegram doesn't deliver it, the dates are still in the message text. Check on the first live calendar request.
-- **The live model** (openai/gpt-6.1-sol) hasn't run this path.
+- **A Google Calendar link opened on a phone.** The link format is Google's documented "add event" template, but nobody has tapped one from Telegram yet.
+- **The live model** (openai/gpt-6.1-sol) hasn't run this path, or relayed the links unchanged.

@@ -10,14 +10,12 @@
 //   RFP_DATES_END
 //   node scripts/rfp-dates.mjs --rfp <slug> --show      (the dates recorded last time, no changes)
 //
-// It writes two files in the RFP's folder and nowhere else:
-// - key-dates_<slug>.md: the RFP's one key-dates note. This script owns the part between the
-//   key-dates markers; anything else in the note (older hand-written tables) is kept as it is.
-//   The agency questions skill and the Tuesday refresh read the same note, so every skill gives
-//   the same deadline.
-// - key-dates_<slug>.ics: a calendar file ISA attaches in chat, so a person adds every event in
-//   one tap. ISA never writes to anyone's calendar; the person opens the file.
-// Neither file is copied to Drive (only resources/ is). Input arrives on standard input through a
+// It writes one file, key-dates_<slug>.md in the RFP's folder, and nothing else: the RFP's one
+// key-dates note. This script owns the part between the key-dates markers; anything else in the
+// note (older hand-written tables) is kept as it is. The agency questions skill and the Tuesday
+// refresh read the same note, so every skill gives the same deadline. The note isn't copied to
+// Drive (only resources/ is). Each upcoming date in the text ISA sends has a Google Calendar
+// link; ISA never writes to anyone's calendar, the person taps the link and saves the event. Input arrives on standard input through a
 // quoted heredoc, like the router's, because agency text can hold characters a shell would run.
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -251,58 +249,39 @@ function titleOf(name, event) {
   return `[RFP] ${name} — ${what}${event.note ? ` (${event.note})` : ''}`;
 }
 
-// ---- The calendar file ----------------------------------------------------------------------
+// ---- Google Calendar links -----------------------------------------------------------------
 
-const icsText = value => String(value ?? '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
-const icsStamp = iso => new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-// RFC 5545 lines are at most 75 octets; longer ones continue on a line starting with a space.
-function fold(line) {
-  const bytes = Buffer.from(line, 'utf8');
-  if (bytes.length <= 75) return line;
-  const out = [];
-  let current = '';
-  for (const char of line) {
-    const limit = out.length ? 74 : 75;
-    if (Buffer.byteLength(current + char, 'utf8') > limit) { out.push(current); current = char; } else current += char;
-  }
-  out.push(current);
-  return out.join('\r\n ');
-}
+// OpenClaw won't attach a .ics file to a reply. Its check on local files ISA attaches allows
+// images, audio, video, PDF, Office files, archives and plain text, and refuses text/calendar
+// (HOST_READ_ALLOWED_DOCUMENT_MIMES in OpenClaw 2026.9.4 and the VM's 2026.9.9; the reply then
+// goes out with a "couldn't attach" note). So each event is a Google Calendar "add event" link in
+// the message instead. ISA still never writes to a calendar: the person taps the link and saves.
+// A link can't carry reminders, so the event gets the person's default Google notifications.
+const GOOGLE_CALENDAR = 'https://calendar.google.com/calendar/render';
+const googleStamp = iso => new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 
-/** The .ics file for the upcoming events. UIDs carry the date, so a moved date imports as a new event. */
-export function renderIcs(plan, { slug, folder, input = {}, now = new Date() }) {
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Seamgen//ISA RFP key dates//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', `X-WR-CALNAME:${icsText(`[RFP] ${plan.name}`)}`];
-  for (const event of plan.events) {
-    const description = [
-      input.number && `RFP number: ${clean(input.number)}`,
-      input.agency && `Agency: ${clean(input.agency)}`,
-      input.contact && `Contact: ${clean(input.contact)}`,
-      input.submission && `Submission: ${clean(input.submission)}`,
-      event.registration && `Register: ${event.registration}`,
-      event.kind === 'register' && `Register by ${event.byWhy}.`,
-      event.noTime && 'The documents give no time for this date.',
-      event.source && `Source: ${event.source}`,
-      input.foundVia && `Source (found via): ${clean(input.foundVia)}`,
-      `ISA folder: ${folder}`,
-    ].filter(Boolean).join('\n');
-    lines.push('BEGIN:VEVENT', `UID:${slug}-${event.key}-${event.stamp.replace(/[^0-9A-Za-z]/g, '')}@isa.seamgen.com`, `DTSTAMP:${icsStamp(now.toISOString())}`);
-    if (event.allDay) {
-      lines.push(`DTSTART;VALUE=DATE:${event.date.replace(/-/g, '')}`, `DTEND;VALUE=DATE:${addDays(event.date, 1).replace(/-/g, '')}`);
-    } else {
-      const minutes = Number(event.minutes) || KINDS[event.kind].minutes;
-      lines.push(`DTSTART:${icsStamp(event.at)}`, `DTEND:${icsStamp(new Date(Date.parse(event.at) + minutes * 60_000).toISOString())}`);
-    }
-    lines.push(`SUMMARY:${icsText(event.title)}`, `DESCRIPTION:${icsText(description)}`);
-    if (event.registration && /^https:\/\//i.test(event.registration)) lines.push(`URL:${event.registration}`);
-    // A deadline doesn't make anyone busy; a conference does.
-    lines.push(`TRANSP:${event.kind === 'conference' ? 'OPAQUE' : 'TRANSPARENT'}`);
-    for (const days of event.reminders) {
-      lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', `TRIGGER:-P${days}D`, `DESCRIPTION:${icsText(`${event.title}: ${dayWords(days)} away`)}`, 'END:VALARM');
-    }
-    lines.push('END:VEVENT');
-  }
-  lines.push('END:VCALENDAR');
-  return `${lines.map(fold).join('\r\n')}\r\n`;
+/** A Google Calendar link that opens the event, filled in, for the person to save. */
+export function googleCalendarLink(event, input = {}) {
+  const details = [
+    input.number && `RFP number: ${clean(input.number)}`,
+    input.agency && `Agency: ${clean(input.agency)}`,
+    input.contact && `Contact: ${clean(input.contact)}`,
+    input.submission && `Submission: ${clean(input.submission)}`,
+    event.registration && `Register: ${event.registration}`,
+    event.kind === 'register' && `Register by ${event.byWhy}.`,
+    event.noTime && 'The documents give no time for this date.',
+    event.source && `Source: ${event.source}`,
+  ].filter(Boolean).join('\n');
+  const minutes = Number(event.minutes) || KINDS[event.kind].minutes;
+  // All-day events end on the next day, as in Google's own links; timed ones are given in UTC.
+  const dates = event.allDay
+    ? `${event.date.replace(/-/g, '')}/${addDays(event.date, 1).replace(/-/g, '')}`
+    : `${googleStamp(event.at)}/${googleStamp(new Date(Date.parse(event.at) + minutes * 60_000).toISOString())}`;
+  const params = new URLSearchParams({ action: 'TEMPLATE', text: event.title, details });
+  if (event.zone) params.set('ctz', event.zone);
+  // The link goes into a Markdown link, which a bare parenthesis or asterisk would break. `dates`
+  // holds only digits, T, Z and the slash, kept as Google's own links write it.
+  return `${GOOGLE_CALENDAR}?${params.toString().replace(/[()*]/g, char => `%${char.charCodeAt(0).toString(16).toUpperCase()}`)}&dates=${dates}`;
 }
 
 // ---- The key-dates note ---------------------------------------------------------------------
@@ -339,20 +318,21 @@ export function readLedger(note) {
 
 // ---- What ISA sends -------------------------------------------------------------------------
 
-export function renderChat(plan, { icsPath, notePath }) {
+export function renderChat(plan, { notePath }) {
   const out = [`Key dates for ${plan.name} (agency time):`];
   if (!plan.events.length) out.push('• Nothing still ahead.');
   for (const event of plan.events) {
     const was = plan.changed.find(change => change.label === event.label && change.to);
-    out.push(`• ${event.label}: ${event.when}${event.noTime ? ' (no time given)' : ''}${was ? ` (moved from ${was.from})` : ''}${event.kind === 'register' ? ` (${event.byWhy})` : ''}`);
+    out.push(`• ${event.label}: ${event.when}${event.noTime ? ' (no time given)' : ''}${was ? ` (moved from ${was.from})` : ''}${event.kind === 'register' ? ` (${event.byWhy})` : ''}`
+      + ` — [Add to Google Calendar](${googleCalendarLink(event, plan.ledger.input)})`);
   }
-  if (plan.passed.length) out.push('', 'Already passed (not in the file):', ...plan.passed.map(event => `• ${event.label}: ${event.when}`));
+  if (plan.passed.length) out.push('', 'Already passed:', ...plan.passed.map(event => `• ${event.label}: ${event.when}`));
   if (!plan.first) {
-    out.push('', 'Changed since the last calendar file:');
+    out.push('', 'Changed since the dates were last given:');
     if (!plan.changed.length) out.push('• Nothing moved.');
     for (const change of plan.changed) {
       out.push(change.to
-        ? `• ${change.label}: ${change.from} → ${change.to}${change.source ? `, per ${change.source}` : ''}. If you added the earlier file, delete the old event.`
+        ? `• ${change.label}: ${change.from} → ${change.to}${change.source ? `, per ${change.source}` : ''}. If you added the earlier date to your calendar, delete that event.`
         : change.unsure
           ? `• ${change.label} (${change.from}) can't be confirmed now; see "Not scheduled". Check it before relying on the old event.`
           : `• ${change.label} (${change.from}) is no longer in the documents. Remove it from your calendar.`);
@@ -364,14 +344,10 @@ export function renderChat(plan, { icsPath, notePath }) {
   if (plan.events.length) {
     const reminders = plan.events.filter(event => event.reminders.length)
       .map(event => `${event.label.toLowerCase()} ${listWords(event.reminders.map(dayWords))} before`);
-    out.push('', `Open the attached file to add ${plan.events.length === 1 ? 'this event' : `these ${plan.events.length} events`} to your calendar.`
-      + (reminders.length ? ` Reminders: ${reminders.join('; ')}.` : ''));
+    out.push('', 'Tap "Add to Google Calendar" next to a date, then Save. A link can\'t set reminders, so your calendar\'s default notification applies.'
+      + (reminders.length ? ` Suggested reminders: ${reminders.join('; ')}.` : ''));
   }
-  // OpenClaw attaches a local file when a final reply has a line of its own starting with MEDIA:
-  // (docs/reference/rich-output-protocol.md); inside bold, code or a sentence it stays text.
-  const relay = ['Send them the text between the lines word for word. They can\'t see this output.'
-    + (plan.events.length ? ' To attach the calendar file, end the same reply with the MEDIA: line below, exactly as written, on a line of its own with no formatting.' : ''), '-----', ...out, '-----'];
-  if (plan.events.length) relay.push(`MEDIA:${icsPath}`);
+  const relay = ['Send them the text between the lines word for word, links included. They can\'t see this output.', '-----', ...out, '-----'];
   relay.push(`(Key-dates note, not for the chat: ${notePath})`);
   return relay.join('\n');
 }
@@ -392,19 +368,16 @@ async function writeAtomic(file, text) {
   await fs.rename(temp, file);
 }
 
-/** Plans, writes the note and the calendar file, and returns the text for ISA. */
+/** Plans, writes the key-dates note, and returns the text for ISA. */
 export async function runDates({ slug, input, workspace = workspaceDir(), now = new Date(), merge = false }) {
   const dir = await rfpFolder(slug, workspace);
   const notePath = notePathOf(dir, slug);
   const existing = await fs.readFile(notePath, 'utf8').catch(() => '');
   const plan = planDates(input, { slug, previous: readLedger(existing), now, merge });
   const relative = file => path.relative(workspace, file).split(path.sep).join('/');
-  const icsPath = path.join(dir, `key-dates_${slug}.ics`);
   const title = [clean(input.agency), plan.name, clean(input.number) && `(${clean(input.number)})`].filter(Boolean).join(' — ').replace(' — (', ' (');
   await writeAtomic(notePath, mergeNote(existing, renderBlock(plan, { input: plan.ledger.input }), { title }));
-  if (plan.events.length) await writeAtomic(icsPath, renderIcs(plan, { slug, folder: relative(dir), input: plan.ledger.input, now }));
-  else await fs.rm(icsPath, { force: true });
-  return { plan, text: renderChat(plan, { icsPath, notePath: relative(notePath) }) };
+  return { plan, text: renderChat(plan, { notePath: relative(notePath) }) };
 }
 
 /** The dates recorded last time, worked out again against today. Null when none are recorded. */

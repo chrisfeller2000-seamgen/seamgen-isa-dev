@@ -1,4 +1,4 @@
-// scripts/rfp-dates.mjs: the calendar skill's date arithmetic, key-dates note and .ics file.
+// scripts/rfp-dates.mjs: the calendar skill's date arithmetic, key-dates note and Google Calendar links.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs/promises';
@@ -6,7 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { routeWorkspace } from './fixtures/rfp-route-workspace.mjs';
-import { parseClock, parseWrittenDate, planDates, recordedDates, renderIcs, resolveZone, runDates } from '../workspace/scripts/rfp-dates.mjs';
+import { googleCalendarLink, parseClock, parseWrittenDate, planDates, recordedDates, resolveZone, runDates } from '../workspace/scripts/rfp-dates.mjs';
 import { routeRequest } from '../workspace/scripts/rfp-route.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -15,7 +15,8 @@ const SLUG = 'laguna-beach-website-redesign';
 const NOW = new Date('2026-11-18T20:00:00Z');
 const folderOf = workspace => path.join(workspace, 'RFPs', '2-intermediate-stage', SLUG);
 const notePath = workspace => path.join(folderOf(workspace), `key-dates_${SLUG}.md`);
-const icsPath = workspace => path.join(folderOf(workspace), `key-dates_${SLUG}.ics`);
+// The Google Calendar links in the text ISA sends, in order, as parsed URLs.
+const linksIn = text => [...text.matchAll(/\[Add to Google Calendar\]\((https:[^)\s]+)\)/g)].map(match => new URL(match[1]));
 
 const laguna = () => ({
   name: 'Laguna Beach Website Redesign', agency: 'City of Laguna Beach', number: 'RFP 2026-31',
@@ -76,9 +77,9 @@ test('an RFP that prints EST in summer is put on EDT, and Arizona is flagged', (
 
 test('a field filled with "not stated" is left out instead of reaching the calendar', () => {
   const plan = planDates({ ...laguna(), contact: 'Not stated in the saved documents', foundVia: 'unknown', submission: 'N/A' }, { slug: SLUG, now: NOW });
-  const ics = renderIcs(plan, { slug: SLUG, folder: 'RFPs/x', input: plan.ledger.input, now: NOW });
-  assert.doesNotMatch(ics.replace(/\r\n /g, ''), /Contact:|found via|Submission:/);
-  assert.match(ics.replace(/\r\n /g, ''), /Agency: City of Laguna Beach/);
+  const details = new URL(googleCalendarLink(plan.events[0], plan.ledger.input)).searchParams.get('details');
+  assert.doesNotMatch(details, /Contact:|found via|Submission:/);
+  assert.match(details, /Agency: City of Laguna Beach/);
 });
 
 test('fuzzy, unreadable and zone-less dates are reported, never scheduled', () => {
@@ -92,44 +93,53 @@ test('fuzzy, unreadable and zone-less dates are reported, never scheduled', () =
   assert.deepEqual(plan.events.map(event => [event.label, event.allDay]), [['Intent to bid due', true]], 'a date with no time is an all-day event');
 });
 
-test('a run writes the key-dates note and a valid calendar file in the RFP folder only', async () => {
+// OpenClaw 2026.9.4 and the VM's 2026.9.9 refuse a text/calendar file attached to a reply, so the
+// text carries a Google Calendar link for each event instead of a MEDIA: line.
+test('a run writes the key-dates note only, and the text links each upcoming event to Google Calendar', async () => {
   const workspace = await routeWorkspace();
   const { text } = await runDates({ slug: SLUG, input: laguna(), workspace, now: NOW });
-  assert.match(text, /^Send them the text between the lines word for word/);
-  // The MEDIA: line, on its own line after the text, is what makes OpenClaw attach the file.
-  assert.ok(text.split('\n').includes(`MEDIA:${icsPath(workspace)}`), 'a MEDIA: line with the calendar file');
-  assert.match(text, /-----\nMEDIA:/);
+  assert.match(text, /^Send them the text between the lines word for word, links included/);
+  assert.doesNotMatch(text, /MEDIA:|attach/i);
   assert.match(text, /Not scheduled \(no confirmed date\):\n• Interviews/);
+  const links = linksIn(text);
+  assert.equal(links.length, 4, 'one link per upcoming event');
+  for (const link of links) {
+    assert.equal(`${link.origin}${link.pathname}`, 'https://calendar.google.com/calendar/render');
+    assert.equal(link.searchParams.get('action'), 'TEMPLATE');
+  }
+  const [register, conference, , proposal] = links;
+  assert.equal(register.searchParams.get('dates'), '20261201/20261202', 'an all-day event ends the next day');
+  assert.equal(conference.searchParams.get('dates'), '20261203T180000Z/20261203T190000Z', '10 AM Pacific, one hour');
+  assert.equal(conference.searchParams.get('ctz'), 'America/Los_Angeles');
+  assert.equal(conference.searchParams.get('text'), '[RFP] Laguna Beach Website Redesign — MANDATORY conference');
+  assert.equal(conference.searchParams.get('details'), [
+    'RFP number: RFP 2026-31', 'Agency: City of Laguna Beach', 'Contact: Jane Doe, jdoe@lagunabeachcity.net',
+    'Submission: Upload to PlanetBids', 'Register: https://example.org/register', 'Source: file 4, page 2',
+  ].join('\n'));
+  assert.equal(proposal.searchParams.get('dates'), '20270114T220000Z/20270114T223000Z');
+  assert.match(text, /Suggested reminders: .*proposal due 2 weeks, 1 week and 2 days before\./);
   const note = await fs.readFile(notePath(workspace), 'utf8');
   assert.match(note, /^# Key dates — City of Laguna Beach — Laguna Beach Website Redesign \(RFP 2026-31\)/);
   assert.match(note, /\| \*\*Proposal due\*\* \| \*\*Thu Jan 14, 2027, 2:00 PM PT\*\* \| file 4, page 1 \|/);
-  const ics = await fs.readFile(icsPath(workspace), 'utf8');
-  assert.ok(ics.split('\r\n').every(line => Buffer.byteLength(line, 'utf8') <= 75), 'lines are folded at 75 octets');
-  assert.ok(!/[^\r]\n/.test(ics), 'every line ends in CRLF');
-  assert.equal((ics.match(/BEGIN:VEVENT/g) || []).length, 4);
-  assert.match(ics, /DTSTART:20261203T180000Z/);
-  assert.match(ics, /DTSTART;VALUE=DATE:20261201/);
-  assert.match(ics, /TRIGGER:-P14D/);
-  assert.match(ics.replace(/\r\n /g, ''), /Contact: Jane Doe\\, jdoe@lagunabeachcity\.net/, 'commas are escaped');
+  const files = await fs.readdir(folderOf(workspace));
+  assert.deepEqual(files.filter(name => name.startsWith('key-dates')), [`key-dates_${SLUG}.md`], 'no calendar file is written');
   const resources = await fs.readdir(path.join(folderOf(workspace), 'resources'));
   assert.ok(!resources.some(name => name.startsWith('key-dates')), 'nothing goes into resources/, which is mirrored to Drive');
 });
 
-test('a second run lists what moved, keeps the old date as "was:", and gives the moved event a new ID', async () => {
+test('a second run lists what moved, keeps the old date as "was:", and links the new date', async () => {
   const workspace = await routeWorkspace();
   await runDates({ slug: SLUG, input: laguna(), workspace, now: NOW });
-  const firstIcs = await fs.readFile(icsPath(workspace), 'utf8');
   const input = laguna();
   input.milestones[2] = { kind: 'proposal', date: 'January 21, 2027', time: '2:00 PM', source: 'file 1 (Addendum 1)' };
   input.milestones.splice(1, 1); // the conference was cancelled
   const { text } = await runDates({ slug: SLUG, input, workspace, now: NOW });
-  assert.match(text, /• Proposal due: Thu Jan 14, 2027, 2:00 PM PT → Thu Jan 21, 2027, 2:00 PM PT, per file 1 \(Addendum 1\)\. If you added the earlier file, delete the old event\./);
+  assert.match(text, /• Proposal due: Thu Jan 14, 2027, 2:00 PM PT → Thu Jan 21, 2027, 2:00 PM PT, per file 1 \(Addendum 1\)\. If you added the earlier date to your calendar, delete that event\./);
   assert.match(text, /• Pre-proposal conference \(Thu Dec 3, 2026, 10:00 AM PT\) is no longer in the documents\. Remove it from your calendar\./);
   assert.match(await fs.readFile(notePath(workspace), 'utf8'), /\(was: Thu Jan 14, 2027, 2:00 PM PT\)/);
-  const uid = ics => ics.match(/UID:laguna-beach-website-redesign-proposal[^\r]*/)[0];
-  assert.notEqual(uid(await fs.readFile(icsPath(workspace), 'utf8')), uid(firstIcs));
+  assert.equal(linksIn(text).at(-1).searchParams.get('dates'), '20270121T220000Z/20270121T223000Z', 'the link has the new date');
   const again = await runDates({ slug: SLUG, input, workspace, now: NOW });
-  assert.match(again.text, /Changed since the last calendar file:\n• Nothing moved\./);
+  assert.match(again.text, /Changed since the dates were last given:\n• Nothing moved\./);
 });
 
 test('--merge records one date and keeps the rest; an older hand-written note is kept', async () => {
@@ -167,7 +177,7 @@ test('from the command line: the dates arrive on standard input, and an RFP with
   input.contact = 'Jane $(touch pwned) `id` Doe';
   const run = spawnSync(process.execPath, [script, '--rfp', SLUG], { input: JSON.stringify(input), env: { ...process.env, WORKSPACE_DIR: workspace }, encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
-  assert.match(await fs.readFile(icsPath(workspace), 'utf8'), /Jane \$\(touch pwned\) `id` Doe/);
+  assert.ok(linksIn(run.stdout).some(link => link.searchParams.get('details').includes('Jane $(touch pwned) `id` Doe')));
   await assert.rejects(fs.access(path.join(workspace, 'pwned')));
   const show = spawnSync(process.execPath, [script, '--rfp', SLUG, '--show'], { env: { ...process.env, WORKSPACE_DIR: workspace }, encoding: 'utf8' });
   assert.match(show.stdout, /"milestone": "Proposal due"/);
@@ -178,14 +188,17 @@ test('from the command line: the dates arrive on standard input, and an RFP with
   assert.match(bad.stderr, /must be JSON/);
 });
 
-test('renderIcs makes an all-day event span one day and marks only conferences as busy', () => {
+test('a link survives a title with parentheses and asterisks, and an all-day event spans one day', () => {
   const plan = planDates({ name: 'X', zone: 'CT', milestones: [
     { kind: 'conference', date: 'December 2, 2026', time: '9:00 AM', registrationRequired: true },
     { kind: 'proposal', date: 'December 20, 2026' },
   ] }, { slug: 'x', now: NOW });
-  const ics = renderIcs(plan, { slug: 'x', folder: 'RFPs/x', now: NOW });
-  assert.match(ics, /DTSTART;VALUE=DATE:20261220\r\nDTEND;VALUE=DATE:20261221/);
-  assert.equal((ics.match(/TRANSP:OPAQUE/g) || []).length, 1);
+  const proposal = plan.events.find(event => event.kind === 'proposal');
+  const link = googleCalendarLink({ ...proposal, title: '[RFP] X (Phase 2) *web* — Proposal DUE' });
+  // A bare parenthesis or asterisk would end or break the Markdown link ISA sends.
+  assert.doesNotMatch(link, /[()*\s]/);
+  assert.equal(new URL(link).searchParams.get('text'), '[RFP] X (Phase 2) *web* — Proposal DUE');
+  assert.equal(new URL(link).searchParams.get('dates'), '20261220/20261221');
   assert.match(plan.needs.join('\n'), /No registration link/);
   assert.equal(plan.events.find(event => event.kind === 'register').date, '2026-12-01', 'with no sign-up deadline, register the day before');
 });

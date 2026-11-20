@@ -53,7 +53,7 @@ The router applies the phase rules: a skill from a later phase than the RFP's as
 | --- | --- | --- | --- | --- |
 | Capability check for a named engineer | A capability check: a checklist for a named engineer to confirm what Seamgen has actually built for each technical ask. | 2 | `rfp capability <rfp>` | `skills/rfp/capability-check/instructions.md` |
 | Engineering brief for a timeline estimate | An engineering brief: the RFP scope, short enough for a lead engineer to give a timeline estimate. | 2 | `rfp brief <rfp>` | `skills/rfp/engineering-brief/instructions.md` |
-| Key dates as calendar events | An RFP's key dates (questions due, pre-proposal meeting, proposal due) as a calendar file to add to your calendar. | 2 | `rfp dates <rfp>` | `skills/rfp/calendar-dates/instructions.md` |
+| Key dates as calendar events | An RFP's key dates (questions due, pre-proposal meeting, proposal due) with links to add them to your calendar. | 2 | `rfp dates <rfp>` | `skills/rfp/calendar-dates/instructions.md` |
 | Questions for the agency's Q&A | Questions to send in the agency's Q&A or clarification window, with the email to copy. | 2 | `rfp questions <rfp>` | `skills/rfp/agency-questions/instructions.md` |
 | Materials requests for teammates | Messages asking teammates for the proposal materials still missing, as text to paste into Slack. | 3 | `rfp materials <rfp>` | `skills/rfp/materials-request/instructions.md` |
 | Moonshot deck folded into the proposal | Folding the design team's moonshot deck into the compliant proposal. | 3 | `rfp moonshot <rfp>` | `skills/rfp/moonshot/instructions.md` |

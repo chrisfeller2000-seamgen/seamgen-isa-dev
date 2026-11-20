@@ -77,8 +77,8 @@ gives the same deadline, so both read and write the RFP's one key-dates note:
    RFP_DATES_END
    ```
 
-   Take the date line from its output. Don't send its calendar text or attach its file unless the
-   person asked for calendar dates.
+   Take the date line from its output. Don't send its calendar text or links unless the person asked
+   for calendar dates.
 
 - **Posted:** `Questions due: <the date from rfp-dates.mjs> (<n> days left)`, with the file and page it comes from.
 - **Passed:** `Questions were due <date>; the window has closed.` Then stop, per "When to use it".
