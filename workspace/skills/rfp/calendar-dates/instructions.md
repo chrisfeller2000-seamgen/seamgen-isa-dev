@@ -24,6 +24,8 @@ link on each date. ISA sends that list; the person taps a link and saves the eve
 calendar.
 
 **ISA never creates, changes or deletes calendar events.** The person adds them from the links.
+So "put the dates on my calendar" is never a reason to say you can't: the links are how it gets
+done. Always finish with the script's text, never with your own list of the dates.
 
 The question "when is it due?" is not this skill. The router answers it from the key-dates note
 or the documents. This skill is for "put the dates on my calendar" or `rfp dates <rfp>`.
@@ -154,7 +156,8 @@ ISA's disk; it doesn't go to Drive.
 ## Guardrails
 
 - Only dates printed in the agency's documents. Never invent a date, time or link.
-- Never write to a calendar, or say an event was added. The person adds it.
+- Never write to a calendar, or say an event was added. The person adds it from the links.
+- Never answer a calendar request with the dates alone. Run the script and send its text.
 - Never work out a weekday, time-zone change or reminder date yourself; the script does.
 
 ## Notes and edit history
@@ -164,7 +167,9 @@ and 2026.9.9 on the VM) checks the type of a file attached to a reply and refuse
 `text/calendar`, so the `.ics` file would never have reached Telegram; the reply would have gone
 out with a "couldn't attach" note. The script no longer writes the file. Each upcoming date now
 has an "Add to Google Calendar" link that opens the event filled in. A link can't set reminders,
-so the text lists the suggested ones and the person's default notification applies.
+so the text lists the suggested ones and the person's default notification applies. In one local
+run ISA opened this skill, read the dates, then said it couldn't add calendar events and sent a
+plain list; the skill now says a calendar request always ends with the script's text.
 
 **v2.0 — November 2026.** Rewritten so ISA can run it reliably. **(1) Any phase with saved
 documents.** v1.2 refused every RFP in Phase 1, which contradicted the router's "leave it where it

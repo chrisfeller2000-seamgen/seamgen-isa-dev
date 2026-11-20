@@ -202,3 +202,13 @@ test('a link survives a title with parentheses and asterisks, and an all-day eve
   assert.match(plan.needs.join('\n'), /No registration link/);
   assert.equal(plan.events.find(event => event.kind === 'register').date, '2026-12-01', 'with no sign-up deadline, register the day before');
 });
+
+// In a local run on November 19, ISA opened the calendar skill, read the dates, then said it
+// couldn't add calendar events and sent a plain list: "ISA never creates calendar events" read as
+// "decline". With these two sentences, five of five runs ran the script and sent its links.
+test('the calendar skill says a calendar request always ends with the script\'s links', async () => {
+  const skill = await fs.readFile(path.join(repoRoot, 'workspace', 'skills', 'rfp', 'calendar-dates', 'instructions.md'), 'utf8');
+  assert.match(skill, /"put the dates on my calendar" is never a reason to say you can't: the links are how it gets\ndone\./);
+  assert.match(skill, /Never answer a calendar request with the dates alone\. Run the script and send its text\./);
+  assert.doesNotMatch(skill.slice(0, skill.indexOf('## Notes and edit history')), /MEDIA:|attaches the file/);
+});

@@ -109,7 +109,33 @@ The user chose Google Calendar links over a zipped file or sending to Telegram o
 | "Can you put the Laguna Beach dates on my calendar?" | 0 of 4 reached the script. Every run went through the router, which said to open the calendar skill. ISA read the documents and gave the right dates as text, including the addendum's January 21, but didn't open the skill. Two runs stalled on the relay itself. |
 | `rfp dates laguna-beach-website-redesign` | 1 of 2 followed the skill end to end. Its reply was identical to the script's text, both links included. The other gave the dates as text. |
 
-Skipping the skill happens before anything this follow-up changed. The November 18 rounds saw it in 1 of 5 runs; this round saw it more often. When ISA reached the script, it sent the links unchanged.
+When ISA reached the script, it sent the links unchanged.
+
+### Why ISA skipped the skill (November 19)
+
+Most of the skipping came from the test, not the skill:
+- **The cause in the test.** The relay message told ISA "you have no shell tool here" and gave no way to read a file. In its thinking ISA said it was "unsure if I should follow the instructions to open the skill file since we don't have a tool for files right now". One run made up its own file-reading command instead. On the VM, ISA reads a skill with its file tool, so this doesn't happen there.
+- **The corrected message** says shell and file tools are relayed, with `RUN: cat <path>` for reading a file.
+
+| Round (natural phrasing, corrected relay message) | Opened the skill | Ran the script and sent its text |
+| --- | --- | --- |
+| Before the wording change | 2 of 2 | 1 of 2 |
+| After the wording change | 5 of 5 | 5 of 5, links identical to the script's |
+
+**The one real miss.** ISA opened the skill and read the documents, then said "I can't add calendar events directly here" and sent a plain list. The skill's opening said what ISA never does, and nothing said a calendar request still gets done.
+
+**The fix in calendar-dates v2.1:**
+- Under that opening: "put the dates on my calendar" is never a reason to say you can't, since the links are how it gets done, and always finish with the script's text.
+- A new guardrail: never answer a calendar request with the dates alone.
+- A test in `devtools/rfp-dates.test.mjs` keeps both sentences in the skill.
+
+**Runs not counted:**
+- Two runs, because DNS lookups to the model provider failed (`ENOTFOUND`).
+- One run garbled by the retries after that failure.
+
+**Caveats:**
+- The samples are small, and the two rounds can't separate the wording change from run-to-run variation.
+- The relay driver repeated a command when a retried model call repeated ISA's message. The driver was fixed partway through.
 
 ## Not verified
 
