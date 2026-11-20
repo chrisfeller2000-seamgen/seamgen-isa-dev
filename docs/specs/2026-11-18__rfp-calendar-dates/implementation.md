@@ -141,3 +141,34 @@ Most of the skipping came from the test, not the skill:
 
 - **A Google Calendar link opened on a phone.** The link format is Google's documented "add event" template, but nobody has tapped one from Telegram yet.
 - **The live model** (openai/gpt-6.1-sol) hasn't run this path, or relayed the links unchanged.
+
+## Release (November 20, 2026 at 01:54 UTC)
+
+Uploaded on the user's request after #76 and #77 merged. Commit `3598550` (the #77 merge, which includes #76).
+
+**Before the upload:**
+- `npm test` (288) and `npm run check` passed on `main`.
+- `live:pull` showed no VM changes since the accepted baseline. The only differences were the 10 files from #76 and #77.
+
+**Uploaded:** 10 files.
+- `AGENTS.md` (13,070 characters, under OpenClaw's 20,000 limit);
+- `scripts/rfp-dates.mjs` (new) and `scripts/rfp-route.mjs`;
+- `skills/rfp/INDEX.md`;
+- the instructions for agency-questions, calendar-dates, capability-check, document-fetch, document-refresh and engineering-brief.
+
+The backup is `backups/dev-deploy-2026-11-20T01-54-11-149Z-3598550`. Nothing was restarted, and no scheduled job changed.
+
+**After the upload:** `live:pull` showed the VM matching `main`.
+
+**Read-only checks on the VM:**
+- Both scripts pass `node --check`.
+- `rfp-stage.mjs list`: no RFP is in Phases 2–4 yet; 302 are in Phase 1.
+- The router, on a Phase 1 RFP (`learning-management-system`):
+  - "when are questions due for learning management system" gave `answer` with `about: "dates"` and `dates: null`, because there's no key-dates note yet, so ISA reads the documents;
+  - "put the learning management system dates on my calendar" and `rfp dates learning-management-system` asked about moving it to Phase 2 first.
+
+**Still to see live:**
+- the first calendar request, with the live model following the skill to the script;
+- a Google Calendar link tapped from Telegram on a phone.
+
+A chat session that was already open may still be using the previous `AGENTS.md`.
