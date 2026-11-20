@@ -5,7 +5,7 @@
 - **Skill:** ISA-facing workflow instructions in `workspace/skills/`. A skill's text is not proof its steps are implemented or scheduled.
 - **Candidate:** A HigherGov opportunity represented by a runtime `RFP-pipeline/candidates/<slug>/candidate.md`. Customer candidates are not tracked in this repo.
 - **Resources:** Downloaded solicitation and attachment files under a runtime `RFPs/<stage>/<slug>/resources/` folder, not the Git source tree.
-- **Stage tier:** The folder under `RFPs/` an RFP sits in: `1-pre-submission` (Scored), `2-intermediate-stage` (Looking closer), `3-building` (Building), `4-submitted` (Submitted). Only `rfp-stage.mjs`, run when someone asks, moves an RFP out of tier 1.
+- **Stage tier:** The folder under `RFPs/` an RFP sits in: `1-pre-submission` (Scored), `2-intermediate-stage` (Shortlisted; called Looking closer until November 2026, and `looking` still works as a move word), `3-building` (Building), `4-submitted` (Submitted). Only `rfp-stage.mjs`, run when someone asks, moves an RFP out of tier 1.
 - **Preliminary score:** Metadata-based screen used to decide whether to fetch documents. It is not a final pursue decision.
 - **Full-text / partial-documents / access-blocked:** Evidence states for RFP qualification. Full-text requires usable solicitation evidence and no known missing required scoring documents.
 - **Document manifest:** Per-candidate record of the returned documents, local download/extraction results, and completeness state.

@@ -777,18 +777,18 @@ function closeCallsLine(facts) {
   return `Close calls this week: ${facts.closeCalls.map(call => `**${call.name}** (${call.score})`).join(', ')}. Reply here if you want a closer look at one.`;
 }
 
-// The offer to move the week's Strong Pursue RFPs to Phase 2 (Looking closer), added by code
+// The offer to move the week's Strong Pursue RFPs to Phase 2 (Shortlisted), added by code
 // right after the message so ISA's checked wording never has to carry it. Nothing moves until
 // someone in the group replies; ISA's chat then runs rfp-stage.mjs and explains which skills go
 // with that phase (the phase map in workspace/AGENTS.md). It never runs one unasked. People see
 // phase names; the folders keep their tier names (2-intermediate-stage).
-export const LOOKING_CLOSER = 'Phase 2: Looking closer';
+export const PHASE_2 = 'Phase 2: Shortlisted';
 function moveOfferLine(facts) {
   const names = facts.picks.map(pick => `**${pick.name}**`);
   if (!names.length) return '';
-  if (names.length === 1) return `Want me to move ${names[0]} to ${LOOKING_CLOSER}? Reply here and I'll move it.`;
+  if (names.length === 1) return `Want me to move ${names[0]} to ${PHASE_2}? Reply here and I'll move it.`;
   const list = `${names.slice(0, -1).join(', ')}${names.length > 2 ? ',' : ''} or ${names.at(-1)}`;
-  return `Want me to move any of these to ${LOOKING_CLOSER}: ${list}? Reply here with the ones to move.`;
+  return `Want me to move any of these to ${PHASE_2}: ${list}? Reply here with the ones to move.`;
 }
 
 // RFPs scoring 50+ whose documents wait on someone signing in to the agency's portal: the
@@ -1007,7 +1007,7 @@ export function renderMarkdown(results) {
   ].join('\n');
 }
 
-// New HigherGov versions of RFPs someone already moved to Looking closer, Building or
+// New HigherGov versions of RFPs someone already moved to Shortlisted, Building or
 // Submitted. They aren't scored or picked again; the Tuesday document check (rfp-refresh.mjs)
 // handles their documents and due date. Shown only in weeks that have one.
 function inProgressSection(items = []) {

@@ -31,8 +31,8 @@ import { rfpDocuments } from './document-text.mjs';
 import { recordedDates } from './rfp-dates.mjs';
 import { STAGES, findStage, rfpsDir, workspaceDir } from './rfp-folders.mjs';
 
-const PHASE_NAMES = ['Phase 1: Scored', 'Phase 2: Looking closer', 'Phase 3: Building', 'Phase 4: Submitted'];
-const MOVE_WORDS = ['scored', 'looking', 'building', 'submitted'];
+const PHASE_NAMES = ['Phase 1: Scored', 'Phase 2: Shortlisted', 'Phase 3: Building', 'Phase 4: Submitted'];
+const MOVE_WORDS = ['scored', 'shortlisted', 'building', 'submitted'];
 export const phaseName = number => PHASE_NAMES[number - 1] || '';
 
 const readJson = async file => JSON.parse(await fs.readFile(file, 'utf8'));
@@ -163,14 +163,15 @@ export function matchRfps(message, rfps) {
 }
 
 const STAY = /\b(keep it (where|in|at)|leave it (where|in|at)|dont move|do not move|without moving|stay(s)? (where|in))\b|--stay\b/;
-const LIST = /\bworking on\b|\bin progress\b|\bour rfps\b|\blist (the |our |all )?rfps\b|\bwhich rfps (are|did) we\b|\bwhats in (phase|looking|building)\b|\bwhat is in (phase|looking|building)\b/;
+const LIST = /\bworking on\b|\bin progress\b|\bour rfps\b|\blist (the |our |all )?rfps\b|\bwhich rfps (are|did) we\b|\bwhats in (phase|shortlisted|looking|building)\b|\bwhat is in (phase|shortlisted|looking|building)\b/;
 // Requests that sound like a skill but aren't one. Taken from real chats on the VM (July–October 2026).
 const RETIRED = /\bmeeting brief\b/;
 const SHARE = /\b(share|send me|email me|attach|forward)\b.*\b(documents?|docs?|pdfs?|files?|rfp|rfq)\b/;
 const RESCORE = /\b(rescore|re score|score (this|it|that) (again|rfp|rfq)|score (this|it|that)$|score this (rfp|rfq)|run the scor)/;
 const RESULTS = /\bthis week\b|\blatest batch\b|\bworth pursuing\b|\bfriday (email|results|run|message)\b|\bweekly (rfp )?job\b|\bbeen run\b|\bpursue email\b|\bhow did .* score\b|\bscored today\b|\bwhat score\b|\bits score\b|\bscore breakdown\b|\bpoints per\b/;
 const OFFER = /\bwhat can you (do|help)\b|\bwhats next\b|\bwhat is next\b|\bnext steps?\b|\bwhat (skills|options)\b|\bwhat else can\b|\bhelp with\b/;
-const MOVE = /\b(move|moving|moved|promote|push|bump|advance|put|go(es)? to|send it to)\b/;
+// "shortlist Carlsbad" is a move to Phase 2 (Shortlisted); "is Carlsbad shortlisted?" is not.
+const MOVE = /\b(move|moving|moved|promote|push|bump|advance|put|go(es)? to|send it to|shortlist)\b/;
 // A question about an RFP's dates ("when is Chandler due?", "is there a pre-bid meeting?") is
 // answered, not turned into the calendar skill: in local tests on November 18, 2026 "is there a
 // pre-bid meeting for Chandler?" got a "move it to Phase 2 first?" question back. Only a request
@@ -178,11 +179,12 @@ const MOVE = /\b(move|moving|moved|promote|push|bump|advance|put|go(es)? to|send
 const DATE_QUESTION = /\bwhen (is|are|s|was|were|do|does|did)\b|\bwhens\b|\b(key|important) dates?\b|\bdue dates?\b|\bdeadlines?\b|\bpre (bid|proposal|submittal)\b|\b(bidders|vendors?) (conference|meeting)\b|\bsite visit\b|\bconference\b|\bwhat (date|day|time)\b/;
 const REPLY = /^(yes|yeah|yep|ok|okay|sure|no|nope|nah|go ahead|do it|please do|lets do|the (first|second|third|1st|2nd|3rd)|option \d|number \d|\d\b)/;
 
-// A target phase named in the message: "phase 3", "building", "looking closer", "submitted", "back to scored".
+// A target phase named in the message: "phase 3", "building", "shortlisted", "submitted", "back to scored".
 function phaseIn(text) {
   const number = text.match(/\bphase (\d)\b/)?.[1];
   if (number && Number(number) >= 1 && Number(number) <= 4) return Number(number);
-  if (/\blooking closer\b|\blooking\b|\bintermediate\b/.test(text)) return 2;
+  // "looking closer" and "looking" are Phase 2's old name, still accepted.
+  if (/\bshortlist(ed)?\b|\blooking closer\b|\blooking\b|\bintermediate\b/.test(text)) return 2;
   if (/\bbuilding\b|\bbuild phase\b/.test(text)) return 3;
   if (/\bsubmitted\b/.test(text)) return 4;
   if (/\bscored\b|\bback to (phase )?1\b/.test(text)) return 1;
@@ -229,7 +231,7 @@ function skillsOfPhase(skills, phase) {
 /** The skills of one phase for an RFP, numbered, each with its command. rfp-stage.mjs prints it after a move. */
 export function phaseOffer(skills, rfp, phase, lead) {
   const list = skillsOfPhase(skills, phase);
-  if (!list.length) return `${lead}Nothing to run in ${phaseName(phase)}: the Friday job already sent its email. Want me to move it to ${phaseName(2)}? Reply \`rfp move ${rfp.slug} looking\`.`;
+  if (!list.length) return `${lead}Nothing to run in ${phaseName(phase)}: the Friday job already sent its email. Want me to move it to ${phaseName(2)}? Reply \`rfp move ${rfp.slug} shortlisted\`.`;
   return [`${lead}For ${rfp.title} in ${phaseName(phase)} I can do:`,
     ...list.map((skill, index) => `${index + 1}. ${skill.label}: \`${commandFor(skill, rfp)}\``),
     'Which one? Reply with the number or the command.'].join('\n');

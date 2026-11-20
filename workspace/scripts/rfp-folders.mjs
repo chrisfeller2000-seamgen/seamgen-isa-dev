@@ -12,7 +12,7 @@ const DEFAULT_WORKSPACE = '/home/azureuser/.openclaw/workspace';
 // labels are new. `aliases` are the words ISA may pass for each tier.
 export const STAGES = [
   { dir: '1-pre-submission', label: 'Scored', aliases: ['1', 'scored', 'pre-submission'] },
-  { dir: '2-intermediate-stage', label: 'Looking closer', aliases: ['2', 'looking', 'looking-closer', 'intermediate', 'intermediate-stage'] },
+  { dir: '2-intermediate-stage', label: 'Shortlisted', aliases: ['2', 'shortlisted', 'shortlist', 'looking', 'looking-closer', 'intermediate', 'intermediate-stage'] },
   { dir: '3-building', label: 'Building', aliases: ['3', 'building', 'writing'] },
   { dir: '4-submitted', label: 'Submitted', aliases: ['4', 'submitted'] },
 ];
@@ -53,7 +53,7 @@ export async function findLocalResourcesDir(slug, { workspace = workspaceDir() }
 const readJson = async file => JSON.parse(await fs.readFile(file, 'utf8'));
 
 /**
- * The RFPs someone is working on (Looking closer, Building, Submitted), by HigherGov
+ * The RFPs someone is working on (Shortlisted, Building, Submitted), by HigherGov
  * opp_key: Map<oppKey, { slug, title, stage, dir }>. The Friday job uses it to leave a new
  * version of one of these alone. An amendment is a new HigherGov version, which the Friday
  * intake hasn't seen, so before November 17, 2026 it would have been scored again as a new

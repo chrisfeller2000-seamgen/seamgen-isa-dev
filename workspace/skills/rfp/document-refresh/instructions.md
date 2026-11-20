@@ -21,7 +21,7 @@ That makes a saved document set quietly perishable. The `resources/` folder that
 
 ## How it runs
 
-**Every Tuesday morning, on a schedule.** The system crontab runs `scripts/run-rfp-refresh-cron.sh`, which runs `node scripts/rfp-refresh.mjs --scheduled`. It checks every RFP in **Looking closer** (`RFPs/2-intermediate-stage/`) and **Building** (`RFPs/3-building/`). The tiers record a person's decision (see "Phases" in `skills/rfp/INDEX.md`), so these are exactly the RFPs someone is working on.
+**Every Tuesday morning, on a schedule.** The system crontab runs `scripts/run-rfp-refresh-cron.sh`, which runs `node scripts/rfp-refresh.mjs --scheduled`. It checks every RFP in **Shortlisted** (`RFPs/2-intermediate-stage/`) and **Building** (`RFPs/3-building/`). The tiers record a person's decision (see "Phases" in `skills/rfp/INDEX.md`), so these are exactly the RFPs someone is working on.
 
 - When something changed, it posts **one message** in the sales group: per RFP, a moved due date, the new or re-issued documents by name, and the link to the RFP's Drive folder.
 - **When nothing changed, it sends nothing.** A quiet week is silent.
@@ -95,7 +95,7 @@ DemandStar is a small share of the pipeline (11 of 512 candidates in July 2026),
 - **Read the Due Date on the bid page** and compare it with `key-dates_<slug>.md`. SW Wisconsin showed `08/10/2026 1:00 AM Central` against the RFP's *"1:00 p.m."*: report both and resolve it with the agency.
 - **Bid names often differ from the RFP's title**, so search a distinctive fragment, the agency, or the bid ID (`https://www.demandstar.com/app/suppliers/bids/<bid-id>/details`).
 - **Planholders are listed by name** on the signed-in bid page — a competitor list nothing else gives us. Note it when the field is crowded or a known incumbent appears.
-- **Put a bid on Watch when its RFP moves to Looking closer.** Watching is free, commits nothing, and shows only as a count. Don't depend on DemandStar's email alerts: they go to the account holder's inbox, not to whoever checks.
+- **Put a bid on Watch when its RFP moves to Shortlisted.** Watching is free, commits nothing, and shows only as a count. Don't depend on DemandStar's email alerts: they go to the account holder's inbox, not to whoever checks.
 
 ##### The purchase gate — what to do when a new document appears
 

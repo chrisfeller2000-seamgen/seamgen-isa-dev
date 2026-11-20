@@ -10,7 +10,7 @@
 // The agency and solicitation number matter for an RFP with no HigherGov key (one a teammate
 // forwarded): they are how the Friday run recognizes its listing if it reaches HigherGov.
 //
-// Tiers: 1 Scored (1-pre-submission), 2 Looking closer (2-intermediate-stage),
+// Tiers: 1 Scored (1-pre-submission), 2 Shortlisted (2-intermediate-stage),
 // 3 Building (3-building), 4 Submitted (4-submitted). Moving back to 1 means nobody is working
 // on it any more.
 //
@@ -140,7 +140,7 @@ function renderList({ tiers, scored }) {
 }
 
 const USAGE = 'Usage: node scripts/rfp-stage.mjs list\n'
-  + '       node scripts/rfp-stage.mjs <slug> <1|2|3|4|scored|looking|building|submitted> --by "<name>" [--note "<why>"] [--agency "<agency>"] [--number "<solicitation number>"] [--title "<title>"]\n'
+  + '       node scripts/rfp-stage.mjs <slug> <1|2|3|4|scored|shortlisted|building|submitted> --by "<name>" [--note "<why>"] [--agency "<agency>"] [--number "<solicitation number>"] [--title "<title>"]\n'
   + '       node scripts/rfp-stage.mjs <slug> --agency "<agency>" --number "<solicitation number>" [--title "<title>"] --by "<name>"';
 
 async function main(args = process.argv.slice(2)) {

@@ -384,7 +384,7 @@ test("the Telegram draft checks reject changed facts, wrong links, and anything 
   const closeCalls = 'Close calls this week: **Utility management software** (75). Reply here if you want a closer look at one.';
   assert.deepEqual(facts.closeCalls, [{ name: 'Utility management software', score: 75 }]);
   // and the offer to move the Strong Pursue to Phase 2 before them.
-  const offer = "Want me to move **Permit portal strong** to Phase 2: Looking closer? Reply here and I'll move it.";
+  const offer = "Want me to move **Permit portal strong** to Phase 2: Shortlisted? Reply here and I'll move it.";
   assert.deepEqual(await writeTelegramMessage(facts, async () => ({ text: casual })), { text: `${casual}\n\n${offer}\n\n${closeCalls}`, source: 'isa', reason: null });
   // Failed and quiet weeks never ask the model.
   const quietFacts = telegramFacts(results, pursue, { status: 'failed' });
@@ -402,11 +402,11 @@ test('the Telegram message offers to move each Strong Pursue to Phase 2, and not
   const facts = telegramFacts(results, pursue, { status: 'sent', sentences: pursueSentencesFallback(pursue) });
   const named = names => ({ ...facts, closeCalls: [], picks: names.map((name, index) => ({ ...facts.picks[0], number: index + 1, name })) });
   const offerOf = async value => (await writeTelegramMessage(value, null)).text.split('\n\n').at(-1);
-  assert.equal(await offerOf(named(['Laguna Beach website'])), "Want me to move **Laguna Beach website** to Phase 2: Looking closer? Reply here and I'll move it.");
+  assert.equal(await offerOf(named(['Laguna Beach website'])), "Want me to move **Laguna Beach website** to Phase 2: Shortlisted? Reply here and I'll move it.");
   assert.equal(await offerOf(named(['Laguna Beach website', 'Yonkers app'])),
-    'Want me to move any of these to Phase 2: Looking closer: **Laguna Beach website** or **Yonkers app**? Reply here with the ones to move.');
+    'Want me to move any of these to Phase 2: Shortlisted: **Laguna Beach website** or **Yonkers app**? Reply here with the ones to move.');
   assert.equal(await offerOf(named(['A portal', 'B app', 'C site'])),
-    'Want me to move any of these to Phase 2: Looking closer: **A portal**, **B app**, or **C site**? Reply here with the ones to move.');
+    'Want me to move any of these to Phase 2: Shortlisted: **A portal**, **B app**, or **C site**? Reply here with the ones to move.');
   // The offer uses the name ISA gave the pick in the email, so a reply matches the message.
   const emailed = telegramFacts(results, pursue, { status: 'sent', sentences: { rfps: [{ name: 'Permit portal' }] } });
   assert.match((await writeTelegramMessage(emailed, null)).text, /Want me to move \*\*Permit portal\*\* to Phase 2/);

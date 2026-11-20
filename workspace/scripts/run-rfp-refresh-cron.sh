@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Tuesday document check for the RFPs in Looking closer and Building (rfp-refresh.mjs). The
+# Tuesday document check for the RFPs in Shortlisted and Building (rfp-refresh.mjs). The
 # system crontab runs it; it posts to the sales group only when something changed.
 # WORKSPACE_DIR and HIGHERGOV_ENV_FILE can be overridden only so tests can run this wrapper
 # against a temporary workspace; the crontab sets neither.

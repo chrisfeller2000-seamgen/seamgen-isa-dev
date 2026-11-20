@@ -10,7 +10,7 @@ Use the RFP's name as it appears in the Friday email, or its short ID (for examp
 | --- | --- |
 | What ISA can do for an RFP right now | `rfp skills <rfp>` |
 | The RFPs we're working on, by phase | `rfp list` |
-| Move an RFP | `rfp move <rfp> looking`, `building`, `submitted` or `scored` |
+| Move an RFP | `rfp move <rfp> shortlisted`, `building`, `submitted` or `scored` |
 | Engineering brief, for a timeline estimate | `rfp brief <rfp>` |
 | Capability check, for a named engineer | `rfp capability <rfp>` |
 | Questions for the agency's Q&A, with the email | `rfp questions <rfp>` |
@@ -25,9 +25,9 @@ Use the RFP's name as it appears in the Friday email, or its short ID (for examp
 
 ## Phases
 
-Every RFP is in one phase: **1 Scored**, **2 Looking closer**, **3 Building**, **4 Submitted**. RFPs move only when someone asks.
+Every RFP is in one phase: **1 Scored**, **2 Shortlisted**, **3 Building**, **4 Submitted**. RFPs move only when someone asks.
 
-If you ask for something from a later phase (a checklist for an RFP still in Looking closer, say), ISA asks whether to move it first. Reply `1` to move it, or `2` to leave it where it is; either way ISA does what you asked. Adding `--stay` to a command skips the question: `rfp checklist laguna-beach-website-redesign --stay`.
+If you ask for something from a later phase (a checklist for an RFP still in Shortlisted, say), ISA asks whether to move it first. Reply `1` to move it, or `2` to leave it where it is; either way ISA does what you asked. Adding `--stay` to a command skips the question: `rfp checklist laguna-beach-website-redesign --stay`.
 
 ## Dates
 

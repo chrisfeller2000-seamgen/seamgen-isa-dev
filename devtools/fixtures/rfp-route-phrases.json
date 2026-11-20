@@ -78,11 +78,16 @@
     { "say": "Yes, move Pasco County", "action": "move", "rfp": "pasco-county-records-system", "toPhase": 2 },
     { "say": "yes move the pasco county records one", "action": "move", "rfp": "pasco-county-records-system", "toPhase": 2 },
     { "say": "Move Carlsbad to looking closer", "action": "move", "rfp": "carlsbad-parks-recreation-booking-system", "toPhase": 2 },
+    { "say": "Move Carlsbad to shortlisted", "action": "move", "rfp": "carlsbad-parks-recreation-booking-system", "toPhase": 2 },
+    { "say": "Shortlist Carlsbad", "action": "move", "rfp": "carlsbad-parks-recreation-booking-system", "toPhase": 2 },
+    { "say": "Is Carlsbad shortlisted?", "action": "answer", "rfp": "carlsbad-parks-recreation-booking-system" },
+    { "say": "what is in shortlisted", "action": "list" },
     { "say": "move laguna beach to building", "action": "move", "rfp": "laguna-beach-website-redesign", "toPhase": 3 },
     { "say": "Laguna Beach can go to phase 3", "action": "move", "rfp": "laguna-beach-website-redesign", "toPhase": 3 },
     { "say": "We submitted Yonkers, move it to submitted", "action": "move", "rfp": "yonkers-senior-services-app", "toPhase": 4 },
     { "say": "Move Yonkers back to scored, we're not bidding", "action": "move", "rfp": "yonkers-senior-services-app", "toPhase": 1 },
     { "say": "move laguna beach to looking closer", "action": "already", "rfp": "laguna-beach-website-redesign" },
+    { "say": "move laguna beach to Phase 2: Shortlisted", "action": "already", "rfp": "laguna-beach-website-redesign" },
     { "say": "move laguna to building", "action": "ask-which-rfp" },
 
     { "say": "What can you do for the Laguna Beach website redesign RFP?", "action": "offer", "rfp": "laguna-beach-website-redesign" },
@@ -130,6 +135,7 @@
     { "say": "rfp winners laguna", "action": "unknown-command" },
 
     { "say": "callback_data: rfp:move:looking:pasco-county-records-system", "action": "move", "rfp": "pasco-county-records-system", "toPhase": 2 },
+    { "say": "callback_data: rfp:move:shortlisted:pasco-county-records-system", "action": "move", "rfp": "pasco-county-records-system", "toPhase": 2 },
     { "say": "callback_data: rfp:run:brief:laguna-beach-website-redesign", "action": "run-skill", "skill": "engineering-brief", "rfp": "laguna-beach-website-redesign" },
     { "say": "callback_data: rfp:run:checklist:laguna-beach-website-redesign", "action": "ask-move", "skill": "submission-checklist", "rfp": "laguna-beach-website-redesign", "toPhase": 3 },
 
