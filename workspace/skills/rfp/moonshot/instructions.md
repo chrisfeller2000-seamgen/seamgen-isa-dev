@@ -2,7 +2,7 @@
 name: rfp-moonshot-integration
 purpose: Take the design team's "moonshot" (a polished vision/pitch deck they produce for an RFP — e.g., from Hoda) and pick apart the best of it into the compliant proposal. Map each moonshot slide to the RFP's required response section, fact-and-compliance-check every borrowed slide before it enters the scored response, flag the required sections the moonshot omits, and feed the selected content into the proposal deck rough-draft. Covers the design-integration step of Phase 8.
 audience: Written for Claude (who does the integration) and the sales teammate running the proposal (who reviews it and forwards the feedback to the design team). One output — the "slides + edits" note — is written to be forwarded to the designer (e.g., Hoda).
-version: 1.3 — November 2026
+version: 1.4 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: the design team's moonshot deck (PNG/PDF, e.g. in `resources/moonshot/` or the RFP's moonshot location), the proposal content/deck (the `rfp-proposal-deck-rough-draft` output), the RFP itself + its discovery Q&A + submission checklist. Feeds `rfp-proposal-deck-rough-draft` (Mode C — content handoff).
 label: Moonshot deck folded into the proposal
@@ -61,7 +61,7 @@ List the RFP-required sections the moonshot does **not** cover, so nothing is as
 
 1. **Designer-ready note** (for the person who asked to forward to the design team): which slides we're using, where each slots, and the specific edits each needs. Collaborative, plain tone.
 2. **Slide → section integration map** (which moonshot slide feeds which RFP section).
-3. **Folded content** — the cleared moonshot material merged into the RFP's own `RFPs/[stage]/[rfp-slug]/proposal-content_YYYY-MM-DD_[slug].md` (feeding `rfp-proposal-deck-rough-draft` Mode C), every borrowed claim grounded. (`[stage]` = the RFP's current lifecycle tier — save into its existing `[rfp-slug]/` folder wherever it lives; see "RFP stage folders" in `AGENTS.md`.)
+3. **Folded content** — the cleared moonshot material merged into the RFP's own `RFPs/[stage]/[rfp-slug]/proposal-content_YYYY-MM-DD_[slug].md` (feeding `rfp-proposal-deck-rough-draft` Mode C), every borrowed claim grounded. (`[stage]` = the RFP's current lifecycle tier — save into its existing `[rfp-slug]/` folder wherever it lives; see "Phases" in `skills/rfp/INDEX.md`.)
 
 ## Guardrails
 
@@ -76,6 +76,8 @@ List the RFP-required sections the moonshot does **not** cover, so nothing is as
 Hoda's 10-slide RPV moonshot (`resources/moonshot/`) mapped cleanly: **Digital Divide → Understanding**, **Frictionless Citizen Journey → Approach/vision**, **Inclusive Design → Accessibility**, **Administrative Superpowers → capabilities**, **Data Migration & Outreach → Migration + §IV.4**, **De-Risked Transition Blueprint → Schedule** (stronger than the original), **Why Seamgen → differentiation (with edits)**, **Contractual Alignment → Acceptance (verify first)**. Fact-gate catches: soften the **Tyler Munis** "compatibility" claim (open scope question), **verify the "Exhibit A / Exhibit D / Consultant Services Agreement"** references against RPV's Attachment A / PSA, and **source or drop** "13,000+ active members." Gaps the moonshot skips (sourced from the proposal content): cover letter, org & staffing/team, references-with-contacts, price, QC, acceptance, requirements matrix.
 
 ## Notes and edit history
+
+**v1.4 — November 2026.** The folder rule now points at "Phases" in `skills/rfp/INDEX.md`. `AGENTS.md` lost its "RFP stage folders" section when it was trimmed under OpenClaw's size limit.
 
 **v1.3 — November 2026.** The folder rule now points at "RFP stage folders" in `AGENTS.md` instead of CLAUDE.md Rule 10.
 

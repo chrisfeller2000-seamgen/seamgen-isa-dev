@@ -2,7 +2,7 @@
 name: rfp-document-fetch
 purpose: Pull an opportunity's complete set of agency source documents into its RFP folder using the Chrome browser bridge, then re-score the RFP on the full text instead of the metadata summary.
 audience: This skill is written to be read by both Claude (who drives the browser and files the documents) and a human teammate (who reads it to understand what was fetched and why something was skipped).
-version: 1.14 — November 2026
+version: 1.15 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 label: Download and save the documents
 command: fetch
@@ -256,7 +256,7 @@ Expect the score to move. Metadata summaries routinely omit the due time, the co
 
 ### Step 11 — File it, or kill it
 
-- **Score holds at 50+** → keep the RFP folder where it is, and ask the person who asked whether to move it to Looking closer (`RFPs/2-intermediate-stage/<rfp-slug>/`). Move it only on their yes, with `node scripts/rfp-stage.mjs <rfp-slug> looking --by "<their name>"` (see "RFP stage folders" in `AGENTS.md`).
+- **Score holds at 50+** → keep the RFP folder where it is, and ask the person who asked whether to move it to Looking closer (`RFPs/2-intermediate-stage/<rfp-slug>/`). Move it only on their yes, with `node scripts/rfp-stage.mjs <rfp-slug> looking --by "<their name>"` (see "Phases" in `skills/rfp/INDEX.md`).
 - **Full text kills it** → draft the no-bid (`skills/rfp-email-nobid-skill.md`) and **purge the downloaded documents**. This is the standing download-once → cache → purge-after-no-bid policy; dead RFPs don't keep 40 MB of PDFs on disk. This purge is the **only** time an RFP's documents are removed, and it follows a no-bid decision; it is never part of tidying up after a task (see "Keeping the originals").
 
 Either way, tell the person who asked what the documents changed about the score. "It stayed a Strong Pursue" is a useful result; "the full text revealed a mandatory on-site requirement" is a more useful one.
@@ -402,6 +402,8 @@ What's missing is the PowerShell — `Get-HGDocuments` and `ConvertTo-HGAttachme
 ---
 
 ## Notes and edit history
+
+**v1.15 — November 2026.** The folder rule now points at "Phases" in `skills/rfp/INDEX.md`. `AGENTS.md` lost its "RFP stage folders" section when it was trimmed under OpenClaw's size limit.
 
 **v1.14 — November 2026.** Step 13 offers the calendar dates instead of running them: no skill runs unless someone asks for it, and the dates are trustworthy once the documents are saved, whatever the RFP's phase.
 

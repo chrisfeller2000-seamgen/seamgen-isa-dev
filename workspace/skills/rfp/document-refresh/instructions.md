@@ -2,7 +2,7 @@
 name: rfp-document-refresh
 purpose: Check the RFPs Seamgen is working on for new documents and deadline changes, save new documents beside the originals, put them in the RFP's Google Drive folder, and tell the team what actually changed — especially if a deadline moved.
 audience: This skill is written to be read by both ISA (who runs the check and reads what it finds) and a human teammate (who reads the change report, checks agency portals ISA can't sign in to, and acts on it).
-version: 2.1 — November 2026
+version: 2.2 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 label: What changed in new documents
 command: changes
@@ -21,7 +21,7 @@ That makes a saved document set quietly perishable. The `resources/` folder that
 
 ## How it runs
 
-**Every Tuesday morning, on a schedule.** The system crontab runs `scripts/run-rfp-refresh-cron.sh`, which runs `node scripts/rfp-refresh.mjs --scheduled`. It checks every RFP in **Looking closer** (`RFPs/2-intermediate-stage/`) and **Building** (`RFPs/3-building/`). The tiers record a person's decision (see "RFP stage folders" in `AGENTS.md`), so these are exactly the RFPs someone is working on.
+**Every Tuesday morning, on a schedule.** The system crontab runs `scripts/run-rfp-refresh-cron.sh`, which runs `node scripts/rfp-refresh.mjs --scheduled`. It checks every RFP in **Looking closer** (`RFPs/2-intermediate-stage/`) and **Building** (`RFPs/3-building/`). The tiers record a person's decision (see "Phases" in `skills/rfp/INDEX.md`), so these are exactly the RFPs someone is working on.
 
 - When something changed, it posts **one message** in the sales group: per RFP, a moved due date, the new or re-issued documents by name, and the link to the RFP's Drive folder.
 - **When nothing changed, it sends nothing.** A quiet week is silent.
@@ -156,6 +156,8 @@ NEEDS SOMEONE
 ---
 
 ## Notes and edit history
+
+**v2.2 — November 2026.** The folder rule now points at "Phases" in `skills/rfp/INDEX.md`. `AGENTS.md` lost its "RFP stage folders" section when it was trimmed under OpenClaw's size limit.
 
 **v2.1 — November 2026.** A moved date in the key-dates note is now updated by the calendar skill's script (`rfp dates <slug>`), which keeps the old date as "was:" and lists the change. ISA offers it rather than editing the note by hand.
 
