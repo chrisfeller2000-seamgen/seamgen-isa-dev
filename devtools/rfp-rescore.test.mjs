@@ -303,14 +303,16 @@ test('a rescore that cannot be done changes nothing and says why', async () => {
       assert.deepEqual(await snapshot(root), fridayFiles);
       await assert.rejects(fs.access(path.join(reports(root), 'rescore', `${args[0]}.json`)));
     };
-    // The renewal now passes its listing, but the Friday run never saved its documents.
-    await failed([renewal.slug], { ISA_RFP_FIXTURE_GATE2_FAIL: '' }, /has no saved documents, and a rescore doesn't download them\. Nothing changed\./);
+    // The renewal now passes its listing, but the Friday run never saved its documents. The
+    // date is fixed because a rescore defaults to today, and the listing's deadline gate would
+    // screen this RFP out before the documents are checked once that deadline gets close.
+    await failed([renewal.slug, '--date', '2026-10-20'], { ISA_RFP_FIXTURE_GATE2_FAIL: '' }, /has no saved documents, and a rescore doesn't download them\. Nothing changed\./);
     await failed(['not-this-week'], {}, /not-this-week isn't in the 2026-10-16 report\./);
     await failed([renewal.slug, '--apply'], {}, /There is no pending rescore for synthetic-license-renewal\. Run it without --apply first\./);
     await failed([renewal.slug, '--drive-folder', 'my folder'], {}, /isn't a Google Drive folder link or ID/);
     await failed(['../../etc'], {}, /^Usage:/);
     // A scoring failure leaves nothing pending.
-    await failed([renewal.slug], { ISA_RFP_FIXTURE_NO_MODEL: '1', ISA_RFP_FIXTURE_GATE2_FAIL: '' }, /The listing scoring failed \(.+\)\. Nothing changed; try again later\./);
+    await failed([renewal.slug, '--date', '2026-10-20'], { ISA_RFP_FIXTURE_NO_MODEL: '1', ISA_RFP_FIXTURE_GATE2_FAIL: '' }, /The listing scoring failed \(.+\)\. Nothing changed; try again later\./);
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }
