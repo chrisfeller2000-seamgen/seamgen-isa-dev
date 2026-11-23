@@ -11,7 +11,7 @@ depends_on: rfp-scoring skill (this brief reads from that skill's output), plus 
 
 > **Retired — do not use.** The meeting brief was retired on October 12, 2026 (pursue email spec, Jira ISA-6). It was Jake's own working document, and nobody needs it now. Don't generate a brief from this skill, even when asked for "a meeting brief": say it is retired and offer what replaced it.
 >
-> - **Opportunity summary, fit, blockers and key dates:** ISA's Friday pursue email (`skills/rfp-email-pursue-skill.md`). Its Key dates line gives the questions and proposal deadlines.
+> - **Opportunity summary, fit, blockers and key dates:** ISA's Friday pursue email. Its Key dates line gives the questions and proposal deadlines.
 > - **Clarifying questions and the Q&A deadline:** `skills/rfp/agency-questions/instructions.md`, on request in chat.
 >
 > The rest of this file is kept as history.

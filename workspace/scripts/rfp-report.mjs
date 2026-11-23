@@ -8,7 +8,7 @@ import { PORTAL_ACCESS_TEXT, loginPortal } from './rfp-portals.mjs';
 const PACIFIC = 'America/Los_Angeles';
 const MIN_PICK_SCORE = 50;
 const MINIMUM_DEAL = 100000;
-// Jake's pursue-email limits (rfp-email-pursue-skill.md v1.7).
+// Jake's pursue-email limits. This file is now the only definition of the Friday email's format.
 const MAX_BLOCKERS = 3;
 // One line each, like Jake's: his longest Yonkers blocker ran about 185 characters.
 const BLOCKER_CHARS = 220;
@@ -648,7 +648,7 @@ export function renderPursueEmail(facts, sentences) {
       situation: `Current solution & hopeful objective: ${clean(words.situation)}`,
       fit: clean(words.fit) ? `Why it fits us: ${clean(words.fit)}` : '',
       blockers: words.blockers.map(clean).filter(Boolean),
-      note: pick.sensitive ? `Note for Peter/Marianne: ${pick.sensitive} It still scored as a pursue, so flagging it for your call before we invest.` : '',
+      note: pick.sensitive ? `Note for Marianne: ${pick.sensitive} It still scored as a pursue, so flagging it for your call before we invest.` : '',
     };
   });
   const text = [
@@ -716,7 +716,7 @@ async function writeChecked({ complete, systemPrompt, facts, read, fallback, tim
 
 function pursueWriterPrompt(vibe) {
   return [
-    "You are ISA, Seamgen's AI sales assistant. You write the sentences of this week's pursue email to Peter, Marianne and the sales team, in the format Jake used. Code adds the RFP titles, links, numbering and sign-off.",
+    "You are ISA, Seamgen's AI sales assistant. You write the sentences of this week's pursue email to Marianne and the sales team, in the format Jake used. Code adds the RFP titles, links, numbering and sign-off.",
     `Your voice: ${vibe}. Write the way a sharp colleague writes to leadership: plain words, short sentences, confident and specific. Say "we" and "us" for Seamgen. No hype, no filler, no emoji.`,
     'Use only the facts you are given. Never add claims about Seamgen or the buyer, and copy every number exactly.',
     'Reply with one JSON object only: {"intro": string, "rfps": [{"number": number, "name": string, "hook": string, "situation": string, "fit": string, "blockers": [string]}]}, one entry per pick, in the given order and numbering.',

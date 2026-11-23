@@ -1942,6 +1942,16 @@ function emailAlreadySent(previous, results) {
 }
 
 /**
+ * Sends one rendered pursue email from ISA's account. Returns whether gog reported success.
+ * The body is passed inline, as the weekly sales report does; gog sends it as HTML.
+ */
+export function sendPursueMessage(message, { to, cc = [], run = runJson }) {
+  return run('gog', ['-a', REPORT_FROM, 'gmail', 'send', '--from', REPORT_FROM, '--to', to.join(','),
+    ...(cc.length ? ['--cc', cc.join(',')] : []), '--subject', message.subject, '--body-html', message.html, '--no-input'], { timeoutMs: 120000 })
+    .then(() => true).catch(() => false);
+}
+
+/**
  * The Friday delivery. With Strong Pursue RFPs, ISA's pursue email goes out first; then the
  * Telegram summary says what actually happened (sent, failed, or nothing to pursue). Preview
  * mode sends nothing and returns the text for the report files. `run` is a parameter so
@@ -1964,10 +1974,7 @@ export async function deliverPursueUpdate({ results, complete, vibe, previous = 
     if (preview) email.status = 'preview';
     else if (!to.length) Object.assign(email, { status: 'failed', reason: 'No recipients are set (RFP_EMAIL_TO).' });
     else {
-      // The body is passed inline, as the weekly sales report does; gog sends it as HTML.
-      const sent = await run('gog', ['-a', REPORT_FROM, 'gmail', 'send', '--from', REPORT_FROM, '--to', to.join(','),
-        ...(cc.length ? ['--cc', cc.join(',')] : []), '--subject', message.subject, '--body-html', message.html, '--no-input'], { timeoutMs: 120000 })
-        .then(() => true).catch(() => false);
+      const sent = await sendPursueMessage(message, { to, cc, run });
       Object.assign(email, sent ? { status: 'sent', sentAt: new Date().toISOString() } : { status: 'failed', reason: "Gmail didn't accept the email (gog failed)." });
     }
   }

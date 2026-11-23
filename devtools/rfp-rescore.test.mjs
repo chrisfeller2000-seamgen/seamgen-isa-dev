@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { renderMarkdown } from '../workspace/scripts/rfp-report.mjs';
-import { weeklyJobRunning } from '../workspace/scripts/rfp-rescore.mjs';
+import { prepareRescoreEmail, pursueRecipients, sendRescoreEmail, weeklyJobRunning } from '../workspace/scripts/rfp-rescore.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const fixture = pathToFileURL(path.join(repoRoot, 'devtools', 'fixtures', 'weekly-run.mjs')).href;
@@ -120,8 +120,142 @@ test('a rescore shows the new result first, and --apply puts exactly that in the
     assert.deepEqual(restored.rescores.map(item => [item.slug, item.before.decision, item.after.decision]), [[portal.slug, 'Screened out', 'Strong pursue']]);
     assert.equal((await fs.readFile(path.join(reports(root), 'audit', '2026-10-16-rescores.jsonl'), 'utf8')).trim().split('\n').length, 2);
     assert.deepEqual((await fs.readdir(path.join(reports(root), 'audit'))).sort(), ['2026-10-16-rescores.jsonl', '2026-10-16.jsonl']);
+
+    // The command line's email steps, in preview mode so nothing can be sent.
+    const shownEmail = await run('rfp-rescore.mjs', root, [portal.slug, '--email'], { ISA_RFP_FIXTURE_NO_MODEL: '1' });
+    assert.equal(shownEmail.code, 0, shownEmail.stderr);
+    assert.match(shownEmail.stdout, /^This email is ready\. Nothing has been sent\.\nTo: fixture@example\.test\n/);
+    assert.match(shownEmail.stdout, /One RFP is newly worth pursuing after a rescore/);
+    assert.match(shownEmail.stdout, /--send-email\n$/);
+    const previewed = await run('rfp-rescore.mjs', root, [portal.slug, '--send-email'], { ISA_RFP_FIXTURE_NO_MODEL: '1' });
+    assert.equal(previewed.code, 0, previewed.stderr);
+    assert.match(previewed.stdout, /^Preview mode: nothing was sent\./);
+    assert.equal((await readJson(path.join(reports(root), 'latest.json'))).rescoreEmails, undefined);
+    const mixed = await run('rfp-rescore.mjs', root, [portal.slug, '--apply', '--send-email']);
+    assert.equal(mixed.code, 1);
+    assert.match(mixed.stderr, /^Usage:/);
   } finally {
     await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+// A week whose Friday email covered another RFP, with one RFP rescored to Strong Pursue after it.
+async function rescoredWeek(overrides = {}) {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'isa-rescore-email-'));
+  const entry = { slug: 'laguna-site', title: 'Laguna Beach Website Redesign', agency: 'City of Laguna Beach', number: 'RFP 1', tier: 'strong', score: 78,
+    need: 'A new city website.', fit: 'We built public portals.', blockers: [{ text: 'Three references are required.' }],
+    links: { documents: 'https://drive.example.test/laguna' }, questions: [] };
+  const results = { runDate: '2026-11-13', week: '46', total: 2, entries: [entry],
+    email: { status: 'sent', text: 'Friday email about Another RFP', to: ['friday@example.test'] }, telegram: { status: 'sent' },
+    rescores: [{ slug: entry.slug, title: entry.title }], ...overrides };
+  const json = `${JSON.stringify(results, null, 2)}\n`;
+  await fs.writeFile(path.join(dir, 'latest.json'), json);
+  await fs.writeFile(path.join(dir, '2026-11-13.json'), json);
+  return { dir, entry, friday: results };
+}
+const emailRecipients = async () => ({ to: ['marianne@example.test', 'sales@example.test'], cc: ['dev@example.test'] });
+const prepared = (dir, slug = 'laguna-site') => prepareRescoreEmail({ slug, complete: null, vibe: 'Warm', reportDir: dir, recipients: emailRecipients });
+
+test('a rescored Strong Pursue is emailed once, exactly as shown, and only after the send step', async () => {
+  const { dir, friday } = await rescoredWeek();
+  const calls = [];
+  const run = async (command, args) => { calls.push([command, ...args]); return 'ok'; };
+  try {
+    const email = await prepared(dir);
+    assert.equal(calls.length, 0, 'writing the email sends nothing');
+    assert.match(email.text, /^One RFP is newly worth pursuing after a rescore/);
+    assert.match(email.text, /Laguna Beach Website Redesign — Drive folder: https:\/\/drive\.example\.test\/laguna/);
+    assert.deepEqual((await readJson(path.join(dir, 'latest.json'))).email, friday.email);
+
+    const sent = await sendRescoreEmail({ slug: 'laguna-site', run, reportDir: dir, at: '2026-11-17T18:00:00.000Z' });
+    assert.equal(sent.status, 'sent');
+    assert.equal(calls.length, 1);
+    const gog = calls[0];
+    assert.equal(gog[0], 'gog');
+    assert.equal(gog[gog.indexOf('--to') + 1], 'marianne@example.test,sales@example.test');
+    assert.equal(gog[gog.indexOf('--cc') + 1], 'dev@example.test');
+    assert.equal(gog[gog.indexOf('--subject') + 1], email.subject);
+    assert.equal(gog[gog.indexOf('--body-html') + 1], email.html);
+
+    const after = await readJson(path.join(dir, 'latest.json'));
+    assert.deepEqual(after, await readJson(path.join(dir, '2026-11-13.json')));
+    assert.deepEqual([after.email, after.telegram], [friday.email, friday.telegram]);
+    assert.deepEqual(after.rescoreEmails.map(item => [item.slug, item.status, item.sentAt]), [['laguna-site', 'sent', '2026-11-17T18:00:00.000Z']]);
+    assert.deepEqual(await fs.readdir(path.join(dir, 'rescore')), []);
+    await assert.rejects(prepared(dir), /already went out/);
+    await assert.rejects(sendRescoreEmail({ slug: 'laguna-site', run, reportDir: dir }), /no saved email/);
+    assert.equal(calls.length, 1);
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('a rescore email is refused when it is not new, not strong, or changed after it was shown', async () => {
+  const cases = [
+    [{ rescores: [] }, /hasn't been rescored/],
+    [{ email: { status: 'sent', text: 'Laguna Beach Website Redesign was in this email' } }, /already in Friday's pursue email/],
+    [{ rescoreEmails: [{ slug: 'laguna-site', status: 'sent' }] }, /already went out/],
+  ];
+  for (const [overrides, message] of cases) {
+    const { dir } = await rescoredWeek(overrides);
+    try {
+      await assert.rejects(prepared(dir), message);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  }
+  const { dir, friday, entry } = await rescoredWeek();
+  const calls = [];
+  const run = async (...call) => { calls.push(call); return 'ok'; };
+  try {
+    await assert.rejects(sendRescoreEmail({ slug: entry.slug, run, reportDir: dir }), /Run it with --email first/);
+    await prepared(dir);
+    const changed = { ...friday, entries: [{ ...entry, score: 80 }] };
+    await fs.writeFile(path.join(dir, 'latest.json'), JSON.stringify(changed));
+    await assert.rejects(sendRescoreEmail({ slug: entry.slug, run, reportDir: dir }), /changed since this email was written/);
+    await fs.writeFile(path.join(dir, 'latest.json'), JSON.stringify({ ...friday, entries: [{ ...entry, tier: 'worth' }] }));
+    await assert.rejects(sendRescoreEmail({ slug: entry.slug, run, reportDir: dir }), /isn't a Strong Pursue/);
+    assert.equal(calls.length, 0);
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('a failed rescore email is not sent again until someone checks and asks to retry', async () => {
+  const { dir, entry } = await rescoredWeek();
+  const calls = [];
+  const failing = async (...call) => { calls.push(call); throw new Error('timed out'); };
+  const working = async (...call) => { calls.push(call); return 'ok'; };
+  try {
+    await prepared(dir);
+    await assert.rejects(sendRescoreEmail({ slug: entry.slug, run: failing, reportDir: dir }), /may still have gone out\. Check the Sales inbox/);
+    await assert.rejects(sendRescoreEmail({ slug: entry.slug, run: working, reportDir: dir }), /may have gone out/);
+    assert.equal(calls.length, 1);
+    assert.equal((await readJson(path.join(dir, 'latest.json'))).rescoreEmails, undefined);
+    const retried = await sendRescoreEmail({ slug: entry.slug, retry: true, run: working, reportDir: dir });
+    assert.equal(retried.status, 'sent');
+    assert.equal(calls.length, 2);
+    assert.equal((await readJson(path.join(dir, 'latest.json'))).rescoreEmails.length, 1);
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('preview mode sends nothing, and recipients come from the Friday cron wrapper', async () => {
+  const { dir, entry } = await rescoredWeek();
+  const calls = [];
+  try {
+    await prepared(dir);
+    const preview = await sendRescoreEmail({ slug: entry.slug, preview: true, run: async (...call) => { calls.push(call); }, reportDir: dir });
+    assert.equal(preview.status, 'preview');
+    assert.equal(calls.length, 0);
+    assert.equal((await readJson(path.join(dir, 'latest.json'))).rescoreEmails, undefined);
+    assert.deepEqual(await pursueRecipients({ env: {} }), {
+      to: ['mariannefaro@seamgen.com', 'sales@seamgen.com'], cc: ['cfeller@seamgen.com', 'jgaribay@seamgen.com'],
+    });
+    await assert.rejects(pursueRecipients({ env: {}, wrapper: path.join(dir, 'missing.sh') }), /No pursue email recipients/);
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
   }
 });
 
@@ -169,14 +303,16 @@ test('a rescore that cannot be done changes nothing and says why', async () => {
       assert.deepEqual(await snapshot(root), fridayFiles);
       await assert.rejects(fs.access(path.join(reports(root), 'rescore', `${args[0]}.json`)));
     };
-    // The renewal now passes its listing, but the Friday run never saved its documents.
-    await failed([renewal.slug], { ISA_RFP_FIXTURE_GATE2_FAIL: '' }, /has no saved documents, and a rescore doesn't download them\. Nothing changed\./);
+    // The renewal now passes its listing, but the Friday run never saved its documents. The
+    // date is fixed because a rescore defaults to today, and the listing's deadline gate would
+    // screen this RFP out before the documents are checked once that deadline gets close.
+    await failed([renewal.slug, '--date', '2026-10-20'], { ISA_RFP_FIXTURE_GATE2_FAIL: '' }, /has no saved documents, and a rescore doesn't download them\. Nothing changed\./);
     await failed(['not-this-week'], {}, /not-this-week isn't in the 2026-10-16 report\./);
     await failed([renewal.slug, '--apply'], {}, /There is no pending rescore for synthetic-license-renewal\. Run it without --apply first\./);
     await failed([renewal.slug, '--drive-folder', 'my folder'], {}, /isn't a Google Drive folder link or ID/);
     await failed(['../../etc'], {}, /^Usage:/);
     // A scoring failure leaves nothing pending.
-    await failed([renewal.slug], { ISA_RFP_FIXTURE_NO_MODEL: '1', ISA_RFP_FIXTURE_GATE2_FAIL: '' }, /The listing scoring failed \(.+\)\. Nothing changed; try again later\./);
+    await failed([renewal.slug, '--date', '2026-10-20'], { ISA_RFP_FIXTURE_NO_MODEL: '1', ISA_RFP_FIXTURE_GATE2_FAIL: '' }, /The listing scoring failed \(.+\)\. Nothing changed; try again later\./);
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }

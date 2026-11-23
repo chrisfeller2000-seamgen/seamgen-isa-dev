@@ -2,7 +2,7 @@
 name: rfp-document-fetch
 purpose: Pull an opportunity's complete set of agency source documents into its RFP folder using the Chrome browser bridge, then re-score the RFP on the full text instead of the metadata summary.
 audience: This skill is written to be read by both Claude (who drives the browser and files the documents) and a human teammate (who reads it to understand what was fetched and why something was skipped).
-version: 1.15 — November 2026
+version: 1.16 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 label: Download and save the documents
 command: fetch
@@ -267,7 +267,7 @@ Either way, tell the person who asked what the documents changed about the score
 
 **ISA does this step with `node scripts/rfp-refresh.mjs <rfp-slug> --drive`.** It uploads the agency documents in `resources/` that the RFP's Drive folder doesn't have — never the `_document-manifest` files — and never replaces or deletes anything in Drive. It uses the folder the Friday run linked to, or makes one the same way, and keeps its ID in the RFP's `_refresh.json`. Report the folder link it prints. When someone asks ISA for a document, it still attaches the file from `resources/` in the chat. The numbered steps and `Sync-RfpToDrive.ps1` below describe the operator's Windows path from July 2026; ISA doesn't use them.
 
-Being moved to Shortlisted is what earns an RFP a folder under **`Sales (shared drive) > Favorable RFP's`** (parent ID `1FgeVVURDnS-JyQTyapa7pCl3BN4_PmaW`). This exists so Peter and Marianne can read the solicitation from a link instead of navigating HigherGov, which they've said they don't want to do — and it's the link the pursue email carries (`rfp-email-pursue` v1.6). It's on the **Sales shared drive** so the files belong to the team rather than to one person's account; an abandoned empty folder of the same name sits in Jake's My Drive, so **resolve by ID, not by name**.
+Being moved to Shortlisted is what earns an RFP a folder under **`Sales (shared drive) > Favorable RFP's`** (parent ID `1FgeVVURDnS-JyQTyapa7pCl3BN4_PmaW`). This exists so Peter and Marianne can read the solicitation from a link instead of navigating HigherGov, which they've said they don't want to do — and it's the link the Friday pursue email carries. It's on the **Sales shared drive** so the files belong to the team rather than to one person's account; an abandoned empty folder of the same name sits in Jake's My Drive, so **resolve by ID, not by name**.
 
 1. **Create the subfolder.** Name it the local `<rfp-slug>` verbatim, minus any leading `(NN) ` score prefix — internal scores shouldn't be the first thing leadership reads off a folder name.
 2. **Copy in the contents of `resources/` — and nothing else.** The agency's documents only. Scoring PDFs, meeting briefs, engineering briefs and key-dates notes stay local. This is the same separation the RFP folder keeps on disk, and the reason the RFP folder has a `resources/` subfolder at all.
@@ -402,6 +402,8 @@ What's missing is the PowerShell — `Get-HGDocuments` and `ConvertTo-HGAttachme
 ---
 
 ## Notes and edit history
+
+**v1.16 — November 2026.** The Drive folder note now names the Friday pursue email. The `rfp-email-pursue` chat skill it cited was retired.
 
 **v1.15 — November 2026.** The folder rule now points at "Phases" in `skills/rfp/INDEX.md`. `AGENTS.md` lost its "RFP stage folders" section when it was trimmed under OpenClaw's size limit.
 

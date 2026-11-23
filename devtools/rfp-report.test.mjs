@@ -439,7 +439,7 @@ test('delivery: one email to the recipients, then Telegram; preview, re-runs and
   assert.deepEqual([preview.email.status, preview.telegram.status], ['preview', 'preview']);
   assert.match(preview.emailHtml, /Permit portal strong/);
 
-  // A re-run in the same week sends nothing new: the email goes to Peter.
+  // A re-run in the same week sends nothing new: the email goes to Marianne and Sales.
   const rerun = await deliverPursueUpdate({ ...base, preview: false, previous: { week: '41', runDate: '2026-10-09', email: sent.email } });
   assert.equal(calls.length, 0);
   assert.deepEqual([rerun.email.status, rerun.email.subject, rerun.telegram.status], ['already-sent', 'Permit portal strong — pursuing', 'skipped']);
