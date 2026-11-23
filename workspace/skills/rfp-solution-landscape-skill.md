@@ -2,9 +2,9 @@
 name: rfp-solution-landscape
 purpose: Before recommending pursuit, establish what commercial solutions already exist for this problem, what the winning firm probably looks like, whether the RFP appears written for a specific vendor shape ("fake RFP"), and what role — if any — Seamgen can credibly play. Feeds rfp-scoring Category 7 and the meeting brief.
 audience: Written to be read by both Claude (who does the research) and a human teammate (who sanity-checks it and edits the recipe over time). The OUTPUT is written for the sales team, Peter and Marianne.
-version: 1.1 — November 2026
+version: 1.2 — November 2026
 owner: Seamgen sales team (no single owner or approver)
-depends_on: rfp-scoring skill (runs against its full-text score, and hands back a Category 7 input). Reads the RFP's own documents, the agency's award history, and the planholder list where a portal exposes one. Feeds rfp-meeting-brief ("Who this looks written for") and rfp-email-pursue.
+depends_on: rfp-scoring skill (runs against its full-text score, and hands back a Category 7 input). Reads the RFP's own documents, the agency's award history, and the planholder list where a portal exposes one. Feeds rfp-meeting-brief ("Who this looks written for").
 ---
 
 # Solution Landscape & Wired-RFP Skill
@@ -255,6 +255,8 @@ For the meeting brief: [the ~80-word "Who this looks written for" paragraph]
 - **Re-run it when the planholder list changes.** A specialist appearing on the list three weeks in is new evidence.
 
 ## Notes and edit history
+
+**v1.2 — November 2026.** Removed `rfp-email-pursue` from what this skill feeds. That chat skill was retired because the Friday job writes and sends the pursue email.
 
 **v1.1 — November 2026, Seamgen.** Jake has left Seamgen: the owner is now the sales team, with no single owner or approver, and the output is written for the sales team, Peter and Marianne. No change to the research recipe.
 

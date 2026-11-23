@@ -1,6 +1,10 @@
 {
   "_about": "Requests and the decision rfp-route.mjs must reach, against devtools/fixtures/rfp-route-workspace.mjs. Phases there: Laguna Beach 2, Yonkers 3, Boulder 4; Carlsbad, Chandler, Laguna Hills 1; Pasco is this week's Strong Pursue with no folder. Several come from real chats on the VM (July-October 2026), with names changed.",
   "cases": [
+    { "say": "draft the pursue email for Laguna Beach", "action": "retired", "rfp": "laguna-beach-website-redesign" },
+    { "say": "Can you write me a pursue email for the Yonkers app?", "action": "retired", "rfp": "yonkers-senior-services-app" },
+    { "say": "What did the pursue email say about Laguna Beach?", "action": "answer", "rfp": "laguna-beach-website-redesign" },
+
     { "say": "Can you do the engineering brief for Laguna Beach?", "action": "run-skill", "skill": "engineering-brief", "rfp": "laguna-beach-website-redesign" },
     { "say": "eng brief for laguna beach pls", "action": "run-skill", "skill": "engineering-brief", "rfp": "laguna-beach-website-redesign" },
     { "say": "Nick needs a scope summary of the Laguna Beach RFP so he can estimate", "action": "run-skill", "skill": "engineering-brief", "rfp": "laguna-beach-website-redesign" },

@@ -6,24 +6,33 @@
 //
 //   node scripts/rfp-rescore.mjs <slug> [--date YYYY-MM-DD] [--drive-folder <link or ID>]
 //   node scripts/rfp-rescore.mjs <slug> --apply
+//   node scripts/rfp-rescore.mjs <slug> --email
+//   node scripts/rfp-rescore.mjs <slug> --send-email [--retry]
 //
 // Step 1 scores the RFP and saves the result as pending; nothing else changes. Step 2 writes
 // that pending result, with no new model call, so what was shown is what is applied.
 //
+// A rescore can create a Strong Pursue after Friday's email has gone out. For one of those,
+// --email writes the normal pursue email and saves it without sending, and --send-email sends
+// exactly that saved email once a person has seen it and said yes. An RFP is emailed at most
+// once, and the Friday email and Telegram records are never changed.
+//
 // What it does: the same listing and full-text scoring calls as the Friday job, from the
 // listing in candidate.md and the documents already saved in the RFP's resources/ folder.
 // What it never does: download documents, read the agency posting, create Drive folders,
-// look up HubSpot, or send the pursue email or a Telegram message. The week's email and
-// Telegram records are kept as they were.
+// look up HubSpot, or post to Telegram.
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { auditDocuments, auditRecord } from './rfp-audit.mjs';
-import { buildResults, plainOutcome, renderMarkdown, reportEntry } from './rfp-report.mjs';
-import { createModelOutageGuard } from './rfp-scoring-judgment.mjs';
+import {
+  buildResults, plainOutcome, pursueFacts, renderMarkdown, renderPursueEmail, reportEntry, vibeFrom, writePursueEmail,
+} from './rfp-report.mjs';
+import { createModelOutageGuard, createOpenClawJudge } from './rfp-scoring-judgment.mjs';
 import {
   cleanName, driveFolderUrl, extractManifestEvidence, findLocalResourcesDir, incompleteDocumentsState, persistCandidateState,
-  preliminaryState, readPortalCandidate, scoreCandidateFromText, scoreMetadataCandidate, shouldFetchDocuments, validatedScoreState,
+  preliminaryState, readPortalCandidate, scoreCandidateFromText, scoreMetadataCandidate, sendPursueMessage, shouldFetchDocuments,
+  validatedScoreState,
 } from './weekly-rfp-pursue-decision.mjs';
 
 const WORKSPACE = process.env.WORKSPACE_DIR || '/home/azureuser/.openclaw/workspace';
@@ -189,6 +198,94 @@ export async function applyRescore({ slug, at = new Date().toISOString() }) {
   return { ...pending, updatedLatest: latest?.runDate === results.runDate };
 }
 
+// Replaces the model's opening line, which is written for a Friday email about "this week".
+const RESCORE_EMAIL_INTRO = 'One RFP is newly worth pursuing after a rescore on the full RFP documents.';
+const CRON_WRAPPER = path.join(path.dirname(fileURLToPath(import.meta.url)), 'run-new-rfp-qualification-cron.sh');
+const emailPendingFile = (reportDir, slug) => path.join(reportDir, 'rescore', `${slug}.email.json`);
+// Exists from just before the Gmail call until the send is recorded. A timed-out call may still
+// have delivered, so a leftover marker stops a second send until someone has checked the inbox.
+const emailSendingFile = (reportDir, slug) => path.join(reportDir, 'rescore', `${slug}.email.sending`);
+const splitAddresses = value => String(value || '').split(',').map(address => address.trim()).filter(Boolean);
+
+/**
+ * The Friday email's recipients. ISA's chat doesn't get the cron wrapper's environment, so they
+ * are read from the wrapper itself rather than kept in a second list that could drift.
+ */
+export async function pursueRecipients({ env = process.env, wrapper = CRON_WRAPPER } = {}) {
+  const text = await fs.readFile(wrapper, 'utf8').catch(() => '');
+  const fromWrapper = name => {
+    const line = text.split('\n').find(item => item.startsWith(`export ${name}="`)) || '';
+    const start = line.indexOf(':-');
+    const end = line.lastIndexOf('}"');
+    return start === -1 || end === -1 ? '' : line.slice(start + 2, end);
+  };
+  const to = splitAddresses(env.RFP_EMAIL_TO || fromWrapper('RFP_EMAIL_TO'));
+  if (!to.length) throw new RescoreError('No pursue email recipients are set. Nothing was sent.');
+  return { to, cc: splitAddresses(env.RFP_EMAIL_CC || fromWrapper('RFP_EMAIL_CC')) };
+}
+
+// The RFP's entry in the current report, or a refusal saying why it can't be emailed.
+async function emailableEntry(slug, reportDir, { retry = false } = {}) {
+  const results = await readJson(path.join(reportDir, 'latest.json')).catch(() => {
+    throw new RescoreError('There is no latest results file.');
+  });
+  const entry = results.entries.find(item => item.slug === slug);
+  if (!entry) throw new RescoreError(`${slug} isn't in the current report (${results.runDate}). Nothing was sent.`);
+  if (!(results.rescores || []).some(item => item.slug === slug)) throw new RescoreError(`${slug} hasn't been rescored, so the Friday email covers it. Nothing was sent.`);
+  if (entry.tier !== 'strong') throw new RescoreError(`${entry.title} isn't a Strong Pursue. Nothing was sent.`);
+  if ((results.rescoreEmails || []).some(item => item.slug === slug)) throw new RescoreError(`The pursue email for ${entry.title} already went out. Nothing was sent.`);
+  if (['sent', 'already-sent'].includes(results.email?.status) && String(results.email.text || '').includes(entry.title)) {
+    throw new RescoreError(`${entry.title} was already in Friday's pursue email. Nothing was sent.`);
+  }
+  if (!retry && await fs.access(emailSendingFile(reportDir, slug)).then(() => true, () => false)) {
+    throw new RescoreError(`An earlier send for ${entry.title} didn't finish and may have gone out. Check the Sales inbox before trying again. Nothing was sent.`);
+  }
+  return { results, entry };
+}
+
+/** Writes the normal pursue email for one rescored Strong Pursue and saves it. Sends nothing. */
+export async function prepareRescoreEmail({ slug, complete, vibe, reportDir = REPORT_DIR, recipients = pursueRecipients }) {
+  const { results, entry } = await emailableEntry(slug, reportDir);
+  const { to, cc } = await recipients();
+  const facts = pursueFacts({ ...results, entries: [entry], total: 1 });
+  const written = await writePursueEmail(facts, complete, { vibe });
+  const message = renderPursueEmail(facts, { ...written.sentences, intro: RESCORE_EMAIL_INTRO });
+  const pending = { version: PENDING_VERSION, slug, resultsRunDate: results.runDate, entryJson: JSON.stringify(entry), to, cc,
+    writtenBy: written.source, subject: message.subject, text: message.text, html: message.html };
+  await fs.mkdir(path.dirname(emailPendingFile(reportDir, slug)), { recursive: true });
+  await writeAtomic(emailPendingFile(reportDir, slug), `${JSON.stringify(pending, null, 2)}\n`);
+  return pending;
+}
+
+/** Sends exactly the saved email, once, and records it in the week's results. */
+export async function sendRescoreEmail({ slug, retry = false, preview = false, run, reportDir = REPORT_DIR, at = new Date().toISOString() }) {
+  const pending = await readJson(emailPendingFile(reportDir, slug)).catch(() => {
+    throw new RescoreError(`There is no saved email for ${slug}. Run it with --email first. Nothing was sent.`);
+  });
+  const { results, entry } = await emailableEntry(slug, reportDir, { retry });
+  if (pending.resultsRunDate !== results.runDate || pending.entryJson !== JSON.stringify(entry)) {
+    throw new RescoreError(`${entry.title} changed since this email was written. Run --email again. Nothing was sent.`);
+  }
+  if (preview) return { ...pending, status: 'preview' };
+  const marker = emailSendingFile(reportDir, slug);
+  await fs.writeFile(marker, at, { encoding: 'utf8', flag: retry ? 'w' : 'wx' }).catch((error) => {
+    if (error.code === 'EEXIST') throw new RescoreError(`Another send for ${entry.title} is in progress or didn't finish. Nothing was sent.`);
+    throw error;
+  });
+  const sent = await sendPursueMessage({ subject: pending.subject, html: pending.html }, { to: pending.to, cc: pending.cc, ...(run ? { run } : {}) });
+  if (!sent) {
+    throw new RescoreError(`Gmail reported a failure for ${entry.title}, but the email may still have gone out. Check the Sales inbox. Only if it isn't there, run this again with --retry.`);
+  }
+  const record = { slug, title: entry.title, status: 'sent', sentAt: at, subject: pending.subject, to: pending.to, cc: pending.cc,
+    writtenBy: pending.writtenBy, text: pending.text };
+  const json = `${JSON.stringify({ ...results, rescoreEmails: [...(results.rescoreEmails || []), record] }, null, 2)}\n`;
+  await writeAtomic(path.join(reportDir, `${results.runDate}.json`), json);
+  await writeAtomic(path.join(reportDir, 'latest.json'), json);
+  await fs.rm(emailPendingFile(reportDir, slug), { force: true });
+  await fs.rm(marker, { force: true });
+  return { ...pending, status: 'sent' };
+}
+
 const describe = item => `${item.decision}${Number.isFinite(item.score) ? `, ${item.score}` : ''}. ${item.why}`.trim();
 
 async function main(args = process.argv.slice(2)) {
@@ -198,22 +295,58 @@ async function main(args = process.argv.slice(2)) {
   };
   const apply = args.includes('--apply');
   if (apply) args.splice(args.indexOf('--apply'), 1);
+  const flag = name => {
+    const index = args.indexOf(name);
+    if (index === -1) return false;
+    args.splice(index, 1);
+    return true;
+  };
+  const prepareEmail = flag('--email');
+  const sendEmail = flag('--send-email');
+  const retry = flag('--retry');
   const runDate = option('--date') || new Date().toISOString().slice(0, 10);
   const driveFolder = option('--drive-folder');
   const report = option('--report');
   const [slug, ...extra] = args;
-  if (!slug || extra.length || !/^[a-z0-9][a-z0-9-]*$/.test(slug) || !/^\d{4}-\d{2}-\d{2}$/.test(runDate) || (report && !/^\d{4}-\d{2}-\d{2}$/.test(report))) {
-    throw new RescoreError('Usage: node scripts/rfp-rescore.mjs <slug> [--date YYYY-MM-DD] [--report YYYY-MM-DD] [--drive-folder <link or ID>] [--apply]');
+  const modes = [apply, prepareEmail, sendEmail].filter(Boolean).length;
+  if (!slug || extra.length || modes > 1 || (retry && !sendEmail) || !/^[a-z0-9][a-z0-9-]*$/.test(slug) || !/^\d{4}-\d{2}-\d{2}$/.test(runDate) || (report && !/^\d{4}-\d{2}-\d{2}$/.test(report))) {
+    throw new RescoreError('Usage: node scripts/rfp-rescore.mjs <slug> [--date YYYY-MM-DD] [--report YYYY-MM-DD] [--drive-folder <link or ID>] [--apply | --email | --send-email [--retry]]');
   }
   if (await weeklyJobRunning()) throw new RescoreError('The Friday RFP job is running. Try again when it has finished.');
 
+  if (prepareEmail) {
+    const complete = globalThis[Symbol.for('isa.rfp.testWriter')] || await createOpenClawJudge().catch(() => null);
+    const vibe = vibeFrom(await fs.readFile(path.join(WORKSPACE, 'IDENTITY.md'), 'utf8').catch(() => ''));
+    const email = await prepareRescoreEmail({ slug, complete, vibe });
+    process.stdout.write([
+      'This email is ready. Nothing has been sent.',
+      `To: ${email.to.join(', ')}`,
+      ...(email.cc.length ? [`Cc: ${email.cc.join(', ')}`] : []),
+      `Subject: ${email.subject}`,
+      '',
+      email.text,
+      '',
+      `After the person says yes to this email, run: node scripts/rfp-rescore.mjs ${slug} --send-email`,
+    ].join('\n') + '\n');
+    return;
+  }
+  if (sendEmail) {
+    const preview = String(process.env.RFP_DELIVERY || '').toLowerCase() === 'preview';
+    const email = await sendRescoreEmail({ slug, retry, preview });
+    process.stdout.write(email.status === 'sent'
+      ? `Sent the pursue email to ${email.to.join(', ')}: ${email.subject}\n`
+      : `Preview mode: nothing was sent. It would go to ${email.to.join(', ')}: ${email.subject}\n`);
+    return;
+  }
   if (apply) {
     const done = await applyRescore({ slug });
+    const canEmail = await emailableEntry(slug, REPORT_DIR).then(() => true, () => false);
     process.stdout.write([
       `${done.entry.title}: the ${done.resultsRunDate} report now shows ${describe(done.after)}`,
       `Before: ${describe(done.before)}`,
       done.updatedLatest ? '' : `latest.json is a later week, so only the ${done.resultsRunDate} files changed.`,
       'Nothing was emailed or posted.',
+      canEmail ? `This is a Strong Pursue that hasn't been emailed. To write its pursue email without sending it, run: node scripts/rfp-rescore.mjs ${slug} --email` : '',
     ].filter(Boolean).join('\n') + '\n');
     return;
   }

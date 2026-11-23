@@ -166,6 +166,10 @@ const STAY = /\b(keep it (where|in|at)|leave it (where|in|at)|dont move|do not m
 const LIST = /\bworking on\b|\bin progress\b|\bour rfps\b|\blist (the |our |all )?rfps\b|\bwhich rfps (are|did) we\b|\bwhats in (phase|shortlisted|looking|building)\b|\bwhat is in (phase|shortlisted|looking|building)\b/;
 // Requests that sound like a skill but aren't one. Taken from real chats on the VM (July–October 2026).
 const RETIRED = /\bmeeting brief\b/;
+// Asking ISA to write a pursue email. The Friday job writes and sends it, so the chat skill was
+// retired on November 23, 2026. Questions about the sent email ("what did the pursue email say")
+// don't match and are still answered from its record.
+const PURSUE_DRAFT = /\b(write|draft|create|generate|prepare|compose|make|redo|rewrite)( me| us| up)?( a| an| the| another| new| our)* pursue email\b|\bpursue email draft\b/;
 const SHARE = /\b(share|send me|email me|attach|forward)\b.*\b(documents?|docs?|pdfs?|files?|rfp|rfq)\b/;
 const RESCORE = /\b(rescore|re score|score (this|it|that) (again|rfp|rfq)|score (this|it|that)$|score this (rfp|rfq)|run the scor)/;
 const RESULTS = /\bthis week\b|\blatest batch\b|\bworth pursuing\b|\bfriday (email|results|run|message)\b|\bweekly (rfp )?job\b|\bbeen run\b|\bpursue email\b|\bhow did .* score\b|\bscored today\b|\bwhat score\b|\bits score\b|\bscore breakdown\b|\bpoints per\b/;
@@ -324,6 +328,10 @@ async function decide(message, { workspace = workspaceDir() } = {}) {
     if (RETIRED.test(text)) {
       return { ...base, action: 'retired', rfp: rfpOut(rfp),
         say: 'The meeting brief was retired in October. The Friday pursue email has the summary, fit, blockers and key dates; I can also do an engineering brief or the agency questions. Which would help?' };
+    }
+    if (PURSUE_DRAFT.test(text)) {
+      return { ...base, action: 'retired', rfp: rfpOut(rfp),
+        say: "I send the pursue email on my own after Friday's scoring, for that week's Strong Pursue RFPs, and after a rescore once someone confirms it, so there's no draft to write. I can tell you what this week's email said, or do an engineering brief or the agency questions. Which would help?" };
     }
     // "Send me a calendar file" is the calendar skill, not an agency document.
     if (SHARE.test(text) && !/\b(calendar|ics|invites?)\b/.test(text)) {
