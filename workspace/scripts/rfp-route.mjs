@@ -168,8 +168,13 @@ const LIST = /\bworking on\b|\bin progress\b|\bour rfps\b|\blist (the |our |all 
 const RETIRED = /\bmeeting brief\b/;
 // Asking ISA to write a pursue email. The Friday job writes and sends it, so the chat skill was
 // retired on November 23, 2026. Questions about the sent email ("what did the pursue email say")
-// don't match and are still answered from its record.
-const PURSUE_DRAFT = /\b(write|draft|create|generate|prepare|compose|make|redo|rewrite)( me| us| up)?( a| an| the| another| new| our)* pursue email\b|\bpursue email draft\b/;
+// don't match and are still answered from its record. People also ask without saying "pursue
+// email" ("email Marianne and Sales that Laguna is a pursue"), which would otherwise reach the
+// general answer path, where ISA could improvise a draft from the Workshop's rfp-flow skill.
+const PURSUE_DRAFT = /\b(write|draft|create|generate|prepare|compose|make|redo|rewrite)( me| us| up)?( a| an| the| another| new| our)* (pursue|pursuit|pursuing) (email|note|message)\b|\b(pursue|pursuit) email draft\b/;
+const PURSUE_NOTICE = /\b(email (marianne|sales)|(write|draft|send|compose)( me| us| up)?( a| an| the)? (email|note|message) to (marianne|sales))\b.*\b(pursue|pursuing|pursuit)\b/;
+// A question about an email already sent, or a request to pass on an RFP's documents.
+const NOT_PURSUE_NOTICE = /^(did|has|have|was|were|what|when|who|why)\b|\b(documents?|docs?|pdfs?|files?|attachments?)\b/;
 const SHARE = /\b(share|send me|email me|attach|forward)\b.*\b(documents?|docs?|pdfs?|files?|rfp|rfq)\b/;
 const RESCORE = /\b(rescore|re score|score (this|it|that) (again|rfp|rfq)|score (this|it|that)$|score this (rfp|rfq)|run the scor)/;
 const RESULTS = /\bthis week\b|\blatest batch\b|\bworth pursuing\b|\bfriday (email|results|run|message)\b|\bweekly (rfp )?job\b|\bbeen run\b|\bpursue email\b|\bhow did .* score\b|\bscored today\b|\bwhat score\b|\bits score\b|\bscore breakdown\b|\bpoints per\b/;
@@ -329,7 +334,7 @@ async function decide(message, { workspace = workspaceDir() } = {}) {
       return { ...base, action: 'retired', rfp: rfpOut(rfp),
         say: 'The meeting brief was retired in October. The Friday pursue email has the summary, fit, blockers and key dates; I can also do an engineering brief or the agency questions. Which would help?' };
     }
-    if (PURSUE_DRAFT.test(text)) {
+    if (PURSUE_DRAFT.test(text) || (PURSUE_NOTICE.test(text) && !NOT_PURSUE_NOTICE.test(text))) {
       return { ...base, action: 'retired', rfp: rfpOut(rfp),
         say: "I send the pursue email on my own after Friday's scoring, for that week's Strong Pursue RFPs, and after a rescore once someone confirms it, so there's no draft to write. I can tell you what this week's email said, or do an engineering brief or the agency questions. Which would help?" };
     }

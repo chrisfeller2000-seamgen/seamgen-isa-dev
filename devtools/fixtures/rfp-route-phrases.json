@@ -4,6 +4,11 @@
     { "say": "draft the pursue email for Laguna Beach", "action": "retired", "rfp": "laguna-beach-website-redesign" },
     { "say": "Can you write me a pursue email for the Yonkers app?", "action": "retired", "rfp": "yonkers-senior-services-app" },
     { "say": "What did the pursue email say about Laguna Beach?", "action": "answer", "rfp": "laguna-beach-website-redesign" },
+    { "say": "can you write the email to Marianne and Sales saying we are pursuing Laguna Beach", "action": "retired", "rfp": "laguna-beach-website-redesign" },
+    { "say": "email Marianne and Sales that Laguna Beach is a pursue", "action": "retired", "rfp": "laguna-beach-website-redesign" },
+    { "say": "write up the pursuit email for Laguna Beach", "action": "retired", "rfp": "laguna-beach-website-redesign" },
+    { "say": "Did you email Marianne about pursuing Laguna Beach?", "action": "answer", "rfp": "laguna-beach-website-redesign" },
+    { "say": "email sales the documents for Laguna Beach since we are pursuing it", "action": "answer", "rfp": "laguna-beach-website-redesign" },
 
     { "say": "Can you do the engineering brief for Laguna Beach?", "action": "run-skill", "skill": "engineering-brief", "rfp": "laguna-beach-website-redesign" },
     { "say": "eng brief for laguna beach pls", "action": "run-skill", "skill": "engineering-brief", "rfp": "laguna-beach-website-redesign" },
