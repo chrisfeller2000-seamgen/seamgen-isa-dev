@@ -1275,7 +1275,7 @@ function buildEmailHtml(runDate, facts, pipelineGroups, companyContexts, leadNot
       <body style="font-family: Arial, Helvetica, sans-serif; line-height:1.5; color:#111827; background:#f9fafb; padding:24px;">
         <div style="max-width:920px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;padding:24px;">
           <h2 style="margin:0 0 12px;font-size:24px;">${escapeHtml(REPORT_TITLE)} - ${escapeHtml(runDate)}</h2>
-          <p style="margin:0 0 14px;color:#374151;">Current year only. HubSpot is the single source of truth. Sales Golden Rules applied.</p>
+          <p style="margin:0 0 14px;color:#374151;">Current year and rolling 12-month view.</p>
           <h3 style="margin:20px 0 8px;font-size:20px;">Facts Overview</h3>
           <ul style="margin:0 0 18px 18px;padding:0;">${factsLines}</ul>
           <section style="margin:28px 0 0;">
