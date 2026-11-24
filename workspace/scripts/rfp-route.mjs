@@ -218,10 +218,12 @@ export function parseStructured(message, skills) {
   if (verb === 'list') return { kind: 'list' };
   if (verb === 'skills') return { kind: 'offer', name: rest };
   if (verb === 'move') {
-    const parts = rest.split(/\s+/);
+    // `--choice <n>`: the move is choice n of ISA's own question (see rfp-stage.mjs).
+    const choice = rest.match(/--choice\s+(\d)\b/)?.[1] || null;
+    const parts = rest.replace(/--choice\s+\d\b/g, '').trim().split(/\s+/);
     const last = parts.at(-1) || '';
     const target = findStage(last) ? STAGES.indexOf(findStage(last)) + 1 : null;
-    return { kind: 'move', name: target ? parts.slice(0, -1).join(' ') : rest, phase: target };
+    return { kind: 'move', name: target ? parts.slice(0, -1).join(' ') : parts.join(' '), phase: target, choice };
   }
   const skill = skills.find(item => item.command === verb);
   if (skill) return { kind: 'skill', skill, name: rest, stay };
@@ -229,7 +231,9 @@ export function parseStructured(message, skills) {
 }
 
 const commandFor = (skill, rfp, extra = '') => `rfp ${skill.command} ${rfp.slug}${extra}`;
-const moveCommand = (rfp, phase) => `node scripts/rfp-stage.mjs ${rfp.slug} ${MOVE_WORDS[phase - 1]} --by "<their name>"`;
+// The person's own words go on standard input, never in quotes on the command line, and
+// rfp-stage.mjs moves only when they ask for one.
+const moveCommand = (rfp, phase, choice = null) => `node scripts/rfp-stage.mjs ${rfp.slug} ${MOVE_WORDS[phase - 1]} --by "<their name>"${choice ? ` --choice ${choice}` : ''} --said <<'RFP_REPLY_END'\n<their exact words, as they wrote them>\nRFP_REPLY_END`;
 const rfpOut = rfp => (rfp ? { slug: rfp.slug, title: rfp.title, phase: rfp.phase, phaseName: phaseName(rfp.phase), hasFolder: rfp.folder } : null);
 const skillOut = skill => (skill ? { id: skill.id, label: skill.label, command: skill.command, phase: skill.phase, file: skill.file } : null);
 
@@ -365,14 +369,14 @@ async function decide(message, { workspace = workspaceDir() } = {}) {
     if (!target) {
       const options = [1, 2, 3, 4].filter(phase => phase !== rfp.phase);
       return { ...base, action: 'ask-which-phase', rfp: rfpOut(rfp),
-        choices: options.map((phase, index) => ({ n: index + 1, phase, command: `rfp move ${rfp.slug} ${MOVE_WORDS[phase - 1]}` })),
+        choices: options.map((phase, index) => ({ n: index + 1, phase, command: `rfp move ${rfp.slug} ${MOVE_WORDS[phase - 1]} --choice ${index + 1}` })),
         say: [`${rfp.title} is in ${phaseName(rfp.phase)}. Move it to:`, ...options.map((phase, index) => `${index + 1}. ${phaseName(phase)}: \`rfp move ${rfp.slug} ${MOVE_WORDS[phase - 1]}\``)].join('\n') };
     }
     if (target === rfp.phase) return { ...base, action: 'already', rfp: rfpOut(rfp), say: `${rfp.title} is already in ${phaseName(target)}. Nothing moved.` };
     // No after-move text here: rfp-stage.mjs prints the new phase's skills itself, so ISA can only
     // offer them once the move has really happened.
-    return { ...base, action: 'move', rfp: rfpOut(rfp), toPhase: target, toPhaseName: phaseName(target), command: moveCommand(rfp, target),
-      note: 'Run the command with their name in --by. Pass on what it prints in plain words: that it moved, then any skill list it prints, word for word. If it refuses, pass on its reason. Never say it moved otherwise.' };
+    return { ...base, action: 'move', rfp: rfpOut(rfp), toPhase: target, toPhaseName: phaseName(target), command: moveCommand(rfp, target, structured?.choice),
+      note: 'Run the command with their name in --by and the words of their message that asked for the move between the RFP_REPLY_END lines, exactly as they wrote them (a reply like "1" or "yes" stays just that). It moves only when those words ask for a move. Pass on what it prints in plain words: that it moved, then any skill list it prints, word for word. If it refuses, pass on its reason and do what it says. Never say it moved otherwise.' };
   }
 
   if (skill) {
@@ -384,7 +388,7 @@ async function decide(message, { workspace = workspaceDir() } = {}) {
     if (later && !stay) {
       return { ...base, action: 'ask-move', skill: skillOut(skill), rfp: rfpOut(rfp), toPhase: skill.phase,
         choices: [
-          { n: 1, text: `Move it to ${phaseName(skill.phase)}, then do it`, command: `rfp move ${rfp.slug} ${MOVE_WORDS[skill.phase - 1]}`, then: commandFor(skill, rfp) },
+          { n: 1, text: `Move it to ${phaseName(skill.phase)}, then do it`, command: `rfp move ${rfp.slug} ${MOVE_WORDS[skill.phase - 1]} --choice 1`, then: commandFor(skill, rfp) },
           { n: 2, text: `Do it and leave it in ${phaseName(rfp.phase)}`, command: commandFor(skill, rfp, ' --stay') },
         ],
         say: [`"${skill.label}" is a ${phaseName(skill.phase)} skill, and ${rfp.title} is in ${phaseName(rfp.phase)}. Want me to move it first?`,

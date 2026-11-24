@@ -37,7 +37,7 @@ test('a later-phase skill asks first, with one command per choice, and "--stay" 
     const ask = await routeRequest('Can you put together the submission checklist for Laguna Beach?', { workspace });
     assert.equal(ask.action, 'ask-move');
     assert.deepEqual(ask.choices.map(choice => choice.command), [
-      'rfp move laguna-beach-website-redesign building',
+      'rfp move laguna-beach-website-redesign building --choice 1',
       'rfp checklist laguna-beach-website-redesign --stay',
     ]);
     assert.equal(ask.choices[0].then, 'rfp checklist laguna-beach-website-redesign');
@@ -57,15 +57,21 @@ test('a move names the exact rfp-stage.mjs command, and gives no after-move text
   const workspace = await routeWorkspace();
   try {
     const move = await routeRequest('Yes, move Pasco County', { workspace });
-    assert.equal(move.command, 'node scripts/rfp-stage.mjs pasco-county-records-system shortlisted --by "<their name>"');
+    // The person's words go on standard input, and rfp-stage.mjs moves only when they ask for one.
+    assert.equal(move.command, 'node scripts/rfp-stage.mjs pasco-county-records-system shortlisted --by "<their name>" --said <<\'RFP_REPLY_END\'\n<their exact words, as they wrote them>\nRFP_REPLY_END');
     assert.match(move.note, /Never say it moved otherwise/);
+    // A move choice in ISA's own question carries its number through to rfp-stage.mjs.
+    const chosen = await routeRequest('rfp move laguna-beach-website-redesign building --choice 1', { workspace });
+    assert.equal(chosen.action, 'move');
+    assert.equal(chosen.rfp.slug, 'laguna-beach-website-redesign');
+    assert.match(chosen.command, / building --by "<their name>" --choice 1 --said <<'RFP_REPLY_END'\n/);
     // In local runs ISA twice sent a pre-written "Moved …" text without running the move, so the
     // skill list after a move comes only from rfp-stage.mjs (see rfp-stage.test.mjs).
     assert.equal(move.after, undefined);
     // Every choice carries the exact router call to run when the person replies with its number.
     const ask = await routeRequest('Can you put together the submission checklist for Laguna Beach?', { workspace });
     assert.deepEqual(ask.choices.map(choice => choice.route), [
-      'node scripts/rfp-route.mjs "rfp move laguna-beach-website-redesign building"',
+      'node scripts/rfp-route.mjs "rfp move laguna-beach-website-redesign building --choice 1"',
       'node scripts/rfp-route.mjs "rfp checklist laguna-beach-website-redesign --stay"',
     ]);
     assert.equal(ask.choices[0].thenRoute, 'node scripts/rfp-route.mjs "rfp checklist laguna-beach-website-redesign"');

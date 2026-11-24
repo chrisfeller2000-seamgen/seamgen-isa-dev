@@ -4,8 +4,16 @@
 // RFP sits in always reflects a person's decision. Nothing moves automatically.
 //
 //   node scripts/rfp-stage.mjs list
-//   node scripts/rfp-stage.mjs <slug> <tier> --by "<name>" [--note "<why>"] [--agency ..] [--number ..] [--title ..]
+//   node scripts/rfp-stage.mjs <slug> <tier> --by "<name>" [--choice <n>] [--note "<why>"] [--agency ..] [--number ..] [--title ..] --said <<'RFP_REPLY_END'
+//   <the person's exact words>
+//   RFP_REPLY_END
 //   node scripts/rfp-stage.mjs <slug> --agency "<agency>" --number "<solicitation number>" --by "<name>"
+//
+// A move needs the person's own words (`--said`, on standard input like every message ISA
+// passes on) and moves only when they ask for one. In local tests on November 24, 2026, ISA
+// answered "2" ("do it and leave it in Phase 1") by building its own `rfp move` command, and the
+// RFP moved without anyone's yes (3 of 5 runs). `--choice` is the number of the move choice in
+// ISA's own question; a reply that is a different number is refused.
 //
 // The agency and solicitation number matter for an RFP with no HigherGov key (one a teammate
 // forwarded): they are how the Friday run recognizes its listing if it reaches HigherGov.
@@ -139,8 +147,46 @@ function renderList({ tiers, scored }) {
   return `${lines.join('\n')}\n`;
 }
 
+const normalizeReply = text => String(text || '').toLowerCase().replace(/[‘’']/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+const MOVE_WORDS = /\b(move|moving|moved|shortlist|shortlisted|promote|advance|bump|push it|phase [1-4]|scored|building|submitted|looking closer)\b/;
+const NOT_MOVE = /\b(dont|do not|not|never|no need to|stop|cancel|hold off on|wait to) (move|moving|shortlist|promote|advance|bump|push)\b|\b(keep|leave) it (where|in|at|as)\b|\bstay(s)? (where|in|put)\b|\b(without|instead of) moving\b/;
+const YES = /^(yes|yeah|yep|yup|sure|ok|okay|go ahead|do it|please do|sounds good|lets do it|correct|absolutely|definitely|y)\b/;
+const NO = /^(no|nope|nah|not yet|not now|n)\b/;
+
+/**
+ * Whether the person's own words ask for this move. `choice` is the number of the move choice
+ * in ISA's question, when it asked one. Returns { ok } or { ok: false, reason } with what ISA
+ * should do instead. Pure.
+ */
+export function replyAllowsMove(said, { choice = null } = {}) {
+  const text = normalizeReply(said);
+  if (!text) return { ok: false, reason: 'A move needs their exact words on standard input (--said). Nothing moved.' };
+  const picked = text.match(/^(?:option |choice |number |the )?([1-9])(?:st|nd|rd|th)?(?: one| option| please)?$/)?.[1]
+    || text.match(/^(?:the )?(first|second|third|fourth)(?: one| option)?$/)?.[1];
+  if (picked) {
+    const number = Number(picked) || ['first', 'second', 'third', 'fourth'].indexOf(picked) + 1;
+    if (choice !== null && number === Number(choice)) return { ok: true };
+    return { ok: false, reason: choice === null
+      ? `They answered "${said.trim()}", a choice number. Run the \`route\` written next to choice ${number} in your own question. Nothing moved.`
+      : `They picked choice ${number}, and the move is choice ${choice}. Run the \`route\` written next to choice ${number} in your own question instead. Nothing moved.` };
+  }
+  if (NOT_MOVE.test(text) || NO.test(text)) return { ok: false, reason: `They said "${said.trim()}", which doesn't ask for a move. Nothing moved.` };
+  if (MOVE_WORDS.test(text)) return { ok: true };
+  if (YES.test(text) && (choice === null || Number(choice) === 1)) return { ok: true };
+  return { ok: false, reason: `"${said.trim()}" doesn't ask for a move. Ask them whether to move it, and move it only on their yes. Nothing moved.` };
+}
+
+async function readStdin() {
+  if (process.stdin.isTTY) return '';
+  let text = '';
+  for await (const chunk of process.stdin) text += chunk;
+  return text;
+}
+
 const USAGE = 'Usage: node scripts/rfp-stage.mjs list\n'
-  + '       node scripts/rfp-stage.mjs <slug> <1|2|3|4|scored|shortlisted|building|submitted> --by "<name>" [--note "<why>"] [--agency "<agency>"] [--number "<solicitation number>"] [--title "<title>"]\n'
+  + '       node scripts/rfp-stage.mjs <slug> <1|2|3|4|scored|shortlisted|building|submitted> --by "<name>" [--choice <n>] [--note "<why>"] [--agency "<agency>"] [--number "<solicitation number>"] [--title "<title>"] --said <<\'RFP_REPLY_END\'\n'
+  + '       <the person\'s exact words>\n'
+  + '       RFP_REPLY_END\n'
   + '       node scripts/rfp-stage.mjs <slug> --agency "<agency>" --number "<solicitation number>" [--title "<title>"] --by "<name>"';
 
 async function main(args = process.argv.slice(2)) {
@@ -154,6 +200,9 @@ async function main(args = process.argv.slice(2)) {
   }
   const by = option('--by').trim();
   const note = option('--note').trim();
+  const choice = option('--choice').trim() || null;
+  const saidAt = args.indexOf('--said');
+  if (saidAt !== -1) args.splice(saidAt, 1);
   const details = { title: option('--title').trim(), agency: option('--agency').trim(), number: option('--number').trim() };
   const [slug, tier, ...extra] = args;
   const to = findStage(tier);
@@ -173,6 +222,9 @@ async function main(args = process.argv.slice(2)) {
       `Recorded as asked by ${by}.`, ...reminder(done)].join('\n') + '\n');
     return;
   }
+  const said = saidAt === -1 ? '' : await readStdin();
+  const allowed = replyAllowsMove(said, { choice });
+  if (!allowed.ok) throw new StageError(allowed.reason);
   const moved = await moveRfp({ slug, to, by, note, ...details });
   process.stdout.write([
     moved.from
