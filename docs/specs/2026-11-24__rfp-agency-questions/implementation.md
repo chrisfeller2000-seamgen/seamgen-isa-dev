@@ -160,3 +160,32 @@ The backup is `backups/dev-deploy-2026-11-24T19-11-22-030Z-43dc400`. `AGENTS.md`
 **Not run on the VM:** a move with `rfp-stage.mjs`. A refusal writes nothing, but a mistake would move a real RFP, so the tests cover it instead.
 
 **Still unseen:** the live model on any of this, and a real agency questions request.
+
+## Follow-up releases: RFP matching by title and agency (November 24, 2026)
+
+The router finding above was fixed in two steps, each uploaded on the user's request after it merged. Each upload was one file, `scripts/rfp-route.mjs`. Before each: `npm test` (306) and `npm run check` passed, and `live:pull` showed no VM changes since the previous upload. After each, `live:pull` showed the VM matching `main`. `AGENTS.md` didn't change, and nothing was restarted.
+
+**#89, uploaded at 19:30 UTC** (commit `51d17ae`, backup `backups/dev-deploy-2026-11-24T19-30-58-125Z-51d17ae`):
+- Titles now come from the documents manifest (`candidate_title`) or the newest audit line, and agencies from the audit, when a folder has neither `_stage.json` nor `candidate.md`.
+- A named agency narrows the match to that agency's RFPs.
+- A title or slug in the message wins alone only when no other RFP's title holds the same words.
+- Words from the skills' `asks` are ignored.
+- "Which RFP do you mean?" lists each RFP with its agency.
+
+**The check after #89 found a second problem.** The Laguna Beach website request now asked which of Laguna Beach's two RFPs was meant: the website redesign or "RFP - Traffic Signal Priority". Both carried the same agency score, and "website" and "redesign" weigh little on the VM, where dozens of titles hold them. The check before the deploy had missed it because the local copy held only the 288 folders with a manifest, and the traffic signal folder has none. Later checks used every folder.
+
+**#90, uploaded at 19:52 UTC** (commit `c919ae4`, backup `backups/dev-deploy-2026-11-24T19-52-35-476Z-c919ae4`): within one agency's RFPs, only the title words are compared. With no title words, every RFP of that agency is a candidate.
+
+**Read-only router checks on the VM after #90** (about 210 ms each, mostly reading the 27 MB audit):
+
+| Message | Result |
+| --- | --- |
+| "Can you write the questions we should send the City of Laguna Beach for their website redesign RFP?" | `ask-move`, `website-redesign-and-replacement-project` |
+| "What questions should we ask Laguna Beach?" | `ask-which-rfp`, Laguna Beach's two RFPs |
+| "agency questions for the Missouri website redesign" | `ask-move`, `website-redesign` (State Technical College of Missouri) |
+| "agency questions for the website redesign RFP" | `ask-which-rfp`, four website redesign RFPs with their agencies |
+| `rfp questions website-redesign-and-replacement-project --stay` | `run-skill`, agency questions, Laguna Beach |
+
+**PR #91** reopened the original #85 branch, whose last commit had already reached `main` as #87. Merged into `main`, it changed nothing, so it was closed unmerged.
+
+**Later work:** the audit grows about 5 MB a week, so reading it on every message may eventually need an index.
