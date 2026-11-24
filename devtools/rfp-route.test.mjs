@@ -22,6 +22,7 @@ test('the router reads each way of asking as the right skill, RFP and next step'
         'skill' in expected && got.skill?.id !== expected.skill && `skill ${got.skill?.id}, wanted ${expected.skill}`,
         'rfp' in expected && got.rfp?.slug !== expected.rfp && `rfp ${got.rfp?.slug}, wanted ${expected.rfp}`,
         'toPhase' in expected && got.toPhase !== expected.toPhase && `phase ${got.toPhase}, wanted ${expected.toPhase}`,
+        'about' in expected && (got.about ?? null) !== expected.about && `about ${got.about}, wanted ${expected.about}`,
       ].filter(Boolean);
       if (mismatch.length) wrong.push(`"${expected.say}": ${mismatch.join('; ')}`);
     }

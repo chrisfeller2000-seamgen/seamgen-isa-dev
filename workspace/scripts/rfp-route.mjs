@@ -29,6 +29,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { rfpDocuments } from './document-text.mjs';
 import { recordedDates } from './rfp-dates.mjs';
+import { savedQuestions } from './rfp-questions.mjs';
 import { STAGES, findStage, rfpsDir, workspaceDir } from './rfp-folders.mjs';
 
 const PHASE_NAMES = ['Phase 1: Scored', 'Phase 2: Shortlisted', 'Phase 3: Building', 'Phase 4: Submitted'];
@@ -186,6 +187,18 @@ const MOVE = /\b(move|moving|moved|promote|push|bump|advance|put|go(es)? to|send
 // pre-bid meeting for Chandler?" got a "move it to Phase 2 first?" question back. Only a request
 // for calendar events (the calendar skill's `asks`) runs the skill.
 const DATE_QUESTION = /\bwhen (is|are|s|was|were|do|does|did)\b|\bwhens\b|\b(key|important) dates?\b|\bdue dates?\b|\bdeadlines?\b|\bpre (bid|proposal|submittal)\b|\b(bidders|vendors?) (conference|meeting)\b|\bsite visit\b|\bconference\b|\bwhat (date|day|time)\b/;
+// About questions already written for the agency, not a request to write new ones. Each of these
+// ran the agency questions skill until November 24, 2026, which wrote a fresh set of questions:
+// - the agency's answers ("the city answered our questions", "Q&A answers are posted");
+// - what was asked ("what did we ask the agency", "did we already send questions");
+// - this week's "ask the agency first" RFPs, which the Friday results list with their question.
+const AGENCY_ANSWERS = /\b(agency|city|county|district|state|town|they|buyer|owner)( has| have)? (answered|responded|replied|got back|posted (the |their )?(answers|responses))\b|\b(q and a|qa|question|questions|clarification|clarifications) (answers|responses|replies)\b|\b(answers|responses|replies) (to|on|for) (our|the|my|their) (questions|q and a|qa|clarifications?)\b|\banswers? (are|is|were|was|came) (out|posted|in|back)\b|\b(replied|responded|answered)( yet)?$|\b(respond|answer|reply|replied|responded|answered) to (our|the|my) (questions|q and a|qa)\b|\b(answered|responded to|replied to) (our|my|the|all|both)( of our)? (questions|q and a|qa)\b/;
+const QUESTIONS_ASKED = /\b(what|which) (questions )?(did|have) (we|you|i) (ask|asked|send|sent|submit|submitted)\b|\b(did|have) (we|you|i) (already )?(ask|asked|send|sent|submit|submitted|write|written|wrote)( the| any| our)?( agency)?( q and a| clarifying)? questions\b|\b(questions|what) (we|you) (asked|sent|submitted)\b/;
+const ASK_FIRST = /\bask (the )?agency first\b/;
+const WRITE = /\b(write|draft|prepare|compose|create|generate|redo|rewrite)\b/;
+// A request to write or change questions, which goes to the skill even when it mentions
+// earlier ones ("redo the questions we sent", "add a question about hosting").
+const REWRITE = /^(please )?(write|draft|prepare|compose|create|generate)\b|\b(redo|rewrite|revise|update|change|edit|add|remove|drop|fix)\b/;
 const REPLY = /^(yes|yeah|yep|ok|okay|sure|no|nope|nah|go ahead|do it|please do|lets do|the (first|second|third|1st|2nd|3rd)|option \d|number \d|\d\b)/;
 
 // A target phase named in the message: "phase 3", "building", "shortlisted", "submitted", "back to scored".
@@ -271,9 +284,21 @@ function askWhichRfp(ambiguous, nextCommand) {
 export async function routeRequest(message, options = {}) {
   const decision = await decide(message, options);
   if (decision.rfp && DOCUMENT_ACTIONS.has(decision.action)) decision.documents = await documentsOut(decision.rfp.slug, options.workspace);
+  // The saved documents that look like the agency's answers. In a local test on November 24,
+  // 2026, ISA answered "anything we need to know?" from the scoring notes and never opened the
+  // saved Q&A addendum.
+  if (decision.about === 'agency-answers' && decision.documents?.files) {
+    const answers = decision.documents.files.filter(file => file.readable && /q ?& ?a|\bqa\b|question|answer|response|clarif|addend/i.test(file.name));
+    decision.answerFiles = answers.map(file => ({ n: file.n, read: `node scripts/document-text.mjs --rfp ${decision.rfp.slug} --file ${file.n}` }));
+  }
   // An answer carries the key dates already recorded, so ISA doesn't work weekdays out itself.
   if (decision.rfp && decision.action === 'answer') {
     decision.dates = await recordedDates(decision.rfp.slug, { workspace: options.workspace, now: options.now }) || null;
+    // The questions ISA gave last time (scripts/rfp-questions.mjs), for "what did we ask" and the agency's answers.
+    if (['questions', 'agency-answers'].includes(decision.about)) {
+      const saved = await savedQuestions(decision.rfp.slug, { workspace: options.workspace });
+      decision.questions = saved ? { given: saved.given, questions: saved.questions } : null;
+    }
   }
   const routeOf = command => `node scripts/rfp-route.mjs "${command}"`;
   if (decision.choices) {
@@ -342,6 +367,18 @@ async function decide(message, { workspace = workspaceDir() } = {}) {
     if (SHARE.test(text) && !/\b(calendar|ics|invites?)\b/.test(text)) {
       return { ...base, action: 'share-documents', rfp: rfpOut(rfp),
         note: 'Attach the saved file from the RFP\'s resources/ folder, as skills/rfp/INDEX.md says under "Documents". If it isn\'t saved yet, follow skills/rfp/document-fetch/instructions.md first.' };
+    }
+    if (AGENCY_ANSWERS.test(text) && !REWRITE.test(text)) {
+      return { ...base, action: 'answer', about: 'agency-answers', rfp: rfpOut(rfp),
+        note: `The agency's answers to questions. If they pasted or forwarded the answers, use those. Otherwise read every file in "answerFiles" (the saved documents that look like a Q&A or addendum) before answering, never the scoring notes alone; if there are none, follow skills/rfp/document-refresh/instructions.md to check for new ones. When "questions" has what we asked, match the answers to them by number and say which were answered and which weren't. Lead with anything that changes scope, dates, budget or what the proposal must include.${rfp ? ` If a date moved, offer \`rfp dates ${rfp.slug}\`.` : ' Ask which RFP they mean if it is not clear.'}` };
+    }
+    if (QUESTIONS_ASKED.test(text) && !REWRITE.test(text)) {
+      return { ...base, action: 'answer', about: 'questions', rfp: rfpOut(rfp),
+        note: `What was asked of the agency. Answer from "questions": the questions ISA last gave and the day it gave them, word for word. ISA doesn't know whether or when they were sent, or whether the sender edited them, so say "the questions I wrote on <date>", never "we asked" or "we sent".${rfp ? ` When "questions" is null, say none were written here and offer \`rfp questions ${rfp.slug}\`.` : ' Ask which RFP they mean.'}` };
+    }
+    if (ASK_FIRST.test(text) && !WRITE.test(text)) {
+      return { ...base, action: 'answer', rfp: rfpOut(rfp),
+        note: "The RFPs this week's results say to ask the agency about before deciding: entries whose `agencyQuestion` is set, with the question and `agencyQuestionBy`, the day to ask by. Answer from this week's results as skills/rfp/INDEX.md says under 'Scoring and filtering'. To write the email with that question, offer `rfp questions <rfp>`." };
     }
     if (RESCORE.test(text)) {
       return { ...base, action: 'rescore', rfp: rfpOut(rfp),
