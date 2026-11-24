@@ -71,3 +71,32 @@ The user approved all six proposed changes on November 24, 2026, with the PDF re
 - **Live data:**
   - People.txt parsing is tested against its layout as read on the VM (nine people, each name in capitals with a "Role:" line), but hasn't run on the VM's file.
   - No real capability check has run.
+
+## Release (November 24, 2026 at 21:22 UTC)
+
+Uploaded on the user's request together with the engineering brief (#94), after both merged. Commit `3d04e55` (the #94 merge, which includes #93).
+
+**Before the upload:**
+- `npm test` (325) and `npm run check` passed on `main`.
+- `live:pull` showed no VM changes since the accepted baseline. The only differences were the 7 files below.
+
+**Uploaded:** 7 files.
+- `scripts/rfp-capability.mjs` and `scripts/rfp-brief.mjs` (both new);
+- `scripts/rfp-questions.mjs` and `scripts/rfp-route.mjs`;
+- `skills/rfp/INDEX.md`;
+- the instructions for capability-check and engineering-brief.
+
+The backup is `backups/dev-deploy-2026-11-24T21-22-10-899Z-3d04e55`. The upload took several minutes, longer than earlier ones, and finished without errors. `AGENTS.md` was not changed (13,190 characters). Nothing was restarted, and no scheduled job changed.
+
+**After the upload:** `live:pull` showed the VM matching `main`, with 65 files in the accepted baseline.
+
+**Read-only checks on the VM:**
+- `node --check` passed for the four changed scripts.
+- **Router**, on the real Laguna Beach RFP (`website-redesign-and-replacement-project`, Phase 1):
+  - "capability check for the City of Laguna Beach website redesign" gave `ask-move` for the capability check;
+  - "What did Pete say about the Laguna Beach website capability check?" gave `answer` with `about: "capability"` (no check is saved yet).
+- **`--inputs`** on the same RFP:
+  - it took the case-study match from the 2026-11-13 audit line: `sameCapability`, project "Contentstack";
+  - it parsed the real `Proposal - People.txt` into the nine current staff with their roles. Pete Nystrom and Seth Lutske each had one "on record" line; the others had none.
+
+**Still unseen:** a real capability check from the team, and the model running it.

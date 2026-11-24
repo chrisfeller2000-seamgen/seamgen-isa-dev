@@ -69,3 +69,19 @@ The user approved all six proposed changes on November 24, 2026, keeping the PDF
   - `printPdf` itself hasn't run there. Only the same Chromium command was tested, by hand, through a home folder.
   - OpenClaw attaching a PDF from the workspace with `MEDIA:` is unseen. PDF is on its allowed list (see the calendar record).
 - **The quote check** hasn't run on a real RFP's extracted PDF text. Tables or scanned pages may need the words copied from `document-text.mjs`'s output.
+
+## Release (November 24, 2026 at 21:22 UTC)
+
+Uploaded together with the capability check (#93) as commit `3d04e55`, backup `backups/dev-deploy-2026-11-24T21-22-10-899Z-3d04e55`. The checks before and after the upload, and the file list, are in the [capability check record](../2026-11-24__rfp-capability-check/implementation.md#release-november-24-2026-at-2122-utc).
+
+**Read-only checks on the VM for the brief:**
+- **Router:**
+  - "engineering brief for the City of Laguna Beach website redesign" gave `ask-move` for the brief on the real Laguna Beach RFP;
+  - "Chris estimated 12 weeks for the Laguna Beach website redesign" gave `run-skill` with `mode: "record-estimate"`, no move question, and `inputs` listing the nine current staff.
+- **`--inputs`:** scope taken from the 2026-11-13 audit line, with no unread scope documents. `read` is empty because that run's judgment predates the scoring's scope-read field.
+- **The quote check on the real RFP's PDF text:** two passages from the solicitation (the overview's "seeks a qualified website development firm…" and the search requirement's "Provide modern website search capabilities…") were found; a made-up sentence was not.
+- **`printPdf` on the VM:** printed a test brief to a PDF in under a second (964 ms) through Snap's Chromium. The temporary home folders were removed afterwards.
+
+**This answers two of the open items above:** the quote check on real PDF text, and `printPdf` on the VM.
+
+**Still unseen:** OpenClaw attaching the PDF in Telegram with `MEDIA:`, a real brief or estimate from the team, and the model running it.
