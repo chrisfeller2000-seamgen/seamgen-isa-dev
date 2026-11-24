@@ -28,6 +28,8 @@
     { "say": "q&a questions for laguna beach, when are they due?", "action": "run-skill", "skill": "agency-questions", "rfp": "laguna-beach-website-redesign" },
     { "say": "Can you write the questions for the agency on the Chandler permit portal", "action": "ask-move", "skill": "agency-questions", "rfp": "chandler-permit-portal", "toPhase": 2 },
     { "say": "rfi questions for Yonkers", "action": "run-skill", "skill": "agency-questions", "rfp": "yonkers-senior-services-app" },
+    { "say": "Can you write the questions we should send the City of Laguna Beach for their website redesign RFP?", "action": "run-skill", "skill": "agency-questions", "rfp": "laguna-beach-website-redesign" },
+    { "say": "What questions should we ask the county about the Pasco records system?", "action": "ask-move", "skill": "agency-questions", "rfp": "pasco-county-records-system", "toPhase": 2 },
     { "say": "Add a question about hosting to the Laguna Beach agency questions", "action": "run-skill", "skill": "agency-questions", "rfp": "laguna-beach-website-redesign" },
     { "say": "redo the questions we sent for Laguna Beach", "action": "run-skill", "skill": "agency-questions", "rfp": "laguna-beach-website-redesign" },
     { "say": "The agency answered our questions for Laguna Beach, what did they say?", "action": "answer", "about": "agency-answers", "rfp": "laguna-beach-website-redesign" },

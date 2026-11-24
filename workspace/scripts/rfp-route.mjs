@@ -29,7 +29,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { rfpDocuments } from './document-text.mjs';
 import { recordedDates } from './rfp-dates.mjs';
-import { savedQuestions } from './rfp-questions.mjs';
+import { questionInputs, savedQuestions } from './rfp-questions.mjs';
 import { STAGES, findStage, rfpsDir, workspaceDir } from './rfp-folders.mjs';
 
 const PHASE_NAMES = ['Phase 1: Scored', 'Phase 2: Shortlisted', 'Phase 3: Building', 'Phase 4: Submitted'];
@@ -288,6 +288,13 @@ function askWhichRfp(ambiguous, nextCommand) {
 export async function routeRequest(message, options = {}) {
   const decision = await decide(message, options);
   if (decision.rfp && DOCUMENT_ACTIONS.has(decision.action)) decision.documents = await documentsOut(decision.rfp.slug, options.workspace);
+  // The agency questions skill's inputs, with its `steps`, come with the decision. In a local
+  // test on the real Laguna Beach RFP (November 24, 2026), ISA read the skill and the documents
+  // and wrote questions freehand without running `--inputs`, so it missed the "ask the agency
+  // first" question the scoring had set.
+  if (decision.action === 'run-skill' && decision.skill?.id === 'agency-questions' && decision.rfp?.hasFolder) {
+    decision.inputs = await questionInputs(decision.rfp.slug, { workspace: options.workspace, now: options.now }).catch(() => null);
+  }
   // The saved documents that look like the agency's answers. In a local test on November 24,
   // 2026, ISA answered "anything we need to know?" from the scoring notes and never opened the
   // saved Q&A addendum.

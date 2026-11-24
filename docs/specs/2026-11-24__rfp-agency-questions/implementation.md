@@ -105,10 +105,20 @@ The user approved all seven proposed changes on November 24, 2026.
 
 | Request | Result |
 | --- | --- |
-| Write the questions | 2/3 went end to end, and both included the incumbent question. 1/3 never ran the router and answered generic questions from memory, an `AGENTS.md` adherence miss, not this skill. |
+| Write the questions | 2/3 went end to end, and both included the incumbent question. The third looked like a skipped router, but it wasn't (see the correction below). |
 | What did we ask | 1/1 "The questions I wrote on 2026-11-21", word for word. |
 | Window closed | 2/2 stopped at the script and asked; nothing written freehand. |
 | The agency's answers | 3/3 (after the router fix) read the Q&A addendum and led with the changes that matter: Azure Government hosting, the $350,000 budget, the proposal date and no two-way sync. 2/3 named the question it didn't answer. |
+
+**Correction: ISA never skipped the router.** Two runs (one above, one in the real round below) looked as if ISA answered from memory. In the session database, both first replies were the router command followed by an empty text part. About five seconds later, with no new message, OpenClaw had ISA reply again, apparently because it treats an empty ending as no answer, and that second reply made up questions. The CLI prints only the last reply, so the driver missed the router call. On the VM, ISA calls the router through its exec tool rather than as text, so this doesn't arise there. The driver now reads every reply from the session database and takes exactly one command: its first line, or through the heredoc's end marker.
+
+**Real RFP round** (the City of Laguna Beach "Website Redesign and Replacement Project", RFP CM-013, Phase 1). The solicitation PDF and its audit line were copied read-only from the VM into a temporary workspace. It is an "ask the agency first" RFP whose questions window closed on November 17. Jordan's replies were "2" (leave it in Phase 1), then "Yes, write them anyway".
+
+- **"Can you write the questions we should send the City of Laguna Beach…" didn't reach the skill.** Every `asks` phrase relied on "agency". The skill's `asks` gained "questions we should send", "questions to ask", "questions for the city" and similar.
+- **`--inputs` found no scoring.** The Friday run after November 13 cleared the RFP's `candidate.md`. `--inputs` now falls back to the newest audit line's full-text judgment.
+- **ISA wrote questions freehand** after reading the skill and documents, without running `--inputs`, and so missed the "ask the agency first" question. The router now puts `inputs` (with its `steps`) in every decision for this skill, and `steps` ends with "never send questions you wrote without the script". After that change, the one complete run asked the "ask the agency first" question as question 1, said the window had closed, and passed on the script's text.
+- **Not part of this PR:** in 3 of 5 runs, ISA answered "2" by sending the router its own `rfp move` command, and the RFP moved to Shortlisted without a yes. That is fixed separately.
+- The OpenAI key used for local tests ran out of credits during the last round, so it has only one complete run.
 
 **Caveats:**
 - The samples are small.
@@ -119,6 +129,6 @@ The user approved all seven proposed changes on November 24, 2026.
 
 - **The live model** (openai/gpt-6.1-sol) hasn't run any of this.
 - **Real data:**
-  - `--inputs` hasn't run on a real Phase 2 RFP's `candidate.md` copy or a real audit file. It was checked against the formats the Friday job writes.
+  - `--inputs` ran on one real audit line (Laguna Beach). It hasn't run on a real Phase 2 RFP's `candidate.md` copy.
   - No engineering brief's Markdown source has been seen on the VM.
 - **Telegram:** the code block around the email hasn't been seen there.
