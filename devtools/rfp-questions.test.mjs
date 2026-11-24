@@ -265,8 +265,8 @@ test('a request for the questions carries the inputs and their steps', async () 
     assert.equal(decision.inputs.rfp, SLUG);
     assert.match(decision.inputs.steps[0], /No questions deadline is recorded/);
     assert.match(decision.inputs.steps.at(-1), /Never send questions you wrote without it/);
-    const other = await routeRequest('rfp brief laguna-beach-website-redesign', { workspace, now: NOW });
-    assert.equal('inputs' in other, false, 'only the agency questions skill gets them');
+    const other = await routeRequest('rfp checklist laguna-beach-website-redesign --stay', { workspace, now: NOW });
+    assert.equal('inputs' in other, false, 'a skill without its own inputs gets none');
   } finally {
     await fs.rm(workspace, { recursive: true, force: true });
   }
