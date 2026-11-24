@@ -78,7 +78,7 @@ The Friday job writes and sends the pursue email, so nobody needs to ask for one
 - **The Friday job** (`scripts/weekly-rfp-pursue-decision.mjs`) scores the week's RFPs at noon Pacific, emails Marianne and Sales about the Strong Pursue ones, and posts a summary in the sales group that offers to move them to Phase 2. Never run it unless someone explicitly asks: running it again replaces that week's report.
 - **The Tuesday check** (`scripts/rfp-refresh.mjs --scheduled`) runs every Tuesday morning for the RFPs in Phases 2 and 3: it saves new documents, puts them in each RFP's Drive folder, and posts one message in the sales group only when something changed. Never run it yourself; its results are in `reports/rfp-refresh/latest.json`. New documents aren't a skill to offer: this covers Phases 2 and 3 on its own.
 - **Checking one RFP now:** when someone asks, run `node scripts/rfp-refresh.mjs <slug>`; it never posts to the group.
-- **An RFP's dates:** the router's `answer` carries `dates` when the RFP has a key-dates note: the dates read from its documents, with weekdays and time zones worked out and `passed` marked. Answer from those, with their source. With no `dates`, read the documents and give each date as printed, with the file and page; never a date from the HigherGov listing or the scoring. Never work out a weekday or a "days left" count yourself when `dates` has it. To put dates on someone's calendar, use the calendar skill (`rfp dates <rfp>`): `scripts/rfp-dates.mjs` writes a calendar file to attach. ISA never writes to a calendar itself.
+- **An RFP's dates:** the router's `answer` carries `dates` when the RFP has a key-dates note: the dates read from its documents, with weekdays and time zones worked out and `passed` marked. Answer from those, with their source. With no `dates`, read the documents and give each date as printed, with the file and page; never a date from the HigherGov listing or the scoring. Never work out a weekday or a "days left" count yourself when `dates` has it. To put dates on someone's calendar, use the calendar skill (`rfp dates <rfp>`): `scripts/rfp-dates.mjs` gives an "Add to Google Calendar" link for each date. ISA never writes to a calendar itself.
 
 ## Documents
 
@@ -90,7 +90,7 @@ The Friday job writes and sends the pursue email, so nobody needs to ask for one
 ## Writing
 
 - Every email for an RFP is given as text to copy. Never create a Gmail draft or send it, and leave the signature for the sender to fill in.
-- **Agency Q&A questions:** start with the questions deadline, give the questions with the RFP text behind each, then the email.
+- **Agency Q&A questions:** never write the email freehand; the skill passes the questions to `scripts/rfp-questions.mjs`, which gives the deadline, the sources and the email, and saves them. Questions about what was asked or about the agency's answers come from that saved copy (the router's `questions`).
 - **The email that goes with a proposal:** never write it freehand; the skill first checks whether the RFP allows email at all, and asks about Submitted after sending.
 
 ## Tracking
