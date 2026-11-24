@@ -2,7 +2,7 @@
 name: rfp-email-submission
 purpose: Draft the external transmittal email that accompanies a submitted proposal — naming the RFP, stating how the proposal is organised against the RFP's own required structure, requesting confirmation of receipt, and offering availability during evaluation.
 audience: This skill is written to be read by both Claude (who drafts the email) and a human teammate (who checks it against the RFP's submission rules before anything is sent).
-version: 1.5 — November 2026
+version: 1.6 — November 2026
 owner: Seamgen sales team (no single owner or approver)
 depends_on: rfp-submission-checklist skill (submission mechanics)
 label: Email that goes with the proposal
@@ -188,12 +188,14 @@ Run these against the RFP's submission section or the RFP's submission checklist
 ## After sending
 
 - Note the send time and keep the confirmation reply — that is the receipt record.
-- **Ask the requester whether to move the RFP to Submitted.** On their yes, run `node scripts/rfp-stage.mjs <rfp-slug> submitted --by "<their name>"`; the whole folder moves to `RFPs/4-submitted/<rfp-slug>/` with its deliverables and `resources/` (see "Phases" in `skills/rfp/INDEX.md`).
+- **Ask the requester whether to move the RFP to Submitted.** On their yes, run `node scripts/rfp-stage.mjs <rfp-slug> submitted --by "<their name>" --said`, with their reply on standard input between `<<'RFP_REPLY_END'` and an `RFP_REPLY_END` line, exactly as they wrote it; it moves only when their words ask for it. The whole folder moves to `RFPs/4-submitted/<rfp-slug>/` with its deliverables and `resources/` (see "Phases" in `skills/rfp/INDEX.md`).
 - Log the outcome when it lands, and capture lessons in `feedback-log.md` (Phase 10).
 
 ---
 
 ## Notes and edit history
+
+**v1.6 — November 2026.** The move to Submitted passes the requester's reply to `rfp-stage.mjs` on standard input (`--said`), which moves only when their words ask for a move.
 
 **v1.5 — November 2026.** The folder rule now points at "Phases" in `skills/rfp/INDEX.md`. `AGENTS.md` lost its "RFP stage folders" section when it was trimmed under OpenClaw's size limit.
 

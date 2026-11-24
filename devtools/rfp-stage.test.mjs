@@ -13,7 +13,7 @@ const fixture = pathToFileURL(path.join(repoRoot, 'devtools', 'fixtures', 'weekl
 const readJson = async file => JSON.parse(await fs.readFile(file, 'utf8'));
 const exists = target => fs.access(target).then(() => true, () => false);
 
-function run(script, workspaceDir, args = [], env = {}) {
+function run(script, workspaceDir, args = [], env = {}, input = null) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, ['--import', fixture, path.join(repoRoot, 'workspace', 'scripts', script), ...args], {
       cwd: repoRoot,
@@ -25,12 +25,13 @@ function run(script, workspaceDir, args = [], env = {}) {
         ...(process.env.SYSTEMROOT ? { SYSTEMROOT: process.env.SYSTEMROOT } : {}),
         ...env,
       },
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: [input === null ? 'ignore' : 'pipe', 'pipe', 'pipe'],
     });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', chunk => { stdout += chunk.toString(); });
     child.stderr.on('data', chunk => { stderr += chunk.toString(); });
+    if (input !== null) child.stdin.end(input);
     child.on('close', code => resolve({ code, stdout, stderr }));
   });
 }
@@ -142,7 +143,23 @@ test('from the command line: --by is required, list shows the tiers, and nothing
       assert.equal(bad.code, 1);
       assert.match(bad.stderr, /^Usage:/);
     }
-    const moved = await run('rfp-stage.mjs', root, ['city-portal', 'shortlisted', '--by', 'Marianne Faro']);
+    // A move needs the person's own words, and moves only when they ask for one. In local tests on
+    // November 24, 2026, ISA answered "2" (leave it in Phase 1) with a move it built itself.
+    const tier1 = path.join(root, 'RFPs', '1-pre-submission', 'city-portal');
+    for (const [args, said, reason] of [
+      [['--choice', '1'], '2', /They picked choice 2, and the move is choice 1\. Run the `route` written next to choice 2/],
+      [[], '2', /a choice number/],
+      [[], 'No, keep it where it is', /doesn't ask for a move/],
+      [[], 'write them anyway', /doesn't ask for a move\. Ask them whether to move it/],
+      [[], null, /needs their exact words/],
+    ]) {
+      const refused = await run('rfp-stage.mjs', root, ['city-portal', 'shortlisted', '--by', 'Marianne Faro', ...(said === null ? [] : ['--said']), ...args], {}, said);
+      assert.equal(refused.code, 1, `"${said}" should not move it`);
+      assert.match(refused.stderr, reason);
+      assert.match(refused.stderr, /Nothing moved\./);
+      assert.ok(await exists(tier1), `"${said}" left the RFP in tier 1`);
+    }
+    const moved = await run('rfp-stage.mjs', root, ['city-portal', 'shortlisted', '--by', 'Marianne Faro', '--choice', '1', '--said'], {}, '1');
     assert.equal(moved.code, 0, moved.stderr);
     // This RFP has no HigherGov key, so the move asks for what lets Friday recognize its listing.
     assert.equal(moved.stdout, ['City Permit Portal moved from Scored to Shortlisted.', 'Recorded as asked by Marianne Faro.',
@@ -180,7 +197,7 @@ test('a whole Friday run after a move lists the returning listing once as being 
     const saved = (await fs.readdir(path.join(tier1, 'resources'))).sort();
     assert.ok(saved.some(name => !name.startsWith('_')), 'the Friday run saved documents');
 
-    const moved = await run('rfp-stage.mjs', root, [portal.slug, 'building', '--by', 'Marianne']);
+    const moved = await run('rfp-stage.mjs', root, [portal.slug, 'building', '--by', 'Marianne', '--said'], {}, 'move it to building');
     assert.equal(moved.code, 0, moved.stderr);
     // A note someone wrote in the folder while building the proposal must survive the next run.
     const building = path.join(root, 'RFPs', '3-building', portal.slug);
@@ -215,7 +232,7 @@ test('a move into a later phase prints that phase\'s skills, each with its comma
   const { routeWorkspace } = await import('./fixtures/rfp-route-workspace.mjs');
   const root = await routeWorkspace();
   try {
-    const moved = await run('rfp-stage.mjs', root, ['carlsbad-parks-recreation-booking-system', 'looking', '--by', 'Peter']);
+    const moved = await run('rfp-stage.mjs', root, ['carlsbad-parks-recreation-booking-system', 'looking', '--by', 'Peter', '--said'], {}, 'yes');
     assert.equal(moved.code, 0, moved.stderr);
     const lines = moved.stdout.trimEnd().split('\n');
     assert.match(lines[0], / moved from Scored to Shortlisted.$/);
@@ -225,7 +242,7 @@ test('a move into a later phase prints that phase\'s skills, each with its comma
     assert.deepEqual(offer.slice(1, 5).map(line => line.match(/`(rfp \S+)/)[1]), ['rfp questions', 'rfp dates', 'rfp capability', 'rfp brief']);
     assert.equal(offer.at(-1), 'Which one? Reply with the number or the command.');
     // Moving back to Phase 1 offers nothing.
-    const back = await run('rfp-stage.mjs', root, ['carlsbad-parks-recreation-booking-system', 'scored', '--by', 'Peter']);
+    const back = await run('rfp-stage.mjs', root, ['carlsbad-parks-recreation-booking-system', 'scored', '--by', 'Peter', '--said'], {}, 'move it back to scored');
     assert.doesNotMatch(back.stdout, /I can do/);
   } finally {
     await fs.rm(root, { recursive: true, force: true });

@@ -18,7 +18,7 @@ Never put a person's message inside quotes on the command line: quotes, `$(` or 
 | --- | --- |
 | `run-skill` | Open `skill.file` and follow it for `rfp`, reading the RFP's saved documents first with the commands in `documents`. |
 | `ask-move`, `ask-which-rfp`, `ask-which-phase`, `offer`, `already`, `retired`, `unknown-command` | Send `say` word for word, and nothing else. |
-| `move` | Run `command` with the person's name in `--by`, then pass on what it prints: that it moved, and the list of the new phase's skills word for word. If it refuses, pass on its reason. |
+| `move` | Run `command` with the person's name in `--by` and their reply between the `RFP_REPLY_END` lines exactly as they wrote it ("2", "yes", "move it"), never words of your own. It moves only when those words ask for a move. Pass on what it prints: that it moved, and the list of the new phase's skills word for word. If it refuses, pass on its reason and do what it says. |
 | `list` | Run `command` and answer from it, using phase names. |
 | `answer`, `share-documents`, `rescore` | Follow `note`, using the sections below and the RFP's `documents`. |
 | `needs-context` | They answered your last question ("yes", "no", "keep it where it is", a number). Find the choice they picked in that question and run its `route` command. "Yes" is choice 1; "no" or "keep it" is the choice that leaves the RFP where it is. |
