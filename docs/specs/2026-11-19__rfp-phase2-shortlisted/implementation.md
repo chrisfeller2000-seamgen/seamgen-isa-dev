@@ -39,4 +39,11 @@ Uploaded on the user's request after #80 merged. Commit `6febd1e` (the #80 merge
 
 ## First Friday run (November 20, 2026)
 
-_To fill in after the noon Pacific run: whether the Telegram move offer said "Phase 2: Shortlisted", what anyone replied, and whether a move printed "moved from Scored to Shortlisted"._
+Checked read-only on the VM on November 23.
+
+- **The run:** it finished at 16:39 UTC with 226 RFPs: 3 Strong Pursue, 3 Worth a look, 37 "Couldn't check yet" and 183 screened out. The pursue email and the Telegram summary both sent on the first attempt.
+- **The offer:** the Telegram summary used the new name: "Want me to move any of these to Phase 2: Shortlisted". It named the South Carolina beachfront GIS app, University of Kentucky IT staffing, and UT Knoxville website and digital design.
+- **Replies:** ISA's chat database shows no Telegram message reaching ISA between the offer and the check. Its most recent Telegram group session activity is from November 14.
+- **Moves:** none. `RFPs/2-intermediate-stage/` doesn't exist, and `rfp-stage.mjs` creates it on the first move to Phase 2.
+
+So the new wording is confirmed in a live message, but a real Phase 2 reply and the "moved from Scored to Shortlisted" output are still unseen. ISA's database can't show a group message that Telegram never delivered to it, so people may have replied in the group without ISA receiving it.
