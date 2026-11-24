@@ -132,3 +132,31 @@ The user approved all seven proposed changes on November 24, 2026.
   - `--inputs` ran on one real audit line (Laguna Beach). It hasn't run on a real Phase 2 RFP's `candidate.md` copy.
   - No engineering brief's Markdown source has been seen on the VM.
 - **Telegram:** the code block around the email hasn't been seen there.
+
+## Release (November 24, 2026 at 19:11 UTC)
+
+Uploaded on the user's request after #85, #86 and #87 merged. Commit `43dc400` (the #87 merge).
+
+#85 was merged before its last commit was pushed, so that commit (the router passing `inputs`, the audit-line scoring and the "questions for the City" phrasings) went out as #87.
+
+**Before the upload:**
+- `npm test` (305) and `npm run check` passed on `main`.
+- `live:pull` showed no VM changes since the accepted baseline. The only differences were the 7 files below.
+
+**Uploaded:** 7 files.
+- `scripts/rfp-questions.mjs` (new);
+- `scripts/rfp-route.mjs` and `scripts/rfp-stage.mjs` (#86: a move needs the person's own words);
+- `skills/rfp/INDEX.md`;
+- the instructions for agency-questions, document-fetch and submission-email.
+
+The backup is `backups/dev-deploy-2026-11-24T19-11-22-030Z-43dc400`. `AGENTS.md` was not changed (13,190 characters). Nothing was restarted, and no scheduled job changed.
+
+**After the upload:** `live:pull` showed the VM matching `main`.
+
+**Read-only checks on the VM** (the router and `--inputs` only read files):
+- `rfp-questions.mjs --rfp website-redesign-and-replacement-project --inputs` (the real Laguna Beach RFP) took its scoring from the 2026-11-13 audit line. Its `steps` were: record the questions deadline first; ask the "ask the agency first" question; send only the script's text.
+- **The router picked the wrong RFP** for "Can you write the questions we should send the City of Laguna Beach for their website redesign RFP?". It chose `website-redesign`, a State Technical College of Missouri listing, because "website redesign" matched that slug exactly. For an RFP folder with no `_stage.json` or `candidate.md`, the router knows only the slug, not the title or agency, so "City of Laguna Beach" counted for nothing. This was already the case before this release. The ask-move question names the slug it picked, so a reader can catch it, but code doesn't. The audit lines hold each RFP's title and agency, so the router could read them from there.
+
+**Not run on the VM:** a move with `rfp-stage.mjs`. A refusal writes nothing, but a mistake would move a real RFP, so the tests cover it instead.
+
+**Still unseen:** the live model on any of this, and a real agency questions request.
