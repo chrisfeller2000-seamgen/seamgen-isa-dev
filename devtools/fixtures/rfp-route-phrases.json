@@ -12,6 +12,11 @@
 
     { "say": "Can you do the engineering brief for Laguna Beach?", "action": "run-skill", "skill": "engineering-brief", "rfp": "laguna-beach-website-redesign" },
     { "say": "eng brief for laguna beach pls", "action": "run-skill", "skill": "engineering-brief", "rfp": "laguna-beach-website-redesign" },
+    { "say": "Chris estimated 12 weeks for Laguna Beach", "action": "run-skill", "skill": "engineering-brief", "rfp": "laguna-beach-website-redesign" },
+    { "say": "Chris says Laguna Beach is about 4 months with 3 engineers", "action": "run-skill", "skill": "engineering-brief", "rfp": "laguna-beach-website-redesign" },
+    { "say": "What did Chris estimate for Laguna Beach?", "action": "answer", "about": "estimate", "rfp": "laguna-beach-website-redesign" },
+    { "say": "Update the Laguna Beach brief with the new addendum", "action": "run-skill", "skill": "engineering-brief", "rfp": "laguna-beach-website-redesign" },
+    { "say": "Can you get Chris a timeline estimate request for Yonkers?", "action": "run-skill", "skill": "engineering-brief", "rfp": "yonkers-senior-services-app" },
     { "say": "Nick needs a scope summary of the Laguna Beach RFP so he can estimate", "action": "run-skill", "skill": "engineering-brief", "rfp": "laguna-beach-website-redesign" },
     { "say": "How long would it take us to build the Laguna Beach site? Put something together for engineering", "action": "run-skill", "skill": "engineering-brief", "rfp": "laguna-beach-website-redesign" },
     { "say": "timeline estimate for the Yonkers app", "action": "run-skill", "skill": "engineering-brief", "rfp": "yonkers-senior-services-app" },

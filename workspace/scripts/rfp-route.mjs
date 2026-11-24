@@ -29,6 +29,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { rfpDocuments } from './document-text.mjs';
 import { recordedDates } from './rfp-dates.mjs';
+import { briefInputs, savedBrief } from './rfp-brief.mjs';
 import { capabilityInputs, savedCapability } from './rfp-capability.mjs';
 import { questionInputs, savedQuestions } from './rfp-questions.mjs';
 import { STAGES, findStage, rfpsDir, workspaceDir } from './rfp-folders.mjs';
@@ -283,6 +284,13 @@ const ASK_FIRST = /\bask (the )?agency first\b/;
 // capability check: rows 1 and 2 done on FDEP"). It is recorded against the saved check, not a
 // reason to build a new one, and recording it never asks about a move.
 const CAPABILITY_REPORT = /\b(answered|replied|responded|said|says|got back|came back|confirmed|wrote back)\b/;
+// An engineer's timeline estimate passed on in chat ("Chris estimated 12 weeks for Laguna Beach",
+// "Chris says about 4 months with 3 engineers"). It is recorded against the saved brief; until
+// November 24, 2026 it got a general answer and nothing kept it.
+const ESTIMATE_REPORT = /\b(estimated?|estimates|says|said|thinks|figures|reckons|quoted|guesses)\b.*\b(\d+|a few|a couple( of)?|one|two|three|four|five|six|eight|ten|twelve)( to \d+)? (weeks?|months?|sprints?)\b|\b(weeks?|months?) with \d+ (engineers?|devs?|developers?|people)\b/;
+// A question about an estimate already given.
+const ESTIMATE_ASKED = /\bwhat did \w+( \w+)? (estimate|say|quote|think)\b|\b(whats|what is|what was) (the|our|his|her|their|\w+s) (timeline )?estimate\b|\bhow long did \w+ (say|estimate|think)\b|\b(any|got an|get an) estimate\b|\b(has|did) \w+ (estimate|estimated|give an estimate|given an estimate)\b/;
+const ESTIMATE_CONTEXT = /\b(estimate|estimated|timeline|how long|brief|weeks|months)\b/;
 // A question about a capability check already sent: what an engineer said, or what is still open.
 const CAPABILITY_ASKED = /\b(capability|capabilities|checklist|check)\b/;
 const CAPABILITY_STATUS = /\bwhat did \w+( \w+)? (say|answer|reply|tell us)\b|\b(where are we|status|update) (on|of|with)\b|\b(which|what) rows\b|\b(still )?(open|unanswered)\b|\bhas \w+ (answered|replied|got back)\b|\bdid \w+ (answer|reply|get back)\b/;
@@ -391,6 +399,15 @@ export async function routeRequest(message, options = {}) {
   if (decision.action === 'run-skill' && decision.skill?.id === 'capability-check' && decision.rfp?.hasFolder) {
     decision.inputs = await capabilityInputs(decision.rfp.slug, { workspace: options.workspace, now: options.now }).catch(() => null);
   }
+  // The same for the engineering brief: unread scope documents, the capability check's open rows,
+  // the key dates, the staff list and the saved brief with its estimates.
+  if (decision.action === 'run-skill' && decision.skill?.id === 'engineering-brief' && decision.rfp?.hasFolder) {
+    decision.inputs = await briefInputs(decision.rfp.slug, { workspace: options.workspace, now: options.now }).catch(() => null);
+  }
+  if (decision.rfp && decision.action === 'answer' && decision.about === 'estimate') {
+    const saved = await savedBrief(decision.rfp.slug, { workspace: options.workspace });
+    decision.brief = saved ? { given: saved.given, for: saved.for, pdf: saved.pdf, estimates: saved.estimates } : null;
+  }
   if (decision.rfp && decision.action === 'answer' && decision.about === 'capability') {
     const saved = await savedCapability(decision.rfp.slug, { workspace: options.workspace });
     decision.capability = saved ? { given: saved.given, routedTo: saved.routedTo, rows: saved.rows, unanswered: saved.unanswered, answers: saved.answers, recordGaps: saved.recordGaps } : null;
@@ -483,6 +500,17 @@ async function decide(message, { workspace = workspaceDir() } = {}) {
       return { ...base, action: 'answer', about: 'agency-answers', rfp: rfpOut(rfp),
         note: `The agency's answers to questions. If they pasted or forwarded the answers, use those. Otherwise read every file in "answerFiles" (the saved documents that look like a Q&A or addendum) before answering, never the scoring notes alone; if there are none, follow skills/rfp/document-refresh/instructions.md to check for new ones. When "questions" has what we asked, match the answers to them by number and say which were answered and which weren't. Lead with anything that changes scope, dates, budget or what the proposal must include.${rfp ? ` If a date moved, offer \`rfp dates ${rfp.slug}\`.` : ' Ask which RFP they mean if it is not clear.'}` };
     }
+    // An estimate passed on in chat is recorded with the brief, and never asks about a move.
+    const briefSkill = skills.find(item => item.id === 'engineering-brief');
+    if (briefSkill && ESTIMATE_REPORT.test(text) && !ESTIMATE_ASKED.test(text) && !/\?\s*$/.test(String(message).trim())) {
+      if (!rfp) return { ...base, skill: skillOut(briefSkill), ...askWhichRfp(pick.ambiguous, item => commandFor(briefSkill, item)) };
+      return { ...base, action: 'run-skill', skill: skillOut(briefSkill), rfp: rfpOut(rfp), mode: 'record-estimate',
+        note: `They are passing on an engineer's timeline estimate. Record it with the skill's "Recording estimates" step (\`node scripts/rfp-brief.mjs --rfp ${rfp.slug} --estimate\`), with the engineer's words exactly as given here. Don't write a new brief. If no brief is saved for this RFP, say so and offer to write one.` };
+    }
+    if (ESTIMATE_ASKED.test(text) && ESTIMATE_CONTEXT.test(text) && !REWRITE.test(text)) {
+      return { ...base, action: 'answer', about: 'estimate', rfp: rfpOut(rfp),
+        note: `About a timeline estimate already given. Answer from "brief.estimates": each engineer's words, the date, and any duration, team and assumptions they gave. Quote their words; never round or combine estimates.${rfp ? ` When "brief" is null or has no estimates, say none is recorded and offer \`rfp brief ${rfp.slug}\`.` : ' Ask which RFP they mean.'}` };
+    }
     if (CAPABILITY_ASKED.test(text) && CAPABILITY_STATUS.test(text) && !REWRITE.test(text) && !/^(write|draft|do|make|build|run|create)\b/.test(text)) {
       return { ...base, action: 'answer', about: 'capability', rfp: rfpOut(rfp),
         note: `About a capability check already given. Answer from "capability": each row's latest answer with who gave it and when, the rows still unanswered, and the engineers' words as recorded. Quote their words; never turn "adjacent" or "not answered" into a yes.${rfp ? ` When "capability" is null, say no check was written here and offer \`rfp capability ${rfp.slug}\`. If they are passing on a new answer, follow the skill's "Recording answers" (\`rfp capability ${rfp.slug}\`).` : ' Ask which RFP they mean.'}` };
@@ -507,7 +535,10 @@ async function decide(message, { workspace = workspaceDir() } = {}) {
 
   const kind = structured?.kind || (LIST.test(text) && !ranked.length ? 'list' : null);
   if (kind === 'list') return { ...base, action: 'list', command: 'node scripts/rfp-stage.mjs list', note: 'Answer from its output, using phase names.' };
-  const skill = structured?.kind === 'skill' ? structured.skill : ranked[0]?.skill || null;
+  // "Update the Laguna Beach brief with the new addendum" revises the brief: the document refresh
+  // skill's "new addendum" would otherwise outscore it, with the RFP's name splitting "update the brief".
+  const revisesBrief = !structured && /\b(update|revise|redo|rewrite|refresh)\b.*\bbrief\b/.test(text) && skills.find(item => item.id === 'engineering-brief');
+  const skill = structured?.kind === 'skill' ? structured.skill : revisesBrief || ranked[0]?.skill || null;
   const moveAsked = structured?.kind === 'move' || (!structured && MOVE.test(text) && (phaseIn(text) || !skill));
 
   if (moveAsked) {
