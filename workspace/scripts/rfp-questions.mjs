@@ -341,13 +341,27 @@ const quotesOf = evidence => list(evidence).map(item => clean(item?.quote)).filt
 function scoringOf(text) {
   const fields = frontmatter(text);
   const judgments = parseJson(fields.scoring_judgments) || {};
-  const conditional = parseJson(fields.scoring_conditional) || judgments.conditional || null;
+  return scoringFrom(judgments, {
+    conditional: parseJson(fields.scoring_conditional),
+    scored: fields.scored_date && fields.scored_date !== 'unknown' ? fields.scored_date : null,
+    recommendation: fields.scoring_recommendation && fields.scoring_recommendation !== 'unknown' ? fields.scoring_recommendation : null,
+  });
+}
+
+/**
+ * The same parts from a scoring judgment, which candidate.md and the audit both keep. An RFP
+ * still in Phase 1 has no candidate.md after the next Friday run clears it, so its audit line
+ * is the only copy (quotes cut to 300 characters).
+ */
+function scoringFrom(judgments, { conditional = null, scored = null, recommendation = null, from = 'the scoring notes' } = {}) {
+  conditional = conditional || judgments.conditional || null;
   const buyer = judgments.buyer || null;
   // No gates here: these are the model's answers, and code decides the gates from them
   // afterwards. The blockers and open questions in the results are the decided ones.
   return {
-    scored: fields.scored_date && fields.scored_date !== 'unknown' ? fields.scored_date : null,
-    recommendation: fields.scoring_recommendation && fields.scoring_recommendation !== 'unknown' ? fields.scoring_recommendation : null,
+    from,
+    scored,
+    recommendation,
     buyer: buyer ? {
       currentSolution: clean(buyer.currentSolution) || null,
       // The scorer found nothing on what the agency uses today: who supports it is a question.
@@ -378,9 +392,13 @@ async function resultsOf(slug, workspace) {
       if (!line.includes(`"${slug}"`)) continue;
       const record = parseJson(line);
       if (record?.rfp?.slug !== slug) continue;
-      return { from: `the ${name.slice(0, 10)} run`, title: record.rfp.title || null, agency: record.rfp.agency || null, number: null,
+      // The full-text judgment when the documents were scored, otherwise the listing's.
+      const stage = record.fullText?.judgment ? record.fullText : record.listing?.judgment ? record.listing : null;
+      const run = name.slice(0, 10);
+      return { from: `the ${run} run`, title: record.rfp.title || null, agency: record.rfp.agency || null, number: null,
         blockers: list(record.outcome?.blockers).map(clean).filter(Boolean), openQuestions: list(record.outcome?.openQuestions).map(clean).filter(Boolean),
-        askTheAgency: null };
+        askTheAgency: null,
+        scoring: stage ? scoringFrom(stage.judgment, { scored: record.run?.date || run, recommendation: stage.recommendation || null, from: `the ${run} run's audit line` }) : null };
     }
   }
   return null;
@@ -410,8 +428,9 @@ export async function questionInputs(slug, { workspace = workspaceDir(), now = n
   const notes = docs.notes ? await fs.readFile(docs.notes, 'utf8').catch(() => '') : '';
   const recorded = await recordedDates(slug, { workspace, now });
   const saved = await savedQuestions(slug, { workspace });
-  const scoring = notes ? scoringOf(notes) : null;
-  const results = await resultsOf(slug, workspace);
+  const found = await resultsOf(slug, workspace);
+  const { scoring: audited = null, ...results } = found || {};
+  const scoring = notes ? scoringOf(notes) : audited;
   const brief = await briefOf(dir, slug);
   // What this RFP's inputs call for, spelled out: in local tests on November 24, 2026 ISA
   // skipped the incumbent question that `noIncumbentNamed` called for, and ran the questions
@@ -427,13 +446,14 @@ export async function questionInputs(slug, { workspace = workspaceDir(), now = n
   if (issues) steps.push(`Settle each of the ${issues} blocker${issues === 1 ? '' : 's'} and open question${issues === 1 ? '' : 's'} in "results" that only the agency can answer.`);
   if (brief?.ambiguities) steps.push('Merge the engineering brief\'s ambiguities by topic; keep each distinct one.');
   if (saved) steps.push(`Questions were given on ${saved.given}. To change them, start from --show's "input" and rerun with the change.`);
+  steps.push('Then pass the questions to rfp-questions.mjs (step 4) and send its text word for word. Never send questions you wrote without it, not even as a draft.');
   return {
     rfp: slug,
     steps,
     documents: { saved: docs.files?.length || 0, readAll: `node scripts/document-text.mjs --rfp ${slug} --file all` },
     keyDates: recorded ? { recorded: recorded.recorded, dates: recorded.dates } : null,
     scoring,
-    results,
+    results: found ? results : null,
     engineeringBrief: brief,
     savedQuestions: saved ? { given: saved.given, questions: saved.questions } : null,
   };

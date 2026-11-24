@@ -9,7 +9,7 @@ label: Questions for the agency's Q&A
 command: questions
 phase: 2
 when: Questions to send in the agency's Q&A or clarification window, with the email to copy.
-asks: agency questions | questions for the agency | clarifying questions | clarification questions | q&a questions | questions for the q&a | write q&a questions | draft questions | rfi questions | questions to submit | what should we ask the agency | ask the agency | email the agency questions | redo questions | rewrite questions | revise questions | update questions | change questions | add a question | add questions | drop a question | remove a question
+asks: agency questions | questions for the agency | questions we should send | questions to send | questions we should ask | questions to ask | questions for the city | questions for the county | questions for the district | questions for their q&a | questions for the q and a | clarifying questions | clarification questions | q&a questions | questions for the q&a | write q&a questions | draft questions | rfi questions | questions to submit | what should we ask the agency | ask the agency | email the agency questions | redo questions | rewrite questions | revise questions | update questions | change questions | add a question | add questions | drop a question | remove a question
 ---
 
 # Questions for the agency's Q&A
@@ -38,11 +38,13 @@ Not for no-bid RFPs.
 
 ## Step 1: gather the inputs
 
+The router's decision carries them as `inputs`. Only when it doesn't (no RFP folder yet, or a reply that came back without them) run:
+
 ```
 node scripts/rfp-questions.mjs --rfp <slug> --inputs
 ```
 
-It prints:
+They hold:
 
 - **`steps`**: what this RFP's inputs call for (record the deadline, ask about the incumbent, settle the blockers). Do each one.
 - **`keyDates`**: the dates recorded from the documents, including "Questions due" and "Proposal due" when they were found.

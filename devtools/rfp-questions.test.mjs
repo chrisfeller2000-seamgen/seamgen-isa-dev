@@ -181,7 +181,8 @@ test('--inputs gathers the scoring notes, the blockers, the brief\'s ambiguities
     await recordDates(workspace);
 
     const inputs = await questionInputs(SLUG, { workspace, now: NOW });
-    assert.equal(inputs.steps.length, 3);
+    assert.equal(inputs.steps.length, 4);
+    assert.match(inputs.steps[3], /pass the questions to rfp-questions\.mjs/);
     assert.match(inputs.steps[0], /who supports the current system/);
     assert.match(inputs.steps[1], /each of the 2 blockers and open questions/);
     assert.match(inputs.steps[2], /engineering brief's ambiguities/);
@@ -208,13 +209,28 @@ test('an RFP scored in an earlier week gets its blockers from the audit', async 
   try {
     const audit = path.join(workspace, 'reports', 'new-rfp-qualification', 'audit');
     await fs.mkdir(audit, { recursive: true });
-    const line = slug => JSON.stringify({ rfp: { slug, title: 'Website Redesign' }, outcome: { blockers: [`Blocker for ${slug}`], openQuestions: [] } });
+    // A Phase 1 RFP whose candidate.md a later Friday run cleared: the audit has the only judgment.
+    await fs.rm(path.join(folderOf(workspace), 'candidate.md'));
+    const judgment = {
+      conditional: { rule: '2a', question: 'May a software-services firm propose a purpose-built municipal website?', qaDueDate: '2026-11-17' },
+      buyer: { currentSolution: 'An outdated CMS.', objective: 'An accessible site.', advantage: null },
+      questions: { due: '2026-11-17', time: '5:00 PM PST', evidence: [{ quote: 'Questions are due no later than Tuesday, November 17, 2026' }] },
+    };
+    const line = slug => JSON.stringify({ run: { date: '2026-11-13' }, rfp: { slug, title: 'Website Redesign' }, outcome: { blockers: [`Blocker for ${slug}`], openQuestions: [] },
+      listing: { recommendation: 'Watch item', judgment: {} }, fullText: { recommendation: 'Conditional — Ask the Agency', judgment } });
     await fs.writeFile(path.join(audit, '2026-11-06.jsonl'), `${line(SLUG)}\n`);
     await fs.writeFile(path.join(audit, '2026-11-13.jsonl'), `${line('other-rfp')}\n${line(SLUG).replace('Blocker for', 'Newer blocker for')}\n`);
     const inputs = await questionInputs(SLUG, { workspace, now: NOW });
     assert.match(inputs.steps[0], /No questions deadline is recorded/);
+    assert.match(inputs.steps[1], /^Ask this first, in your own words if needed: May a software-services firm/);
     assert.equal(inputs.results.from, 'the 2026-11-13 run');
     assert.deepEqual(inputs.results.blockers, [`Newer blocker for ${SLUG}`]);
+    assert.equal('scoring' in inputs.results, false);
+    assert.equal(inputs.scoring.from, 'the 2026-11-13 run\'s audit line');
+    assert.equal(inputs.scoring.recommendation, 'Conditional — Ask the Agency');
+    assert.equal(inputs.scoring.askTheAgency.qaDueDate, '2026-11-17');
+    assert.equal(inputs.scoring.questionsDeadline.time, '5:00 PM PST');
+    assert.equal(inputs.scoring.buyer.noIncumbentNamed, false);
   } finally {
     await fs.rm(workspace, { recursive: true, force: true });
   }
@@ -236,6 +252,21 @@ test('the command line reads the questions on standard input and saves only a go
     const shown = JSON.parse(run(['--show']).stdout);
     assert.equal(shown.questions.length, 5);
     await assert.rejects(fs.access(path.join(workspace, 'pwned')));
+  } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test('a request for the questions carries the inputs and their steps', async () => {
+  const workspace = await routeWorkspace();
+  try {
+    const decision = await routeRequest('Draft clarifying questions for the Laguna Beach Q&A', { workspace, now: NOW });
+    assert.equal(decision.action, 'run-skill');
+    assert.equal(decision.inputs.rfp, SLUG);
+    assert.match(decision.inputs.steps[0], /No questions deadline is recorded/);
+    assert.match(decision.inputs.steps.at(-1), /Never send questions you wrote without it/);
+    const other = await routeRequest('rfp brief laguna-beach-website-redesign', { workspace, now: NOW });
+    assert.equal('inputs' in other, false, 'only the agency questions skill gets them');
   } finally {
     await fs.rm(workspace, { recursive: true, force: true });
   }
