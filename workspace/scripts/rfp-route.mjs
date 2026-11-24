@@ -93,9 +93,43 @@ function titleFrom(text) {
   return String(text.match(/^title:\s*"?(.*?)"?\s*$/m)?.[1] || '').trim();
 }
 
+const agencyFrom = text => String(text.match(/^agency_name:\s*"?(.*?)"?\s*$/m)?.[1] || '').replace(/^unknown$/, '').trim();
+
+/**
+ * Each RFP's title and agency from the weekly audit (reports/new-rfp-qualification/audit/*.jsonl),
+ * newest run first, for the slugs in `wanted`. On November 24, 2026 none of the VM's 348 RFP
+ * folders had a _stage.json or candidate.md, so without this the router knew only their slugs:
+ * "the questions for the City of Laguna Beach's website redesign RFP" matched the slug
+ * `website-redesign` (a Missouri college) exactly, and the agency counted for nothing. The files
+ * are large (27 MB then), so only the `rfp` object near the start of each line is read.
+ */
+async function auditNames(workspace, wanted) {
+  const found = new Map();
+  if (!wanted.size) return found;
+  const dir = path.join(workspace, 'reports', 'new-rfp-qualification', 'audit');
+  const files = (await fs.readdir(dir).catch(() => [])).filter(name => name.endsWith('.jsonl')).sort().reverse();
+  const field = (text, key) => {
+    const match = text.match(new RegExp(`"${key}":("(?:[^"\\\\]|\\\\.)*")`));
+    try { return match ? JSON.parse(match[1]) : ''; } catch { return ''; }
+  };
+  for (const name of files) {
+    const text = await fs.readFile(path.join(dir, name), 'utf8').catch(() => '');
+    let at = text.indexOf('"rfp":{');
+    while (at !== -1) {
+      const head = text.slice(at, at + 1500);
+      const slug = field(head, 'slug');
+      if (wanted.has(slug) && !found.has(slug)) found.set(slug, { title: field(head, 'title'), agency: field(head, 'agency') });
+      at = text.indexOf('"rfp":{', at + 7);
+    }
+    if (found.size === wanted.size) break;
+  }
+  return found;
+}
+
 /**
  * Every RFP ISA could mean: each folder in the four phases, plus this week's results (an RFP
- * there may have no folder yet). Titles come from _stage.json, candidate.md or latest.json.
+ * there may have no folder yet). Titles come from _stage.json, candidate.md, the documents
+ * manifest, latest.json or the audit; agencies from the same places except the manifest.
  */
 export async function loadRfps({ workspace = workspaceDir() } = {}) {
   const bySlug = new Map();
@@ -103,11 +137,15 @@ export async function loadRfps({ workspace = workspaceDir() } = {}) {
     for (const slug of await listDirs(path.join(rfpsDir(workspace), stage.dir))) {
       const dir = path.join(rfpsDir(workspace), stage.dir, slug);
       const record = await readJson(path.join(dir, '_stage.json')).catch(() => null);
-      const candidate = record?.title ? '' : await fs.readFile(path.join(dir, 'candidate.md'), 'utf8').catch(() => '');
+      const candidate = record?.title && record?.agency ? '' : await fs.readFile(path.join(dir, 'candidate.md'), 'utf8').catch(() => '');
+      const manifest = record?.title || titleFrom(candidate) ? null : await readJson(path.join(dir, 'resources', '_document-manifest.json')).catch(() => null);
       const existing = bySlug.get(slug);
       // Two copies of one RFP: the later phase wins here; rfp-stage.mjs refuses to move it anyway.
       if (!existing || existing.phase < index + 1) {
-        bySlug.set(slug, { slug, title: record?.title || titleFrom(candidate) || existing?.title || slug, phase: index + 1, folder: true });
+        bySlug.set(slug, {
+          slug, title: record?.title || titleFrom(candidate) || String(manifest?.candidate_title || '').trim() || existing?.title || slug,
+          agency: record?.agency || agencyFrom(candidate) || existing?.agency || '', phase: index + 1, folder: true,
+        });
       }
     }
   }
@@ -117,10 +155,17 @@ export async function loadRfps({ workspace = workspaceDir() } = {}) {
     const known = bySlug.get(entry.slug);
     if (known) {
       if (known.title === entry.slug && entry.title) known.title = entry.title;
+      if (!known.agency && entry.agency) known.agency = entry.agency;
       known.thisWeek = entry.tier || true;
     } else {
-      bySlug.set(entry.slug, { slug: entry.slug, title: entry.title || entry.slug, phase: 1, folder: false, thisWeek: entry.tier || true });
+      bySlug.set(entry.slug, { slug: entry.slug, title: entry.title || entry.slug, agency: entry.agency || '', phase: 1, folder: false, thisWeek: entry.tier || true });
     }
+  }
+  const missing = new Set([...bySlug.values()].filter(rfp => !rfp.agency || rfp.title === rfp.slug).map(rfp => rfp.slug));
+  for (const [slug, names] of await auditNames(workspace, missing)) {
+    const rfp = bySlug.get(slug);
+    if (rfp.title === slug && names.title) rfp.title = names.title;
+    if (!rfp.agency && names.agency) rfp.agency = names.agency;
   }
   return [...bySlug.values()];
 }
@@ -145,20 +190,54 @@ export function matchSkills(message, skills) {
   return scored.sort((a, b) => b.score - a.score);
 }
 
-/** The RFP the message names: a slug, or the title words that set it apart from the others. */
-export function matchRfps(message, rfps) {
+// Words in agency names that don't tell agencies apart.
+const GENERIC_AGENCY = new Set([...STOP, 'city', 'county', 'state', 'town', 'village', 'township', 'borough', 'district', 'department', 'dept',
+  'office', 'public', 'government', 'agency', 'authority', 'board', 'commission', 'services', 'service', 'unified', 'regional',
+  'metropolitan', 'college', 'university', 'school', 'schools', 'community', 'administration', 'division', 'bureau', 'center']);
+
+/**
+ * The RFP the message names: its slug or title, its agency, or the title words that set it apart
+ * from the others. When the message names an agency ("the City of Laguna Beach"), only that
+ * agency's RFPs compete, and a title or slug appearing in the message no longer settles it alone
+ * when another RFP's title holds the same words: "website redesign" is in both the Missouri
+ * college's "Website Redesign" and Laguna Beach's "Website Redesign and Replacement Project".
+ */
+export function matchRfps(message, rfps, { ignore = new Set() } = {}) {
   const text = normalize(message);
-  const exact = rfps.filter(rfp => containsPhrase(text, normalize(rfp.slug)) || containsPhrase(text, normalize(rfp.title)));
-  if (exact.length === 1) return [{ rfp: exact[0], score: 100 }];
-  const said = new Set(words(message));
+  // ISA's own commands name the slug: `rfp questions website-redesign-and-replacement-project`.
+  const whole = rfps.filter(rfp => text === normalize(rfp.slug) || text === normalize(rfp.title));
+  if (whole.length === 1) return [{ rfp: whole[0], score: 100 }];
+  // Words that name the task ("agency questions", "engineering brief") say nothing about which
+  // RFP: on the VM's list, "agency" matched "Broad Agency Announcement" and "engineering" a
+  // Texas DOT engineering office.
+  const said = new Set(words(message).filter(word => !ignore.has(word)));
+  const agencyWords = rfps.map(rfp => new Set(words(rfp.agency || '').filter(word => !GENERIC_AGENCY.has(word) && word.length > 2)));
+  const agencyFrequency = new Map();
+  for (const set of agencyWords) for (const word of set) agencyFrequency.set(word, (agencyFrequency.get(word) || 0) + 1);
+  const agencyScore = agencyWords.map(set => [...set].filter(word => said.has(word)).reduce((sum, word) => sum + 1 / agencyFrequency.get(word), 0));
+  const bestAgency = Math.max(0, ...agencyScore);
+  const pool = bestAgency > 0 ? rfps.filter((rfp, index) => agencyScore[index] === bestAgency) : rfps;
+
+  const phrases = rfp => [normalize(rfp.slug), normalize(rfp.title)].filter(Boolean);
+  const exact = pool.filter(rfp => phrases(rfp).some(phrase => containsPhrase(text, phrase)));
+  if (exact.length === 1) {
+    const matched = phrases(exact[0]).filter(phrase => containsPhrase(text, phrase));
+    const shared = pool.some(rfp => rfp !== exact[0] && matched.some(phrase => phrases(rfp).some(other => containsPhrase(other, phrase))));
+    if (!shared) return [{ rfp: exact[0], score: 100 }];
+  }
+  if (bestAgency > 0 && pool.length === 1) return [{ rfp: pool[0], score: 100 }];
+
   const frequency = new Map();
   const titleWords = rfps.map(rfp => new Set([...words(rfp.title), ...words(rfp.slug)].filter(word => !GENERIC_TITLE.has(word) && word.length > 2)));
   for (const set of titleWords) for (const word of set) frequency.set(word, (frequency.get(word) || 0) + 1);
   const scored = [];
   rfps.forEach((rfp, index) => {
-    let score = 0;
+    if (!pool.includes(rfp)) return;
+    let score = bestAgency;
+    // No bonus for a title or slug in the message here: past the check above, another RFP's
+    // title holds the same words, and a bonus would let a short generic slug win the tie.
     for (const word of titleWords[index]) if (said.has(word)) score += 1 / frequency.get(word);
-    if (score) scored.push({ rfp, score: exact.includes(rfp) ? score + 10 : score });
+    if (score) scored.push({ rfp, score });
   });
   return scored.sort((a, b) => b.score - a.score);
 }
@@ -247,7 +326,7 @@ const commandFor = (skill, rfp, extra = '') => `rfp ${skill.command} ${rfp.slug}
 // The person's own words go on standard input, never in quotes on the command line, and
 // rfp-stage.mjs moves only when they ask for one.
 const moveCommand = (rfp, phase, choice = null) => `node scripts/rfp-stage.mjs ${rfp.slug} ${MOVE_WORDS[phase - 1]} --by "<their name>"${choice ? ` --choice ${choice}` : ''} --said <<'RFP_REPLY_END'\n<their exact words, as they wrote them>\nRFP_REPLY_END`;
-const rfpOut = rfp => (rfp ? { slug: rfp.slug, title: rfp.title, phase: rfp.phase, phaseName: phaseName(rfp.phase), hasFolder: rfp.folder } : null);
+const rfpOut = rfp => (rfp ? { slug: rfp.slug, title: rfp.title, ...(rfp.agency ? { agency: rfp.agency } : {}), phase: rfp.phase, phaseName: phaseName(rfp.phase), hasFolder: rfp.folder } : null);
 const skillOut = skill => (skill ? { id: skill.id, label: skill.label, command: skill.command, phase: skill.phase, file: skill.file } : null);
 
 function skillsOfPhase(skills, phase) {
@@ -263,8 +342,8 @@ export function phaseOffer(skills, rfp, phase, lead) {
     'Which one? Reply with the number or the command.'].join('\n');
 }
 
-function chooseRfp(message, rfps, structuredName) {
-  const ranked = matchRfps(structuredName || message, rfps);
+function chooseRfp(message, rfps, structuredName, ignore) {
+  const ranked = matchRfps(structuredName || message, rfps, { ignore });
   if (!ranked.length) return { rfp: null, ambiguous: [] };
   const [first, second] = ranked;
   if (!second || first.score >= second.score * 1.5) return { rfp: first.rfp, ambiguous: [] };
@@ -276,7 +355,7 @@ function askWhichRfp(ambiguous, nextCommand) {
   return {
     action: 'ask-which-rfp',
     choices: ambiguous.map((rfp, index) => ({ n: index + 1, rfp: rfpOut(rfp), command: nextCommand(rfp) })),
-    say: ['Which RFP do you mean?', ...ambiguous.map((rfp, index) => `${index + 1}. ${rfp.title} (${phaseName(rfp.phase)}): \`${nextCommand(rfp)}\``)].join('\n'),
+    say: ['Which RFP do you mean?', ...ambiguous.map((rfp, index) => `${index + 1}. ${rfp.title}${rfp.agency ? `, ${rfp.agency}` : ''} (${phaseName(rfp.phase)}): \`${nextCommand(rfp)}\``)].join('\n'),
   };
 }
 
@@ -358,7 +437,7 @@ async function decide(message, { workspace = workspaceDir() } = {}) {
 
   const pick = structured?.slug
     ? { rfp: rfps.find(rfp => rfp.slug === structured.slug) || null, ambiguous: [] }
-    : chooseRfp(message, rfps, structured?.name);
+    : chooseRfp(message, rfps, structured?.name, new Set(skills.flatMap(skill => skill.asks.flatMap(phrase => phrase.split(' ')))));
   const rfp = pick.rfp;
   const ranked = structured?.kind === 'skill' ? [] : matchSkills(message, skills);
 
