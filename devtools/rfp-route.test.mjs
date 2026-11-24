@@ -180,3 +180,56 @@ test('a decision about an RFP says what documents are saved and how to read them
     await fs.rm(workspace, { recursive: true, force: true });
   }
 });
+
+// On November 24, 2026 none of the VM's RFP folders had a _stage.json or candidate.md, so the
+// router knew only slugs, and "the City of Laguna Beach's website redesign RFP" matched a Missouri
+// college's `website-redesign` exactly. Titles now come from the documents manifest and agencies
+// from the weekly audit, and a named agency narrows the match.
+test('an RFP folder with only a manifest gets its title and agency, and a named agency picks the RFP', async () => {
+  const os = await import('node:os');
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), 'isa-route-agency-'));
+  try {
+    await fs.cp(path.join(repoRoot, 'workspace', 'skills', 'rfp'), path.join(workspace, 'skills', 'rfp'), { recursive: true });
+    const rfps = [
+      ['website-redesign', 'Website Redesign', 'State Technical College of Missouri', '2026-11-06'],
+      ['website-redesign-and-replacement-project', 'Website Redesign and Replacement Project', 'City of Laguna Beach', '2026-11-13'],
+      // Words that name the task ("agency questions", "engineering brief") must not pick this one.
+      ['broad-agency-announcement', 'Broad Agency Announcement - Mine Safety', 'Texas Department of Transportation - Professional Engineering', '2026-11-13'],
+    ];
+    const audit = path.join(workspace, 'reports', 'new-rfp-qualification', 'audit');
+    await fs.mkdir(audit, { recursive: true });
+    for (const [slug, title, agency, run] of rfps) {
+      const resources = path.join(workspace, 'RFPs', '1-pre-submission', slug, 'resources');
+      await fs.mkdir(resources, { recursive: true });
+      await fs.writeFile(path.join(resources, '_document-manifest.json'), JSON.stringify({ candidate_slug: slug, candidate_title: title }));
+      // An audit line puts the rfp object first, then the (long) scoring stages.
+      await fs.appendFile(path.join(audit, `${run}.jsonl`), `${JSON.stringify({ schemaVersion: 1, run: { date: run }, rfp: { slug, versionKey: 'k', title, agency, state: 'XX' }, outcome: {} })}\n`);
+    }
+    // A later run with an older title for Laguna Beach: the newest run's names win.
+    await fs.appendFile(path.join(audit, '2026-10-30.jsonl'), `${JSON.stringify({ rfp: { slug: 'website-redesign-and-replacement-project', title: 'Old title', agency: 'Old agency' } })}\n`);
+
+    const laguna = await routeRequest('Can you write the questions we should send the City of Laguna Beach for their website redesign RFP?', { workspace });
+    assert.equal(laguna.rfp.slug, 'website-redesign-and-replacement-project');
+    assert.equal(laguna.rfp.title, 'Website Redesign and Replacement Project');
+    assert.equal(laguna.rfp.agency, 'City of Laguna Beach');
+    assert.match(laguna.say, /and Website Redesign and Replacement Project is in Phase 1: Scored/);
+
+    const missouri = await routeRequest('agency questions for the Missouri website redesign', { workspace });
+    assert.equal(missouri.rfp.slug, 'website-redesign');
+
+    // Both titles hold "website redesign", so with no agency named ISA asks which one.
+    const either = await routeRequest('agency questions for the website redesign RFP', { workspace });
+    assert.equal(either.action, 'ask-which-rfp');
+    assert.match(either.say, /Website Redesign, State Technical College of Missouri \(Phase 1: Scored\)/);
+    assert.match(either.say, /Website Redesign and Replacement Project, City of Laguna Beach \(Phase 1: Scored\)/);
+    assert.equal(either.choices.length, 2, 'the Broad Agency Announcement is not a candidate');
+    const brief = await routeRequest('Can you do an engineering brief for the State Technical College of Missouri website redesign?', { workspace });
+    assert.equal(brief.rfp.slug, 'website-redesign');
+
+    // ISA's own commands name the slug, which still picks exactly that RFP.
+    assert.equal((await routeRequest('rfp questions website-redesign --stay', { workspace })).rfp.slug, 'website-redesign');
+    assert.equal((await routeRequest('rfp questions website-redesign-and-replacement-project --stay', { workspace })).rfp.slug, 'website-redesign-and-replacement-project');
+  } finally {
+    await fs.rm(workspace, { recursive: true, force: true });
+  }
+});
