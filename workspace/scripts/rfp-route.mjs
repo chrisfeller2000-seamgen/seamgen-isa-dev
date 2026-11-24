@@ -29,6 +29,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { rfpDocuments } from './document-text.mjs';
 import { recordedDates } from './rfp-dates.mjs';
+import { capabilityInputs, savedCapability } from './rfp-capability.mjs';
 import { questionInputs, savedQuestions } from './rfp-questions.mjs';
 import { STAGES, findStage, rfpsDir, workspaceDir } from './rfp-folders.mjs';
 
@@ -278,6 +279,13 @@ const DATE_QUESTION = /\bwhen (is|are|s|was|were|do|does|did)\b|\bwhens\b|\b(key
 const AGENCY_ANSWERS = /\b(agency|city|county|district|state|town|they|buyer|owner)( has| have)? (answered|responded|replied|got back|posted (the |their )?(answers|responses))\b|\b(q and a|qa|question|questions|clarification|clarifications) (answers|responses|replies)\b|\b(answers|responses|replies) (to|on|for) (our|the|my|their) (questions|q and a|qa|clarifications?)\b|\banswers? (are|is|were|was|came) (out|posted|in|back)\b|\b(replied|responded|answered)( yet)?$|\b(respond|answer|reply|replied|responded|answered) to (our|the|my) (questions|q and a|qa)\b|\b(answered|responded to|replied to) (our|my|the|all|both)( of our)? (questions|q and a|qa)\b/;
 const QUESTIONS_ASKED = /\b(what|which) (questions )?(did|have) (we|you|i) (ask|asked|send|sent|submit|submitted)\b|\b(did|have) (we|you|i) (already )?(ask|asked|send|sent|submit|submitted|write|written|wrote)( the| any| our)?( agency)?( q and a| clarifying)? questions\b|\b(questions|what) (we|you) (asked|sent|submitted)\b/;
 const ASK_FIRST = /\bask (the )?agency first\b/;
+// An engineer's answer to a capability check, passed on in chat ("Pete answered the Laguna Beach
+// capability check: rows 1 and 2 done on FDEP"). It is recorded against the saved check, not a
+// reason to build a new one, and recording it never asks about a move.
+const CAPABILITY_REPORT = /\b(answered|replied|responded|said|says|got back|came back|confirmed|wrote back)\b/;
+// A question about a capability check already sent: what an engineer said, or what is still open.
+const CAPABILITY_ASKED = /\b(capability|capabilities|checklist|check)\b/;
+const CAPABILITY_STATUS = /\bwhat did \w+( \w+)? (say|answer|reply|tell us)\b|\b(where are we|status|update) (on|of|with)\b|\b(which|what) rows\b|\b(still )?(open|unanswered)\b|\bhas \w+ (answered|replied|got back)\b|\bdid \w+ (answer|reply|get back)\b/;
 const WRITE = /\b(write|draft|prepare|compose|create|generate|redo|rewrite)\b/;
 // A request to write or change questions, which goes to the skill even when it mentions
 // earlier ones ("redo the questions we sent", "add a question about hosting").
@@ -378,6 +386,15 @@ export async function routeRequest(message, options = {}) {
   if (decision.action === 'run-skill' && decision.skill?.id === 'agency-questions' && decision.rfp?.hasFolder) {
     decision.inputs = await questionInputs(decision.rfp.slug, { workspace: options.workspace, now: options.now }).catch(() => null);
   }
+  // The same for the capability check: the scoring's case-study match, the current staff list,
+  // the questions deadline and the saved check with its open rows.
+  if (decision.action === 'run-skill' && decision.skill?.id === 'capability-check' && decision.rfp?.hasFolder) {
+    decision.inputs = await capabilityInputs(decision.rfp.slug, { workspace: options.workspace, now: options.now }).catch(() => null);
+  }
+  if (decision.rfp && decision.action === 'answer' && decision.about === 'capability') {
+    const saved = await savedCapability(decision.rfp.slug, { workspace: options.workspace });
+    decision.capability = saved ? { given: saved.given, routedTo: saved.routedTo, rows: saved.rows, unanswered: saved.unanswered, answers: saved.answers, recordGaps: saved.recordGaps } : null;
+  }
   // The saved documents that look like the agency's answers. In a local test on November 24,
   // 2026, ISA answered "anything we need to know?" from the scoring notes and never opened the
   // saved Q&A addendum.
@@ -466,6 +483,10 @@ async function decide(message, { workspace = workspaceDir() } = {}) {
       return { ...base, action: 'answer', about: 'agency-answers', rfp: rfpOut(rfp),
         note: `The agency's answers to questions. If they pasted or forwarded the answers, use those. Otherwise read every file in "answerFiles" (the saved documents that look like a Q&A or addendum) before answering, never the scoring notes alone; if there are none, follow skills/rfp/document-refresh/instructions.md to check for new ones. When "questions" has what we asked, match the answers to them by number and say which were answered and which weren't. Lead with anything that changes scope, dates, budget or what the proposal must include.${rfp ? ` If a date moved, offer \`rfp dates ${rfp.slug}\`.` : ' Ask which RFP they mean if it is not clear.'}` };
     }
+    if (CAPABILITY_ASKED.test(text) && CAPABILITY_STATUS.test(text) && !REWRITE.test(text) && !/^(write|draft|do|make|build|run|create)\b/.test(text)) {
+      return { ...base, action: 'answer', about: 'capability', rfp: rfpOut(rfp),
+        note: `About a capability check already given. Answer from "capability": each row's latest answer with who gave it and when, the rows still unanswered, and the engineers' words as recorded. Quote their words; never turn "adjacent" or "not answered" into a yes.${rfp ? ` When "capability" is null, say no check was written here and offer \`rfp capability ${rfp.slug}\`. If they are passing on a new answer, follow the skill's "Recording answers" (\`rfp capability ${rfp.slug}\`).` : ' Ask which RFP they mean.'}` };
+    }
     if (QUESTIONS_ASKED.test(text) && !REWRITE.test(text)) {
       return { ...base, action: 'answer', about: 'questions', rfp: rfpOut(rfp),
         note: `What was asked of the agency. Answer from "questions": the questions ISA last gave and the day it gave them, word for word. ISA doesn't know whether or when they were sent, or whether the sender edited them, so say "the questions I wrote on <date>", never "we asked" or "we sent".${rfp ? ` When "questions" is null, say none were written here and offer \`rfp questions ${rfp.slug}\`.` : ' Ask which RFP they mean.'}` };
@@ -512,6 +533,11 @@ async function decide(message, { workspace = workspaceDir() } = {}) {
     // The submission email is written before the proposal goes in, so it never asks about a move
     // first; its skill asks about Submitted once the proposal has been sent.
     const later = skill.phase && rfp.phase < skill.phase && skill.id !== 'submission-email';
+    const reportsAnswer = skill.id === 'capability-check' && CAPABILITY_REPORT.test(text);
+    if (reportsAnswer) {
+      return { ...base, action: 'run-skill', skill: skillOut(skill), rfp: rfpOut(rfp), mode: 'record-answer',
+        note: `They are passing on an engineer's answer to a capability check. Record it with the skill's "Recording answers" step (\`node scripts/rfp-capability.mjs --rfp ${rfp.slug} --answer\`), with the engineer's words exactly as given here. Don't build a new check. If no check is saved for this RFP, say so and offer to write one.` };
+    }
     if (later && !stay) {
       return { ...base, action: 'ask-move', skill: skillOut(skill), rfp: rfpOut(rfp), toPhase: skill.phase,
         choices: [
