@@ -233,12 +233,16 @@ export function matchRfps(message, rfps, { ignore = new Set() } = {}) {
   const scored = [];
   rfps.forEach((rfp, index) => {
     if (!pool.includes(rfp)) return;
-    let score = bestAgency;
     // No bonus for a title or slug in the message here: past the check above, another RFP's
     // title holds the same words, and a bonus would let a short generic slug win the tie.
+    let score = 0;
     for (const word of titleWords[index]) if (said.has(word)) score += 1 / frequency.get(word);
     if (score) scored.push({ rfp, score });
   });
+  // Within one agency's RFPs, the title words decide: the City of Laguna Beach has both a website
+  // redesign and a traffic signal RFP, and an agency score shared by both would hide the title's
+  // lead. With no title words at all, every RFP of that agency is a candidate.
+  if (!scored.length && bestAgency > 0) return pool.map(rfp => ({ rfp, score: bestAgency }));
   return scored.sort((a, b) => b.score - a.score);
 }
 

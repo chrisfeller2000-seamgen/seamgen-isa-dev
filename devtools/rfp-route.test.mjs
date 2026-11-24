@@ -193,6 +193,10 @@ test('an RFP folder with only a manifest gets its title and agency, and a named 
     const rfps = [
       ['website-redesign', 'Website Redesign', 'State Technical College of Missouri', '2026-11-06'],
       ['website-redesign-and-replacement-project', 'Website Redesign and Replacement Project', 'City of Laguna Beach', '2026-11-13'],
+      // The City of Laguna Beach has a second RFP on the VM; the title words tell them apart.
+      ['rfp-traffic-signal-priority', 'RFP - Traffic Signal Priority', 'City of Laguna Beach', '2026-11-13'],
+      // On the VM dozens of titles hold "website" and "redesign", so those words weigh little.
+      ...['Austin', 'Boise', 'Camden', 'Dayton', 'Eugene', 'Fresno'].map(town => [`${town.toLowerCase()}-website-redesign-services`, `${town} Website Redesign Services`, `City of ${town}`, '2026-11-06']),
       // Words that name the task ("agency questions", "engineering brief") must not pick this one.
       ['broad-agency-announcement', 'Broad Agency Announcement - Mine Safety', 'Texas Department of Transportation - Professional Engineering', '2026-11-13'],
     ];
@@ -214,15 +218,23 @@ test('an RFP folder with only a manifest gets its title and agency, and a named 
     assert.equal(laguna.rfp.agency, 'City of Laguna Beach');
     assert.match(laguna.say, /and Website Redesign and Replacement Project is in Phase 1: Scored/);
 
+    const traffic = await routeRequest('What questions should we ask Laguna Beach about traffic signal priority?', { workspace });
+    assert.equal(traffic.rfp.slug, 'rfp-traffic-signal-priority');
+    // Naming only the agency: both Laguna Beach RFPs are candidates, and nothing else is.
+    const lagunaOnly = await routeRequest('What questions should we ask Laguna Beach?', { workspace });
+    assert.equal(lagunaOnly.action, 'ask-which-rfp');
+    assert.deepEqual(lagunaOnly.choices.map(choice => choice.rfp.slug).sort(), ['rfp-traffic-signal-priority', 'website-redesign-and-replacement-project']);
+
     const missouri = await routeRequest('agency questions for the Missouri website redesign', { workspace });
     assert.equal(missouri.rfp.slug, 'website-redesign');
 
     // Both titles hold "website redesign", so with no agency named ISA asks which one.
     const either = await routeRequest('agency questions for the website redesign RFP', { workspace });
     assert.equal(either.action, 'ask-which-rfp');
-    assert.match(either.say, /Website Redesign, State Technical College of Missouri \(Phase 1: Scored\)/);
-    assert.match(either.say, /Website Redesign and Replacement Project, City of Laguna Beach \(Phase 1: Scored\)/);
-    assert.equal(either.choices.length, 2, 'the Broad Agency Announcement is not a candidate');
+    // Nine titles hold "website redesign"; the question lists four, each with its agency.
+    assert.equal(either.choices.length, 4);
+    assert.match(either.say, /^1\. .*Website Redesign.*, City of \w+ \(Phase 1: Scored\)/m);
+    assert.ok(either.choices.every(choice => /website/.test(choice.rfp.slug)), 'the Broad Agency Announcement is not a candidate');
     const brief = await routeRequest('Can you do an engineering brief for the State Technical College of Missouri website redesign?', { workspace });
     assert.equal(brief.rfp.slug, 'website-redesign');
 
