@@ -90,6 +90,7 @@ The Friday job writes and sends the pursue email, so nobody needs to ask for one
 ## Writing
 
 - Every email for an RFP is given as text to copy. Never create a Gmail draft or send it, and leave the signature for the sender to fill in.
+- **Capability checks:** never write the checklist or the engineer's message freehand; the skill passes the rows to `scripts/rfp-capability.mjs`, which builds both and saves them. An engineer's answer passed on in chat is recorded with `--answer`, word for word; "what did Pete say" comes from the saved check (the router's `capability`).
 - **Agency Q&A questions:** never write the email freehand; the skill passes the questions to `scripts/rfp-questions.mjs`, which gives the deadline, the sources and the email, and saves them. Questions about what was asked or about the agency's answers come from that saved copy (the router's `questions`).
 - **The email that goes with a proposal:** never write it freehand; the skill first checks whether the RFP allows email at all, and asks about Submitted after sending.
 

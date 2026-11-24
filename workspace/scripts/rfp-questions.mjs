@@ -384,7 +384,18 @@ async function resultsOf(slug, workspace) {
       blockers: list(entry.blockers).map(item => clean(item?.text ?? item)).filter(Boolean), openQuestions: list(entry.questions).map(clean).filter(Boolean),
       askTheAgency: entry.agencyQuestion || null };
   }
-  const auditDir = path.join(reports, 'audit');
+  const found = await auditLine(slug, workspace);
+  if (!found) return null;
+  const { record, run, stage } = found;
+  return { from: `the ${run} run`, title: record.rfp.title || null, agency: record.rfp.agency || null, number: null,
+    blockers: list(record.outcome?.blockers).map(clean).filter(Boolean), openQuestions: list(record.outcome?.openQuestions).map(clean).filter(Boolean),
+    askTheAgency: null,
+    scoring: stage ? scoringFrom(stage.judgment, { scored: record.run?.date || run, recommendation: stage.recommendation || null, from: `the ${run} run's audit line` }) : null };
+}
+
+/** The RFP's newest audit line: { record, run, stage }, where stage is the full-text scoring when the documents were scored, otherwise the listing's. */
+async function auditLine(slug, workspace) {
+  const auditDir = path.join(workspace, 'reports', 'new-rfp-qualification', 'audit');
   const files = (await fs.readdir(auditDir).catch(() => [])).filter(name => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(name)).sort().reverse();
   for (const name of files) {
     const lines = (await fs.readFile(path.join(auditDir, name), 'utf8').catch(() => '')).split('\n');
@@ -392,16 +403,32 @@ async function resultsOf(slug, workspace) {
       if (!line.includes(`"${slug}"`)) continue;
       const record = parseJson(line);
       if (record?.rfp?.slug !== slug) continue;
-      // The full-text judgment when the documents were scored, otherwise the listing's.
       const stage = record.fullText?.judgment ? record.fullText : record.listing?.judgment ? record.listing : null;
-      const run = name.slice(0, 10);
-      return { from: `the ${run} run`, title: record.rfp.title || null, agency: record.rfp.agency || null, number: null,
-        blockers: list(record.outcome?.blockers).map(clean).filter(Boolean), openQuestions: list(record.outcome?.openQuestions).map(clean).filter(Boolean),
-        askTheAgency: null,
-        scoring: stage ? scoringFrom(stage.judgment, { scored: record.run?.date || run, recommendation: stage.recommendation || null, from: `the ${run} run's audit line` }) : null };
+      return { record, run: name.slice(0, 10), stage };
     }
   }
   return null;
+}
+
+/**
+ * The RFP's scoring judgment, raw: from its scoring notes (candidate.md) when it has them,
+ * otherwise from its newest audit line. Returns { judgments, from, scored, recommendation } or
+ * null. The capability check reads the case-study and technology judgments from it.
+ */
+export async function scoringJudgment(slug, { workspace = workspaceDir() } = {}) {
+  const docs = await rfpDocuments(slug, { workspace });
+  const notes = docs.notes ? await fs.readFile(docs.notes, 'utf8').catch(() => '') : '';
+  if (notes) {
+    const fields = frontmatter(notes);
+    const judgments = parseJson(fields.scoring_judgments);
+    if (judgments) {
+      return { judgments, from: 'the scoring notes', scored: fields.scored_date && fields.scored_date !== 'unknown' ? fields.scored_date : null,
+        recommendation: fields.scoring_recommendation && fields.scoring_recommendation !== 'unknown' ? fields.scoring_recommendation : null };
+    }
+  }
+  const found = await auditLine(slug, workspace);
+  if (!found?.stage) return null;
+  return { judgments: found.stage.judgment, from: `the ${found.run} run's audit line`, scored: found.record.run?.date || found.run, recommendation: found.stage.recommendation || null };
 }
 
 /** The "Ambiguities Requiring Clarification" section of the newest engineering brief's Markdown. */
@@ -445,6 +472,15 @@ export async function questionInputs(slug, { workspace = workspaceDir(), now = n
   const issues = [...(results?.blockers || []), ...(results?.openQuestions || [])].length;
   if (issues) steps.push(`Settle each of the ${issues} blocker${issues === 1 ? '' : 's'} and open question${issues === 1 ? '' : 's'} in "results" that only the agency can answer.`);
   if (brief?.ambiguities) steps.push('Merge the engineering brief\'s ambiguities by topic; keep each distinct one.');
+  // The capability check's rows Seamgen has never done, or that no engineer has answered yet, are
+  // where a fit question to the agency may belong (rule 11), or where asking would only advertise
+  // a gap (rule 8). Imported here, not at the top, because rfp-capability.mjs imports this file.
+  const { savedCapability } = await import('./rfp-capability.mjs');
+  const capability = await savedCapability(slug, { workspace });
+  const gaps = capability ? capability.rows.filter(row => row.status === 'never' || capability.unanswered.includes(row.n)) : [];
+  if (gaps.length) {
+    steps.push(`The capability check has ${gaps.length} row${gaps.length === 1 ? '' : 's'} answered "never" or still unanswered (see "capability"). Where one decides whether Seamgen is the right kind of firm, ask it plainly (rule 11); otherwise leave it out, so the question doesn't advertise a gap (rule 8). Never present an unanswered row as something we have done.`);
+  }
   if (saved) steps.push(`Questions were given on ${saved.given}. To change them, start from --show's "input" and rerun with the change.`);
   steps.push('Then pass the questions to rfp-questions.mjs (step 4) and send its text word for word. Never send questions you wrote without it, not even as a draft.');
   return {
@@ -456,6 +492,7 @@ export async function questionInputs(slug, { workspace = workspaceDir(), now = n
     results: found ? results : null,
     engineeringBrief: brief,
     savedQuestions: saved ? { given: saved.given, questions: saved.questions } : null,
+    capability: gaps.length ? { given: capability.given, rows: gaps.map(row => ({ n: row.n, operation: row.operation, status: capability.unanswered.includes(row.n) ? 'unanswered' : 'never' })) } : null,
   };
 }
 

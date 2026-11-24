@@ -1,217 +1,126 @@
 ---
 name: rfp-capability-verification
-purpose: Turn an RFP's technical asks into a per-operation checklist for a named engineer, so the answer comes back specific the first time. Confirms what Seamgen has actually done — as distinct from how long something would take, which is the engineering brief's job.
-audience: Written to be read by both Claude (who builds the checklist) and a human teammate (who edits the recipe over time). The OUTPUT is written for a named lead engineer.
-version: 1.3 — November 2026
+purpose: Turn an RFP's technical asks into a per-operation checklist for the engineer who built the closest thing, so the answer comes back specific the first time, and keep their answers word for word. Confirms what Seamgen has actually done; how long it would take is the engineering brief's job.
+audience: ISA (who builds the checklist and records answers) and the sales team (who send the message and edit this recipe). The message is written for a named engineer.
+version: 2.0 — November 2026
 owner: Seamgen sales team (no single owner or approver)
-depends_on: the full RFP (for verbatim extraction), rfp-scoring output (Category 1 case-study match), and `resources/proposal-sources/Proposal - Case Studies.txt` + `resources/proposal-sources/Proposal - People.txt` for what the record already claims. Feeds rfp-solution-landscape (our viable role) and eventually the proposal itself.
+depends_on: scripts/rfp-capability.mjs (inputs, checks, the checklist, the message, the saved record and answers); the RFP's saved documents; resources/proposal-sources/Proposal - People.txt and Proposal - Case Studies.txt. Feeds the agency questions skill (rows answered "never" or still unanswered) and the proposal skills.
 label: Capability check for a named engineer
 command: capability
 phase: 2
 when: A capability check: a checklist for a named engineer to confirm what Seamgen has actually built for each technical ask.
-asks: capability check | capability verification | capability checklist | verify our capabilities | have we built this | have we done this before | can we actually do this | confirm what we have built | checklist for an engineer | ask nick if we have done | experience check | tech check
+asks: capability check | capability verification | capability checklist | verify our capabilities | have we built this | have we done this before | can we actually do this | confirm what we have built | checklist for an engineer | experience check | tech check | check with the engineers | ask the engineers | ask an engineer | do we have the experience | have we built anything like | have we done anything like | which engineer should i ask | who on our team has done | who has built | can we actually do | can we do what they are asking
 ---
 
-# Capability Verification Skill
+# Capability check
 
 ## What this skill does
 
-Decomposes an RFP's technical requirements into **individual operations**, and asks a named engineer to answer **each one separately**: have we done exactly this, something adjacent, or never — and if not never, **on which project**.
+It breaks an RFP's technical requirements into **individual operations** and asks the engineer who built the closest real thing to answer **each one separately**: have we done exactly this, something adjacent, or never, and on which project. Then it keeps their answers, word for word, until every row is settled.
 
-## Why this exists — the failure it prevents
+ISA decides the operations and who to ask. `scripts/rfp-capability.mjs` does the rest: it checks the rows, builds the checklist and the message to copy, saves the record as `capability-check_<slug>.md` in the RFP's folder, and records the answers.
 
-On Suwannee River WMD (26/27-002) the question *"have we done bi-directional ArcGIS work?"* took **three rounds** to answer, and produced a claim that was written into a brief twice and corrected twice:
+**ISA never sends the message.** It is text for the person who asked to send themselves, after they have read it.
 
-1. Seth Lutske answered, but hedged: *"if I understood it correctly… Pete would know more."* The hedge was recorded as a **yes**, and the 07-26 brief called it *"our strongest single card."*
-2. A 07-27 revision swung the other way and downgraded it to read-only rendering — **also wrong**.
-3. Pete Nystrom, who actually built the back end, finally narrowed it: we wrote **attributes**, not **geometry**.
+## Why it exists
 
-That distinction decides the bid. The RFP asks for *"managing parcel boundaries"* (§5E, p.8) — which is geometry. Three rounds, two wrong briefs, and one still-open risk of overclaiming in a proposal, all because the question was asked at the level of *"ArcGIS experience"* rather than at the level of the operations the RFP names.
+On Suwannee River WMD (26/27-002) in July 2026, *"have we done bi-directional ArcGIS work?"* took three rounds. Seth hedged (*"if I understood it correctly… Pete would know more"*) and the hedge was recorded as a yes; a revision swung to "read-only", also wrong; Pete, who built the back end, finally said we wrote **attributes**, not **geometry**. The RFP asked for *"managing parcel boundaries"*, which is geometry. Two wrong briefs, because the question was asked about "ArcGIS experience" instead of the operations the RFP names. Peter's instruction (July 28, 2026): ask whether they can do *the specific workflows this RFP mentions*.
 
-**Peter's instruction, 2026-07-28:** ask whether they can do *the specific workflows this RFP mentions*.
-
-## Why it's a separate skill from the engineering brief
-
-`skills/rfp/engineering-brief/instructions.md` exists to get a **timeline estimate**. This skill exists to get a **capability confirmation**. Same engineer, same RFP, different question — and mixing them produces a document that does neither well.
-
-It **reuses** the engineering brief's core machinery deliberately:
-- The **guided extraction pattern** (short label + verbatim quote + §/page).
-- Its governing principle: **shift interpretation from Claude to the engineer.** Claude's job is routing, not deciding what the RFP means.
-
-Sequence: capability verification **first** (can we do it at all?), engineering brief **second** (how long?). Estimating a build we cannot staff or have never done inverts the order — which is why Suwannee's estimate was deliberately deferred.
+Capability first (can we do it at all?), then the engineering brief (how long?). Don't estimate a build nobody has done.
 
 ## When to use it
 
-- Any RFP whose scope names a **specific technology, platform or integration surface** — ArcGIS, Salesforce, a named identity provider, a named permitting system.
-- Any RFP where Category 1 (Case Study Match) scored on a **bridge** rather than a direct match. A bridge is a claim, and claims need confirming before they reach a proposal.
-- Any time a brief is about to assert *"we have done this before."*
-- Before `rfp-solution-landscape` finalises **"our viable role"** as prime builder.
+- The scope names a specific technology, platform or integration (ArcGIS, Salesforce, a named identity provider or permitting system).
+- The scoring matched our case studies on a bridge rather than a direct match. The inputs say so.
+- A brief or proposal is about to say "we have done this before".
 
-Do **not** use it for generic capability (*"can we build a React front end?"*). Reserve it for the operations that decide the bid.
+Not for generic capability ("can we build a React front end?").
 
-## How to use it
+## Step 1: the inputs
 
-Ask for it in chat, or with `rfp capability <rfp>`. The router names the RFP and lists its saved documents by number. Don't ask the person for a document that is already saved.
+The router's decision carries them as `inputs`. Only when it doesn't, run `node scripts/rfp-capability.mjs --rfp <slug> --inputs`. They hold:
 
-Claude will:
-1. Read the RFP, using the read commands in the router's `documents`, and extract every operation the requirements actually name.
-2. Identify **who built the closest real thing** — not who is easiest to reach.
-3. Produce the checklist, plus a copy-paste message for that person.
-4. Record the answers verbatim when they come back.
+- **`steps`**: what this RFP calls for. Do each one.
+- **`scoring`**: the case-study match (`caseStudy`: band, project, reason) and the technology judgment (`tech`).
+- **`team`**: the current staff from `Proposal - People.txt`, each with their role and what the record says they built (`onRecord`). Only these people can be asked.
+- **`sources`**: the commands to read People.txt and the case studies in full.
+- **`keyDates`**: the questions deadline the message quotes.
+- **`saved`**: the check given before, with each row's answer and the rows still open.
 
-Output: a PDF in the RFP's own folder — **`RFPs/[stage]/[rfp-slug]/`** — plus copy-paste text in chat:
+Then read the RFP (`documents.readAll`, or the router's `documents` by number).
+
+## Step 2: break it into operations
+
+**Find every verb the RFP applies to the technology.** One requirement sentence usually holds several operations.
+
+Suwannee §5E, p.8: *"Native integration with ESRI ArcGIS software is required for mapping, managing parcel boundaries, and updating natural community layers"* is three operations: render a map, edit parcel geometry, update a thematic layer. Seamgen's answer differs for each.
+
+- **One operation per row.** If a row could be answered "yes and no", split it.
+- **Read for verbs, not nouns.** "ArcGIS integration" hides everything; "managing", "updating", "communicating" are the operations.
+- **Split read from write, and attributes from geometry.** Reading is nearly always easier than writing, and writing a shape is harder than writing a field.
+- **Split the deployment model** (on-premises or cloud, self-hosted or vendor-hosted) from the capability.
+- **At most 10 rows.** The script refuses more; past that engineers skim.
+
+Each row needs the RFP's own words (`quote`), the file and page (`source`), and **the proposal sentence a "done exactly" answer would allow** (`ifYes`), for example *"Seamgen has written parcel geometry directly into a Florida state agency's on-premises ArcGIS Enterprise."* Engineers answer more carefully when they see the claim their yes creates. If they wouldn't sign that sentence, the answer isn't "done exactly".
+
+## Step 3: who to ask
+
+**Ask the person who did the work, not the person easiest to reach.** On Suwannee, Seth was the natural contact, but Pete wrote the FDEP GIS back end and only Pete could answer the write rows. Seth's "Pete would know more" was the routing being wrong.
+
+Use the case studies and each person's `onRecord`. Where the record is silent about work someone did, say so in `why` and list it as a record gap once they confirm. Where two people split the work (front end and back end), give each their own rows. The script refuses anyone not on the current staff list.
+
+## Step 4: run the script and send its text
 
 ```
-RFPs/[stage]/[rfp-slug]/capability-check_YYYY-MM-DD_[rfp-slug].pdf
+node scripts/rfp-capability.mjs --rfp <slug> <<'RFP_CAPABILITY_END'
+{ "name": "<RFP name>", "number": "<RFP number>", "decision": "<what the answers decide, e.g. prime builder or no-bid>",
+  "routedTo": [ { "name": "<full name as in People.txt>", "why": "<the project they built>", "rows": [1, 2, 3] } ],
+  "rows": [ { "operation": "<one operation>", "quote": "<the RFP's words>", "source": "file <n>, page <p>, §<x>", "ifYes": "<the proposal sentence a yes allows>" } ] }
+RFP_CAPABILITY_END
 ```
 
-`[stage]` is the RFP's current lifecycle tier; save into the existing `[rfp-slug]/` folder wherever it lives (see "Phases" in `skills/rfp/INDEX.md`). The checklist carries a **Source (found via)** line naming where the RFP was found, for internal tracking.
+It prints the checklist and one message per engineer, with the questions deadline from the key dates. Send the text between the lines word for word. If it prints "Nothing was saved. Fix these…", fix each one and run it again.
 
----
+**Never write the checklist or the message yourself, and never send the message to a teammate.** The person who asked reads it and sends it.
 
-## Step 1 — Decompose into operations
+To change the rows later, start from `--show`'s `input`, change it, and run step 4 again. Answers to unchanged rows are kept; the script lists any it drops.
 
-**The method: find every verb the RFP applies to the technology.** A requirement sentence usually contains several operations wearing one label.
+## Recording answers
 
-Worked decomposition (Suwannee §5E, p.8):
+When someone passes on an engineer's answer ("Pete answered the Laguna Beach capability check…"), the router says so (`mode: "record-answer"`). Record it; don't build a new check:
 
-> "Native integration with ESRI ArcGIS software is required for mapping, **managing parcel boundaries**, and **updating natural community layers**"
+```
+node scripts/rfp-capability.mjs --rfp <slug> --answer <<'RFP_CAPABILITY_END'
+{ "by": "<full name>", "said": "<their answer, word for word>",
+  "rows": [ { "n": 2, "answer": "done", "project": "<named project>", "client": "<client>" },
+            { "n": 3, "answer": "adjacent", "project": "<project>", "difference": "<what differs from the RFP's ask>" },
+            { "n": 4, "answer": "never" }, { "n": 5, "answer": "unanswered" } ],
+  "recordGaps": ["<what People.txt or the case studies get wrong, as they said it>"] }
+RFP_CAPABILITY_END
+```
 
-That is not one capability. It is **three** — render a map, edit parcel geometry, update a thematic layer — and Seamgen's position differs on each. Add §5C's *"Capable of GIS bi-directional communication for 3-year planning"* and the deployment question from §5A, and you get the checklist that should have gone out:
-
-| # | Operation the RFP names | §/page | Why it's separate |
-|---|---|---|---|
-| 1 | Render ArcGIS map layers in a web app | §5E, p.8 | The easy one; almost certainly yes |
-| 2 | Write **attributes** back to a client's feature layer | §5C, p.7 | Pete confirmed: yes, FDEP |
-| 3 | Write parcel **geometry** back to a client's feature layer | §5E, p.8 | **The gap.** "Managing parcel boundaries" is geometry |
-| 4 | Update natural community / vegetation layers | §5E, p.8 | Thematic layer maintenance — different again |
-| 5 | Bi-directional sync against **ArcGIS Enterprise on-premises** | §5A / §5E | Deployment model, not just API |
-| 6 | Map-driven workflow approval routing | §5, p.6 | Ties GIS to business process |
-
-**Rules for decomposing:**
-- **One operation per row.** If a row could be answered "yes and no," split it.
-- **Read for verbs, not nouns.** "ArcGIS integration" is a noun and hides everything; "managing," "updating," "communicating" are the operations.
-- **Separate read from write, and attributes from geometry.** This is where Suwannee turned, and it generalises: reading data is nearly always easier than writing it, and writing a shape is harder than writing a field.
-- **Separate the deployment model** — on-premises vs. cloud, self-hosted vs. vendor-hosted — from the capability. We had delivered against both, but nobody had been asked.
-- **Cap it at 8–10 rows.** Beyond that the engineer skims and you are back to a general answer.
-
-## Step 2 — Route to whoever built it
-
-**Ask the person who did the work, not the person who is easiest to reach.**
-
-On Suwannee, Seth Lutske is the technical lead and the natural contact — but **Pete Nystrom wrote the FDEP GIS back end**, and only Pete could answer rows 2 and 3. Seth's hedge (*"Pete would know more"*) was the system telling us the routing was wrong, and it was recorded as an answer instead.
-
-Before sending, check `resources/proposal-sources/Proposal - Case Studies.txt` and `resources/proposal-sources/Proposal - People.txt` for who is attached to the closest project. Where the record is silent — **Pete's bio does not mention GIS at all**, despite his having built it — say so in the ask, and fix the record afterwards.
-
-Where two people split the work (front end / back end), **send to both and say which rows you expect each to own.**
-
-## Step 3 — The four answers
-
-| Answer | Means | Required with it |
+| Answer | Means | Needs |
 |---|---|---|
-| **Done exactly this** | We have shipped this operation | **Name the project and the client.** No project name = not this answer |
-| **Adjacent** | Structurally similar, not identical | Name the project **and state what is different** |
-| **Never** | No precedent | Nothing further — this is a clean, useful answer |
-| **Not answered** | The engineer hedged, deferred, or answered a different question | **Never silently upgrade this to a yes** |
+| `done` | We have shipped exactly this | The project (and client). No project, no claim: the script refuses it |
+| `adjacent` | Similar, not the same | The project and what is different |
+| `never` | No precedent | Nothing more; a clean, useful answer |
+| `unanswered` | They hedged, deferred, or answered something else | Nothing; **never upgrade it to a yes** |
 
-**"Not answered" is the whole point of the taxonomy.** *"If I understood it correctly… Pete would know more"* is not a soft yes. It is an unanswered row, and it must appear as one in every downstream document until someone answers it.
+"Pete would know more" is `unanswered` for those rows, and the next step is to ask Pete. Put their words in `said` exactly as given: a paraphrase is how a hedge becomes a claim. The script prints where every row stands and which are still open; send that text word for word.
 
-## Step 4 — Show the stakes
-
-Give each row a **"what we would write if you say yes"** column — the actual proposal sentence the answer authorises.
-
-Engineers answer more carefully when they can see the claim their yes creates. It also catches the mismatch where a technically-true yes supports a sentence that overreaches. Example:
-
-| Operation | If you say "done exactly this," we will write… |
-|---|---|
-| Write parcel geometry back to ArcGIS Enterprise | *"Seamgen has written parcel geometry directly into a Florida state agency's on-premises ArcGIS Enterprise."* |
-
-If the engineer would not sign that sentence, the answer is not "done exactly this."
-
-## Step 5 — Record verbatim
-
-Capture the answer **in the engineer's own words**, attributed and dated, exactly as the engineering brief treats timeline quotes. Paraphrase is how a hedge becomes a claim.
-
-Then: **update the record.** If the answer reveals experience the case studies or bios do not carry, that is a gap in a source of truth, not just an RFP fact. Neither Seth's nor Pete's bio records the FDEP GIS work; `Proposal - Assets.txt` had the write-back scope wrong. Flag it for correction — never edit a source of truth on a verbal answer alone.
-
----
-
-## Output format
-
-```
-CAPABILITY CHECK — [RFP name] ([number])
-Source (found via): [platform]
-Date: [YYYY-MM-DD]
-Routed to: [name(s)] — [why this person: who built the closest thing]
-Decision this feeds: [e.g. "prime-builder vs no-bid, before questions close July 31"]
-
-| # | Operation | RFP basis | Answer | Project | Notes |
-|---|---|---|---|---|---|
-| 1 | [operation] | > "[quote]" — §X, p.Y | [ ] Done exactly  [ ] Adjacent  [ ] Never | | |
-
-WHAT EACH "YES" AUTHORISES
---------------------------
-[row #]: "[the proposal sentence]"
-
-ANSWERS RECEIVED
-----------------
-[Name], [date]: "[verbatim]"
-Rows resolved: [#s]   Rows still unanswered: [#s]
-
-RECORD GAPS FOUND
------------------
-[e.g. "Pete Nystrom's bio does not mention GIS; Proposal - Assets.txt had the FDEP write scope wrong."]
-```
-
-### The copy-paste message
-
-Write it for an engineer: technical, precise, verbatim quotes with page references, no fluff. State the decision it feeds and the deadline — engineers deprioritise asks with no visible stakes.
-
-```
-Hey [name] — quick capability check for the [RFP short name] bid. Six specific
-things, and I need each answered separately rather than as "do we do ArcGIS."
-
-Asking you because you built [closest project].
-
-For each: have we done exactly this, something adjacent, or never? If not never,
-which project?
-
-1. [Operation] — RFP says: "[verbatim]" (§X, p.Y)
-2. ...
-
-Context: this decides whether we bid as prime or pass. Questions to the agency
-close [date/time both zones].
-
-If any of these is really someone else's area, say so and I'll route it — a
-"probably" doesn't help me here, it ends up in a proposal.
-```
-
-That last line is deliberate. It gives the engineer explicit permission to decline a row, which is what turns a hedge into a routable "not mine."
-
-**Sending:** copy-paste only. Give the message as plain text in chat for the person who asked to send themselves; never send it to a teammate yourself. **Show them the message and get their go-ahead before it reaches a teammate.** Hard rule.
-
----
+**Record gaps** (a bio that doesn't mention work they did, a case study with the wrong scope) are listed for a person to fix. Never edit People.txt or the case studies yourself, and never on a verbal answer alone.
 
 ## Guardrails
 
-- **A hedge is not a yes.** The single rule this skill exists to enforce.
-- **No project name, no claim.** "We've done that" without a named client is an unanswered row.
-- **Never upgrade an answer in a downstream document.** If the checklist says "adjacent," the brief says adjacent and the proposal says adjacent.
-- **Never edit a source of truth on a verbal answer.** Flag the gap; let a human confirm it.
-- **Overclaiming is the failure mode that survives scoring and loses at evaluation** — or wins dishonestly. Same standard `rfp-scoring` Gate 6a sets for references.
-- **Cap the list.** Ten rows is the ceiling; past that you get skim-answers.
+- **A hedge is not a yes.** The rule this skill exists for.
+- **No project name, no claim.**
+- **Never upgrade an answer downstream.** If the check says "adjacent", the brief, the agency questions and the proposal say adjacent.
+- **Overclaiming survives scoring and loses at evaluation**, or wins dishonestly.
 
 ## Notes and edit history
 
-**v1.3 — November 2026, Seamgen.** Removed the last `CLAUDE.md` rule numbers (Rules 2, 9 and 10, and the engineer register), which ISA can't look up; each rule is now stated where it applies. The folder rule points at "Phases" in `skills/rfp/INDEX.md`. ISA reads the saved documents through the router instead of asking for the RFP.
+**v2.0 — November 24, 2026.** `scripts/rfp-capability.mjs` now builds the checklist and the message, checks the rows (quote, source and "if yes" sentence on each, at most 10, only current staff), saves the record as `capability-check_<slug>.md` instead of a PDF that was never produced on the VM, and records answers (a "done" needs a project, an "adjacent" a project and the difference). The router records answers passed on in chat instead of building a new check, answers "what did Pete say" from the saved record, and hands the skill its inputs. Rows answered "never" or still unanswered reach the agency questions skill. The edit history before this version is in Git.
 
-**v1.2 — November 2026, Seamgen.** Messages are copy-paste only: the Slack sending route this pointed to was never set up for ISA and has been removed. The person who asked still approves each message before it reaches a teammate. The sending rule no longer cites `CLAUDE.md`, which ISA doesn't have, and the retired meeting brief is gone from what this skill feeds.
+**v1.0–v1.3 (July–November 2026).** First written by Jake and Claude on July 28, 2026 from the Suwannee ArcGIS case. Later versions made messages copy-paste only, with no single owner after Jake left.
 
-**v1.1 — November 2026, Seamgen.** Jake has left Seamgen: the owner is now the sales team, with no single owner or approver. The go-ahead before a message reaches a teammate now comes from the person who asked for it.
-
-**v1.0 — July 28, 2026, Jake + Claude.** First version, built after Peter's 2026-07-28 instruction to ask engineers about *the specific workflows an RFP names* rather than about a technology in general. The worked case throughout is Suwannee's ArcGIS question, which took three rounds and produced two wrong briefs because it was never decomposed — a hedge from Seth was recorded as a yes, a correction over-swung to read-only, and Pete finally narrowed it to attributes-not-geometry, which is the distinction the RFP's *"managing parcel boundaries"* actually turns on. Four design decisions carry the weight: **"Not answered" is a first-class answer** so a hedge cannot be silently upgraded; **routing goes to whoever built the thing**, since Seth's *"Pete would know more"* was the system flagging bad routing; **every row shows the proposal sentence a yes authorises**, so the engineer sees the claim they are creating; and **read/write and attributes/geometry are always split**, because that is where this one turned and it generalises. Kept separate from `rfp-engineering-brief` (timeline estimation) while reusing its guided-extraction pattern and its shift-interpretation-to-the-engineer principle.
-
-**Known limitations of v1.0:**
-- The decomposition is judgement. Two people would produce different row counts from the same paragraph; the 8–10 cap is a guess at where skim-answers begin.
-- No mechanism yet for tracking an unanswered row across time — it lives in the RFP folder and relies on someone re-reading it.
-- Does not yet feed the proposal-deck skills, which are where an overclaim would actually reach a buyer.
+**How to edit this skill:** change the text, bump the version and add a note here. The checks and the message template are in `scripts/rfp-capability.mjs`, with tests in `devtools/rfp-capability.test.mjs`.
